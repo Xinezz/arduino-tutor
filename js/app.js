@@ -17,6 +17,8 @@ import {
 } from "./lessons/render.js";
 import { renderChallenge } from "./lessons/challenge.js";
 import { createEditor } from "./editor/editor.js";
+import { createBoard } from "./simulator/board.js";
+import { startProgram } from "./simulator/interpreter.js";
 
 const sidebarEl = document.getElementById("sidebar");
 const lessonContentEl = document.getElementById("lesson-content");
@@ -24,9 +26,72 @@ const challengeSectionEl = document.getElementById("challenge-section");
 const progressSummaryEl = document.getElementById("progress-summary");
 const statusTextEl = document.getElementById("status-text");
 const resetCodeBtn = document.getElementById("reset-code-btn");
+const runBtn = document.getElementById("run-code-btn");
+const stopBtn = document.getElementById("stop-code-btn");
+const addLedBtn = document.getElementById("add-led-btn");
+const addButtonBtn = document.getElementById("add-button-btn");
+const clearWiringBtn = document.getElementById("clear-wiring-btn");
+const clearConsoleBtn = document.getElementById("clear-console-btn");
+const consoleEl = document.getElementById("sim-console");
 
 let progress = loadProgress();
 const editor = createEditor(document.getElementById("code-editor"));
+const board = createBoard(document.getElementById("sim-board"));
+let activeRun = null;
+
+function consoleWrite(text, cls) {
+  const span = document.createElement("span");
+  if (cls) span.className = cls;
+  span.textContent = text;
+  consoleEl.appendChild(span);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function stopRun() {
+  if (activeRun) activeRun.stop();
+  activeRun = null;
+  runBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+function runCode() {
+  stopRun();
+  board.reset();
+  consoleWrite(`--- Run started ---\n`, "sim-status");
+  runBtn.disabled = true;
+  stopBtn.disabled = false;
+
+  activeRun = startProgram(editor.getValue(), {
+    pinMode: board.pinMode,
+    digitalWrite: board.digitalWrite,
+    digitalRead: board.digitalRead,
+  }, {
+    onOutput: (text) => consoleWrite(text),
+    onError: (message) => {
+      consoleWrite(`Error: ${message}\n`, "sim-error");
+      runBtn.disabled = false;
+      stopBtn.disabled = true;
+      activeRun = null;
+    },
+    onStopped: (message) => {
+      if (message) consoleWrite(`${message}\n`, "sim-status");
+      else consoleWrite(`--- loop() finished ---\n`, "sim-status");
+      runBtn.disabled = false;
+      stopBtn.disabled = true;
+      activeRun = null;
+    },
+  });
+}
+
+runBtn.addEventListener("click", runCode);
+stopBtn.addEventListener("click", () => {
+  stopRun();
+  consoleWrite(`--- Stopped ---\n`, "sim-status");
+});
+addLedBtn.addEventListener("click", () => board.addComponent("led"));
+addButtonBtn.addEventListener("click", () => board.addComponent("button"));
+clearWiringBtn.addEventListener("click", () => board.clearWiring());
+clearConsoleBtn.addEventListener("click", () => { consoleEl.innerHTML = ""; });
 
 function updateProgressSummary() {
   const total = getTotalLessonCount();
@@ -77,6 +142,7 @@ function openLesson(lessonId) {
 }
 
 resetCodeBtn.addEventListener("click", () => {
+  stopRun();
   editor.reset();
   statusTextEl.textContent = "Editor reset to template.";
 });

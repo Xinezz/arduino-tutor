@@ -34,13 +34,38 @@
     <section class="editor-section">
       <div class="editor-toolbar">
         <span class="editor-label">Practice Editor</span>
-        <button id="reset-code-btn" class="btn btn-secondary">Reset</button>
+        <div class="editor-toolbar-actions">
+          <button id="run-code-btn" class="btn btn-complete">▶ Run</button>
+          <button id="stop-code-btn" class="btn btn-danger" disabled>■ Stop</button>
+          <button id="reset-code-btn" class="btn btn-secondary">Reset</button>
+        </div>
       </div>
       <textarea id="code-editor"></textarea>
       <p class="editor-note">
-        This is your scratchpad for the lesson. Code execution / simulation is coming in the next version —
-        for now, use it to practice typing the syntax correctly.
+        Wire up components on the circuit board below, then click Run — your code controls the board for real.
       </p>
+    </section>
+
+    <section class="simulator-section">
+      <div class="editor-toolbar">
+        <span class="editor-label">Circuit Board</span>
+        <div class="editor-toolbar-actions">
+          <button id="add-led-btn" class="btn btn-secondary">+ LED</button>
+          <button id="add-button-btn" class="btn btn-secondary">+ Button</button>
+          <button id="clear-wiring-btn" class="btn btn-secondary">Clear Wiring</button>
+        </div>
+      </div>
+      <p class="editor-note">
+        Click a pin, then click a component lead (or the other way round) to connect a wire. Click a wire to
+        remove it. While a program is running, click and hold a button's body to simulate pressing it.
+      </p>
+      <svg id="sim-board" viewBox="0 0 760 340" class="sim-svg"></svg>
+
+      <div class="console-toolbar">
+        <span class="editor-label">Serial Monitor</span>
+        <button id="clear-console-btn" class="btn btn-secondary">Clear</button>
+      </div>
+      <pre id="sim-console" class="sim-console"></pre>
     </section>
 
     <section class="challenge-section" id="challenge-section">
