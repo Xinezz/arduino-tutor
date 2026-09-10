@@ -26,11 +26,33 @@ const PIN_X_START = 130;
 const PIN_X_STEP = 42;
 const BOARD_X = 40, BOARD_Y = 26, BOARD_W = 700, BOARD_H = 150;
 const DIGITAL_PIN_Y = BOARD_Y + 18;          // header strip along the Uno's top edge
-const BOTTOM_HEADER_Y = BOARD_Y + BOARD_H - 18; // power + analog header along the bottom edge
-const GND_X = PIN_X_START - 84;
-const FIVEV_X = PIN_X_START - 42;
-const GND_POINT = { x: GND_X, y: BOTTOM_HEADER_Y };
-const FIVEV_POINT = { x: FIVEV_X, y: BOTTOM_HEADER_Y };
+const BOTTOM_HEADER_Y = BOARD_Y + BOARD_H - 18; // power + analog headers along the bottom edge
+
+// A real Uno R3 has the POWER header and the ANALOG IN header as two
+// physically separate blocks (with a visible gap), not one continuous strip -
+// reproduced here so the board reads as a real, recognizable Uno rather than
+// an abstract row of dots. Order matches the real silkscreen: IOREF, RESET,
+// 3V3, 5V, GND, GND, VIN | gap | A0-A5.
+const POWER_X_START = 90;
+const POWER_X_STEP = 34;
+const POWER_PIN_X = {
+  IOREF: POWER_X_START,
+  RESET: POWER_X_START + POWER_X_STEP,
+  "3V3": POWER_X_START + 2 * POWER_X_STEP,
+  "5V": POWER_X_START + 3 * POWER_X_STEP,
+  GND1: POWER_X_START + 4 * POWER_X_STEP,
+  GND2: POWER_X_START + 5 * POWER_X_STEP,
+  VIN: POWER_X_START + 6 * POWER_X_STEP,
+};
+const ANALOG_X_START = 380;
+
+// This simulator only models what a beginner circuit actually needs: digital
+// I/O, a single GND net, a single 5V net, and analog input. IOREF, RESET,
+// 3V3, and VIN are real Uno pins - drawn so the board is recognizable - but
+// aren't wired to anything here, so they're rendered as inert (unclickable)
+// holes rather than pretending to simulate power regulation or a reset line.
+const GND_POINT = { x: POWER_PIN_X.GND1, y: BOTTOM_HEADER_Y };
+const FIVEV_POINT = { x: POWER_PIN_X["5V"], y: BOTTOM_HEADER_Y };
 
 const BREADBOARD_X = 40, BREADBOARD_Y = BOARD_Y + BOARD_H + 55, BREADBOARD_W = 700, BREADBOARD_H = 330;
 const RAIL_TOP_Y = BREADBOARD_Y + 20;
@@ -253,7 +275,7 @@ export function createBoard(svgEl) {
   // ---------- wiring helpers ----------
 
   function pinPosition(pin) {
-    if (pin >= 14) return { x: PIN_X_START + (pin - 14) * PIN_X_STEP, y: BOTTOM_HEADER_Y };
+    if (pin >= 14) return { x: ANALOG_X_START + (pin - 14) * PIN_X_STEP, y: BOTTOM_HEADER_Y };
     return { x: PIN_X_START + pin * PIN_X_STEP, y: DIGITAL_PIN_Y };
   }
 
@@ -490,15 +512,44 @@ export function createBoard(svgEl) {
     boardLabel.textContent = running ? "UNO (running)" : "UNO (simulated)";
     svgEl.appendChild(boardLabel);
 
-    // header strips - dark backing bars behind the two pin rows
+    // header strips - dark backing bars behind the pin rows. The bottom edge
+    // is drawn as TWO separate strips with a gap between them, matching how
+    // a real Uno R3 physically separates its POWER header from its ANALOG IN
+    // header (they are not one continuous row).
     svgEl.appendChild(svgEl_("rect", {
       x: PIN_X_START - 16, y: DIGITAL_PIN_Y - 8, width: 13 * PIN_X_STEP + 32, height: 16,
       rx: 2, fill: "#111318",
     }));
     svgEl.appendChild(svgEl_("rect", {
-      x: GND_X - 16, y: BOTTOM_HEADER_Y - 8, width: (FIVEV_X - GND_X) + 5 * PIN_X_STEP + 32, height: 16,
+      x: POWER_X_START - 16, y: BOTTOM_HEADER_Y - 8, width: (POWER_PIN_X.VIN - POWER_X_START) + 32, height: 16,
       rx: 2, fill: "#111318",
     }));
+    svgEl.appendChild(svgEl_("rect", {
+      x: ANALOG_X_START - 16, y: BOTTOM_HEADER_Y - 8, width: 5 * PIN_X_STEP + 32, height: 16,
+      rx: 2, fill: "#111318",
+    }));
+    const powerBlockLabel = svgEl_("text", {
+      x: POWER_X_START + (POWER_PIN_X.VIN - POWER_X_START) / 2, y: BOTTOM_HEADER_Y + 24,
+      fill: "#5a6470", "font-size": 8, "text-anchor": "middle", "font-family": "monospace",
+    });
+    powerBlockLabel.textContent = "POWER";
+    svgEl.appendChild(powerBlockLabel);
+    const analogBlockLabel = svgEl_("text", {
+      x: ANALOG_X_START + 2 * PIN_X_STEP, y: BOTTOM_HEADER_Y + 24,
+      fill: "#5a6470", "font-size": 8, "text-anchor": "middle", "font-family": "monospace",
+    });
+    analogBlockLabel.textContent = "ANALOG IN";
+    svgEl.appendChild(analogBlockLabel);
+  }
+
+  // A pin that's REALLY on a Uno R3 but isn't wired to anything in this
+  // simulator (IOREF, RESET, 3V3, VIN) - drawn dim and with no click handler,
+  // so it reads as "this exists on a real board" without pretending to work.
+  function drawDecorativePin(x, y, label) {
+    svgEl.appendChild(svgEl_("circle", { cx: x, cy: y, r: 6, fill: "#3a3f4a", stroke: "#20242c", "stroke-width": 1 }));
+    const t = svgEl_("text", { x, y: y - 13, fill: "#565c68", "font-size": 9, "text-anchor": "middle", "font-family": "monospace" });
+    t.textContent = label;
+    svgEl.appendChild(t);
   }
 
   // The breadboard: a hole-grid pattern (one SVG <pattern>, not hundreds of
@@ -556,10 +607,15 @@ export function createBoard(svgEl) {
     drawArduino();
     drawBreadboard();
 
-    drawConnector("gnd", GND_POINT.x, GND_POINT.y, "GND", "#9aa0b4");
+    drawDecorativePin(POWER_PIN_X.IOREF, BOTTOM_HEADER_Y, "IOREF");
+    drawDecorativePin(POWER_PIN_X.RESET, BOTTOM_HEADER_Y, "RST");
+    drawDecorativePin(POWER_PIN_X["3V3"], BOTTOM_HEADER_Y, "3V3");
+    drawDecorativePin(POWER_PIN_X.VIN, BOTTOM_HEADER_Y, "VIN");
     drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547");
+    drawConnector("gnd", POWER_PIN_X.GND1, BOTTOM_HEADER_Y, "GND", "#9aa0b4");
+    drawConnector("gnd", POWER_PIN_X.GND2, BOTTOM_HEADER_Y, "GND", "#9aa0b4");
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, String(pin), "#4fc3f7");
-    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, BOTTOM_HEADER_Y, `A${pin - 14}`, "#b48ce8");
+    for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, `A${pin - 14}`, "#b48ce8"); }
 
     for (const wire of wires) {
       const p1 = connectorPoint(wire.from);
@@ -577,10 +633,11 @@ export function createBoard(svgEl) {
     for (const comp of components) drawComponent(comp);
 
     // redraw connectors on top so they stay clickable over wires/components
-    drawConnector("gnd", GND_POINT.x, GND_POINT.y, "GND", "#9aa0b4", true);
     drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547", true);
+    drawConnector("gnd", POWER_PIN_X.GND1, BOTTOM_HEADER_Y, "GND", "#9aa0b4", true);
+    drawConnector("gnd", POWER_PIN_X.GND2, BOTTOM_HEADER_Y, "GND", "#9aa0b4", true);
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
-    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, BOTTOM_HEADER_Y, "", "#b48ce8", true);
+    for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
     for (const comp of components) {
       for (const suffix of leadSuffixes(comp.kind)) {
         const id = comp.id + suffix;
