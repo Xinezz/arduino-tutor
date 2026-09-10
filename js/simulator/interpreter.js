@@ -669,7 +669,7 @@ class Interpreter {
 
 const MAX_DELAY_MS = 1500;      // cap how long any single delay() actually waits, so demos stay snappy
 const TICKS_BEFORE_YIELD = 300; // how many statements to run synchronously before giving the browser a turn
-const MAX_RUN_MS = 45000;       // auto-stop safety net for runaway/infinite programs
+const MAX_RUN_MS = 300000;      // auto-stop safety net for runaway/infinite programs (5 min - generous, since projects like the alarm/reaction-timer involve slow, exploratory manual button-pressing)
 
 export function startProgram(source, api, { onError, onStopped, onOutput } = {}) {
   let ast;
@@ -684,19 +684,23 @@ export function startProgram(source, api, { onError, onStopped, onOutput } = {})
     return { stop() {} };
   }
 
-  let virtualMs = 0;
+  let stopped = false;
+  let ticksSinceYield = 0;
+  const startedAt = Date.now();
+
+  // millis() tracks real wall-clock time since the run started - exactly like
+  // real Arduino hardware, where it's driven by a hardware timer completely
+  // independent of what the sketch is doing. This matters: code that waits
+  // for something (like a button press) with no delay() in the loop - e.g. a
+  // reaction-timer game - still needs millis() to keep advancing while it waits.
   const wrappedApi = {
     ...api,
-    millisNow: () => virtualMs,
+    millisNow: () => Date.now() - startedAt,
     print: (text) => onOutput && onOutput(text),
   };
 
   const interpreter = new Interpreter(ast, wrappedApi);
   const gen = interpreter.run();
-
-  let stopped = false;
-  let ticksSinceYield = 0;
-  const startedAt = Date.now();
 
   function step(resumeValue) {
     if (stopped) return;
@@ -723,7 +727,6 @@ export function startProgram(source, api, { onError, onStopped, onOutput } = {})
 
     const value = result.value;
     if (value.type === "delay") {
-      virtualMs += value.ms;
       const realMs = Math.min(value.ms, MAX_DELAY_MS);
       setTimeout(() => step(), Math.max(realMs, 0));
       return;

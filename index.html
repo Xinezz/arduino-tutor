@@ -14,13 +14,19 @@
 <body>
 
 <header class="topbar">
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div class="topbar-left">
     <button id="sidebar-toggle" class="btn btn-secondary sidebar-toggle" aria-label="Toggle lesson list">☰ Lessons</button>
     <div class="brand">Arduino<span>Tutor</span></div>
   </div>
+  <nav class="view-tabs" id="view-tabs">
+    <button class="view-tab active" data-view="lessons">Lessons</button>
+    <button class="view-tab" data-view="projects">Projects</button>
+    <button class="view-tab" data-view="dashboard">Dashboard</button>
+  </nav>
   <div class="progress-summary" id="progress-summary">Level 1 · 0 / 10 lessons</div>
 </header>
 
+<div class="view" id="view-lessons">
 <div class="layout">
 
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
@@ -81,8 +87,25 @@
     <section class="challenge-section" id="challenge-section">
       <!-- filled in when a lesson has a challenge attached -->
     </section>
+
+    <section class="quiz-section" id="quiz-section">
+      <!-- filled in when a lesson has a quiz game attached -->
+    </section>
   </main>
 
+</div>
+</div>
+
+<div class="view" id="view-projects" hidden>
+  <main class="main-panel main-panel-wide" id="projects-panel">
+    <!-- filled in by js/projects/projects.js -->
+  </main>
+</div>
+
+<div class="view" id="view-dashboard" hidden>
+  <main class="main-panel main-panel-wide" id="dashboard-panel">
+    <!-- filled in by js/dashboard/dashboard.js -->
+  </main>
 </div>
 
 <footer class="statusbar">
