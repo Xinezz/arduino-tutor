@@ -4,7 +4,7 @@
 // That separation is what "modular design" means in practice: you can open editor.js
 // without needing to understand data.js at all.
 
-import { loadProgress, markLessonViewed, markChallengeCompleted } from "./progress/progress.js";
+import { loadProgress, saveProgress, markLessonViewed, markChallengeCompleted } from "./progress/progress.js";
 import {
   renderSidebar,
   setActiveSidebarLink,
@@ -31,19 +31,22 @@ const editor = createEditor(document.getElementById("code-editor"));
 function updateProgressSummary() {
   const total = getTotalLessonCount();
   const done = progress.viewedLessons.length;
-  progressSummaryEl.textContent = `Level 1 · ${done} / ${total} lessons`;
+  progressSummaryEl.textContent = `${done} / ${total} lessons complete`;
 }
 
 function openLesson(lessonId) {
   const lesson = findLesson(lessonId);
   if (!lesson) return;
 
-  progress = markLessonViewed(progress, lessonId);
+  // Note: opening/viewing a lesson does NOT mark it complete - completion is
+  // only recorded when the learner explicitly clicks "Mark Lesson as Done"
+  // below, so the sidebar/progress reflect real understanding, not just clicks.
+  progress.lastLessonId = lessonId;
+  saveProgress(progress);
 
-  renderLesson(lessonContentEl, lesson);
+  const isCompleted = progress.viewedLessons.includes(lessonId);
+  renderLesson(lessonContentEl, lesson, isCompleted);
   setActiveSidebarLink(sidebarEl, lessonId);
-  updateProgressSummary();
-  renderSidebar(sidebarEl, progress, openLesson); // re-render so the "done" dot updates
 
   const challenge = getChallengeForLesson(lesson);
   renderChallenge(challengeSectionEl, challenge, (challengeId) => {
@@ -51,7 +54,7 @@ function openLesson(lessonId) {
     statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved.`;
   });
 
-  // wire up the prev/next buttons that renderLesson just created
+  // wire up the prev/next/complete buttons that renderLesson just created
   lessonContentEl.querySelector('[data-action="prev"]')?.addEventListener("click", () => {
     const prevId = getAdjacentLessonId(lessonId, "prev");
     if (prevId) openLesson(prevId);
@@ -59,6 +62,13 @@ function openLesson(lessonId) {
   lessonContentEl.querySelector('[data-action="next"]')?.addEventListener("click", () => {
     const nextId = getAdjacentLessonId(lessonId, "next");
     if (nextId) openLesson(nextId);
+  });
+  lessonContentEl.querySelector('[data-action="complete"]')?.addEventListener("click", () => {
+    progress = markLessonViewed(progress, lessonId);
+    updateProgressSummary();
+    renderSidebar(sidebarEl, progress, openLesson); // re-render so the "done" dot updates
+    statusTextEl.textContent = `"${lesson.title}" marked as done.`;
+    openLesson(lessonId); // re-render this lesson so the button flips to "✓ Completed"
   });
 
   statusTextEl.textContent = `Viewing: ${lesson.title}`;
@@ -73,5 +83,6 @@ resetCodeBtn.addEventListener("click", () => {
 
 // initial boot
 renderSidebar(sidebarEl, progress, openLesson);
+updateProgressSummary();
 openLesson(progress.lastLessonId || getFirstLessonId());
 editor.refresh();

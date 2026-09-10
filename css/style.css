@@ -168,7 +168,15 @@ body {
 .lesson-nav {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-top: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lesson-nav-right {
+  display: flex;
+  gap: 10px;
 }
 
 /* ---------- Editor ---------- */
@@ -229,6 +237,13 @@ body {
   color: var(--red);
   border: 1px solid var(--red);
 }
+
+.btn-complete {
+  background: var(--green);
+  color: #06301b;
+  font-weight: 600;
+}
+.btn-complete:hover { filter: brightness(1.1); }
 
 /* ---------- Challenge section ---------- */
 .challenge-section { margin-top: 28px; }

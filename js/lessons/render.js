@@ -3,10 +3,11 @@
 // WHAT to show, "render" decides HOW to show it. You could swap this file for a
 // completely different visual style without touching a single lesson's content.
 
-import { lessons, standaloneChallenges } from "./data.js";
+import { lessons } from "./data.js";
 
 const LEVEL_NAMES = {
   1: "Level 1 · Arduino Basics",
+  2: "Level 2 · Digital I/O",
 };
 
 export function renderSidebar(container, progress, onSelect) {
@@ -67,7 +68,7 @@ export function findLesson(lessonId) {
   return lessons.find((l) => l.id === lessonId);
 }
 
-export function renderLesson(container, lesson) {
+export function renderLesson(container, lesson, isCompleted) {
   container.innerHTML = "";
 
   const eyebrow = document.createElement("div");
@@ -83,7 +84,9 @@ export function renderLesson(container, lesson) {
     container.appendChild(renderBlock(block));
   }
 
-  // simple prev/next navigation between lessons
+  // simple prev/next navigation between lessons, plus an explicit "mark done"
+  // button - viewing a lesson no longer marks it complete automatically, you
+  // decide when you've actually understood it.
   const index = lessons.findIndex((l) => l.id === lesson.id);
   const nav = document.createElement("div");
   nav.className = "lesson-nav";
@@ -94,14 +97,30 @@ export function renderLesson(container, lesson) {
   prev.disabled = index <= 0;
   prev.dataset.action = "prev";
 
+  const navRight = document.createElement("div");
+  navRight.className = "lesson-nav-right";
+
+  const complete = document.createElement("button");
+  complete.dataset.action = "complete";
+  if (isCompleted) {
+    complete.className = "btn btn-secondary";
+    complete.textContent = "✓ Completed";
+    complete.disabled = true;
+  } else {
+    complete.className = "btn btn-complete";
+    complete.textContent = "Mark Lesson as Done";
+  }
+
   const next = document.createElement("button");
   next.className = "btn btn-primary";
   next.textContent = "Next →";
   next.disabled = index >= lessons.length - 1;
   next.dataset.action = "next";
 
+  navRight.appendChild(complete);
+  navRight.appendChild(next);
   nav.appendChild(prev);
-  nav.appendChild(next);
+  nav.appendChild(navRight);
   container.appendChild(nav);
 }
 
@@ -112,7 +131,7 @@ export function getAdjacentLessonId(lessonId, direction) {
 }
 
 export function getChallengeForLesson(lesson) {
-  return lesson.challenge || standaloneChallenges[lesson.id] || null;
+  return lesson.challenge || null;
 }
 
 export function getFirstLessonId() {
