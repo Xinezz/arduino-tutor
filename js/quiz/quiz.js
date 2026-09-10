@@ -25,6 +25,7 @@ export function renderQuiz(container, quiz, onResult) {
 function renderOrderQuiz(container, quiz, onResult) {
   let currentOrder = shuffledDistinctFrom(quiz.lines);
   let hasChecked = false;
+  let showedAnswer = false;
 
   function checkOrder() {
     const isCorrect = currentOrder.every((line, i) => line === quiz.lines[i]);
@@ -146,8 +147,14 @@ function renderOrderQuiz(container, quiz, onResult) {
     shuffleBtn.className = "btn btn-secondary";
     shuffleBtn.textContent = "Shuffle Again";
     shuffleBtn.addEventListener("click", shuffleAgain);
+    const answerBtn = document.createElement("button");
+    answerBtn.className = "btn btn-hint";
+    answerBtn.textContent = showedAnswer ? "Answer Shown Below" : "Show Answer";
+    answerBtn.disabled = showedAnswer;
+    answerBtn.addEventListener("click", () => { showedAnswer = true; render(); });
     controls.appendChild(checkBtn);
     controls.appendChild(shuffleBtn);
+    controls.appendChild(answerBtn);
     card.appendChild(controls);
 
     if (hasChecked) {
@@ -158,6 +165,16 @@ function renderOrderQuiz(container, quiz, onResult) {
         ? "Correct! That's a working program, in the right order."
         : "Not quite - lines marked red are out of place. Keep adjusting and check again.";
       card.appendChild(result);
+    }
+
+    if (showedAnswer) {
+      const box = document.createElement("div");
+      box.className = "solution-box";
+      const codeEl = document.createElement("pre");
+      codeEl.className = "code-block";
+      codeEl.textContent = quiz.lines.join("\n");
+      box.appendChild(codeEl);
+      card.appendChild(box);
     }
 
     container.appendChild(card);

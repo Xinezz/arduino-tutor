@@ -35,6 +35,8 @@ import { startProgram } from "./simulator/interpreter.js";
 
 const sidebarEl = document.getElementById("sidebar");
 const lessonContentEl = document.getElementById("lesson-content");
+const editorSectionEl = document.querySelector(".editor-section");
+const simulatorSectionEl = document.querySelector(".simulator-section");
 const challengeSectionEl = document.getElementById("challenge-section");
 const quizSectionEl = document.getElementById("quiz-section");
 const progressSummaryEl = document.getElementById("progress-summary");
@@ -260,6 +262,16 @@ function openLesson(lessonId) {
     progress = markChallengeCompleted(progress, challengeId);
     statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved.`;
   });
+
+  // The practice editor and circuit board only matter when THIS lesson has
+  // something to actually build - a purely conceptual lesson (no challenge)
+  // doesn't need an empty code editor sitting underneath it. A run already
+  // in progress keeps running in the background either way (editor.js/board.js
+  // are shared singletons, not recreated per lesson) - it's just not shown
+  // while you're reading a lesson that doesn't need it.
+  editorSectionEl.hidden = !challenge;
+  simulatorSectionEl.hidden = !challenge;
+  if (challenge) editor.refresh(); // CodeMirror needs this after being unhidden to size itself correctly
 
   const quiz = getQuizForLesson(lessonId);
   quizSectionEl.innerHTML = "";

@@ -46,14 +46,6 @@ const POWER_PIN_X = {
 };
 const ANALOG_X_START = 380;
 
-// This simulator only models what a beginner circuit actually needs: digital
-// I/O, a single GND net, a single 5V net, and analog input. IOREF, RESET,
-// 3V3, and VIN are real Uno pins - drawn so the board is recognizable - but
-// aren't wired to anything here, so they're rendered as inert (unclickable)
-// holes rather than pretending to simulate power regulation or a reset line.
-const GND_POINT = { x: POWER_PIN_X.GND1, y: BOTTOM_HEADER_Y };
-const FIVEV_POINT = { x: POWER_PIN_X["5V"], y: BOTTOM_HEADER_Y };
-
 const BREADBOARD_X = 40, BREADBOARD_Y = BOARD_Y + BOARD_H + 55, BREADBOARD_W = 700, BREADBOARD_H = 330;
 const RAIL_TOP_Y = BREADBOARD_Y + 20;
 const RAIL_BOTTOM_Y = BREADBOARD_Y + BREADBOARD_H - 20;
@@ -61,6 +53,35 @@ const TRAY_TOP = BREADBOARD_Y + 58;
 const TRAY_BOTTOM = BREADBOARD_Y + BREADBOARD_H - 130; // leaves room below for sliders that extend ~110px under a component
 
 const CANVAS_W = 780;
+
+// This simulator only models what a beginner circuit actually needs: digital
+// I/O, a single GND net, a single 5V net, and analog input. IOREF, RESET,
+// 3V3, and VIN are real Uno pins - drawn so the board is recognizable - but
+// aren't wired to anything here.
+//
+// Both real-world grounding points AND the breadboard's power rails are
+// exposed as MULTIPLE clickable holes here, all belonging to the same GND (or
+// 5V) net - exactly like a real breadboard, where any hole along a rail is
+// electrically identical. Each hole gets its own id so a wire drawn to it
+// renders at THAT hole, not at some other point sharing the same net - but
+// electrically (for digitalRead/analogRead purposes) they're all just "GND"
+// or "5V". Simplification: unlike a real breadboard, a rail hole here is
+// "live" the moment you use it - you don't have to separately jumper the
+// Arduino's GND/5V pin to the rail first. That's a deliberate beginner-
+// friendly shortcut, not an oversight.
+const RAIL_TAP_DX = [110, 340, 570]; // x-offsets from BREADBOARD_X for the rail's functional holes
+
+const GND_HOLES = {
+  gnd: { x: POWER_PIN_X.GND1, y: BOTTOM_HEADER_Y, label: "GND" },
+  "gnd-pwr2": { x: POWER_PIN_X.GND2, y: BOTTOM_HEADER_Y, label: "GND" },
+  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`gnd-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y + 6 }])),
+  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`gnd-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y + 6 }])),
+};
+const FIVEV_HOLES = {
+  "5v": { x: POWER_PIN_X["5V"], y: BOTTOM_HEADER_Y, label: "5V" },
+  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`5v-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y - 6 }])),
+  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`5v-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y - 6 }])),
+};
 
 const WIRE_PALETTE = [
   { name: "Red (power)", value: "#e2453c" },
@@ -280,8 +301,8 @@ export function createBoard(svgEl) {
   }
 
   function connectorPoint(id) {
-    if (id === "gnd") return GND_POINT;
-    if (id === "5v") return FIVEV_POINT;
+    if (id in GND_HOLES) return GND_HOLES[id];
+    if (id in FIVEV_HOLES) return FIVEV_HOLES[id];
     if (id.startsWith("pin-")) return pinPosition(Number(id.slice(4)));
     const comp = components.find((c) => id.startsWith(c.id + "-"));
     if (!comp) return { x: 0, y: 0 };
@@ -304,10 +325,10 @@ export function createBoard(svgEl) {
   }
 
   function isWiredToGnd(connectorId) {
-    return otherEndsOf(connectorId).includes("gnd");
+    return otherEndsOf(connectorId).some((id) => id in GND_HOLES);
   }
   function isWiredTo5v(connectorId) {
-    return otherEndsOf(connectorId).includes("5v");
+    return otherEndsOf(connectorId).some((id) => id in FIVEV_HOLES);
   }
 
   function ledConnectedPin(led) {
@@ -321,8 +342,8 @@ export function createBoard(svgEl) {
   }
 
   function autoColor(fromId, toId) {
-    if (fromId === "gnd" || toId === "gnd") return WIRE_PALETTE[1].value;
-    if (fromId === "5v" || toId === "5v") return WIRE_PALETTE[0].value;
+    if (fromId in GND_HOLES || toId in GND_HOLES) return WIRE_PALETTE[1].value;
+    if (fromId in FIVEV_HOLES || toId in FIVEV_HOLES) return WIRE_PALETTE[0].value;
     const color = SIGNAL_ROTATION[signalColorCursor % SIGNAL_ROTATION.length];
     signalColorCursor++;
     return color;
@@ -611,9 +632,8 @@ export function createBoard(svgEl) {
     drawDecorativePin(POWER_PIN_X.RESET, BOTTOM_HEADER_Y, "RST");
     drawDecorativePin(POWER_PIN_X["3V3"], BOTTOM_HEADER_Y, "3V3");
     drawDecorativePin(POWER_PIN_X.VIN, BOTTOM_HEADER_Y, "VIN");
-    drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547");
-    drawConnector("gnd", POWER_PIN_X.GND1, BOTTOM_HEADER_Y, "GND", "#9aa0b4");
-    drawConnector("gnd", POWER_PIN_X.GND2, BOTTOM_HEADER_Y, "GND", "#9aa0b4");
+    for (const [id, p] of Object.entries(FIVEV_HOLES)) drawConnector(id, p.x, p.y, p.label || "", "#e8c547");
+    for (const [id, p] of Object.entries(GND_HOLES)) drawConnector(id, p.x, p.y, p.label || "", "#9aa0b4");
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, String(pin), "#4fc3f7");
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, `A${pin - 14}`, "#b48ce8"); }
 
@@ -633,9 +653,8 @@ export function createBoard(svgEl) {
     for (const comp of components) drawComponent(comp);
 
     // redraw connectors on top so they stay clickable over wires/components
-    drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547", true);
-    drawConnector("gnd", POWER_PIN_X.GND1, BOTTOM_HEADER_Y, "GND", "#9aa0b4", true);
-    drawConnector("gnd", POWER_PIN_X.GND2, BOTTOM_HEADER_Y, "GND", "#9aa0b4", true);
+    for (const [id, p] of Object.entries(FIVEV_HOLES)) drawConnector(id, p.x, p.y, "", "#e8c547", true);
+    for (const [id, p] of Object.entries(GND_HOLES)) drawConnector(id, p.x, p.y, "", "#9aa0b4", true);
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
     for (const comp of components) {
