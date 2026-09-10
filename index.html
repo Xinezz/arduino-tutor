@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arduino Tutor</title>
+
+<!-- CodeMirror gives us line numbers + syntax highlighting for the code editor.
+     We use version 5 because it works with plain <script> tags (no build tools needed). -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Arduino<span>Tutor</span></div>
+  <div class="progress-summary" id="progress-summary">Level 1 · 0 / 10 lessons</div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: lesson navigation -->
+  <nav class="sidebar" id="sidebar">
+    <!-- filled in by js/lessons/render.js -->
+  </nav>
+
+  <!-- CENTER: lesson content + code editor -->
+  <main class="main-panel">
+    <section class="lesson-content" id="lesson-content">
+      <!-- filled in by js/lessons/render.js -->
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-toolbar">
+        <span class="editor-label">Practice Editor</span>
+        <button id="reset-code-btn" class="btn btn-secondary">Reset</button>
+      </div>
+      <textarea id="code-editor"></textarea>
+      <p class="editor-note">
+        This is your scratchpad for the lesson. Code execution / simulation is coming in the next version —
+        for now, use it to practice typing the syntax correctly.
+      </p>
+    </section>
+
+    <section class="challenge-section" id="challenge-section">
+      <!-- filled in when a lesson has a challenge attached -->
+    </section>
+  </main>
+
+</div>
+
+<footer class="statusbar">
+  <span id="status-text">Ready.</span>
+</footer>
+
+<!-- CodeMirror core + a "C-like" language mode, which is close enough to Arduino's C++ syntax -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
