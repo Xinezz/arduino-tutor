@@ -18,14 +18,27 @@
 const DIGITAL_PINS = Array.from({ length: 14 }, (_, i) => i); // 0-13
 const ANALOG_PINS = [14, 15, 16, 17, 18, 19]; // A0-A5, numbered the same way real Uno headers do
 
-const PIN_X_START = 90;
+// ---------- layout: an Arduino board (top) sitting above a breadboard (below),
+// exactly like a real desk setup - jumper wires run from the Arduino's edge
+// headers down to wherever a component's legs are plugged into the breadboard. ----------
+
+const PIN_X_START = 130;
 const PIN_X_STEP = 42;
-const PIN_Y = 70;
-const ANALOG_PIN_Y = 98;
-const BOARD_X = 40, BOARD_Y = 40, BOARD_W = 680, BOARD_H = 175;
-const TRAY_TOP = BOARD_Y + BOARD_H + 30;
-const TRAY_BOTTOM = 560;
-const CANVAS_W = 760;
+const BOARD_X = 40, BOARD_Y = 26, BOARD_W = 700, BOARD_H = 150;
+const DIGITAL_PIN_Y = BOARD_Y + 18;          // header strip along the Uno's top edge
+const BOTTOM_HEADER_Y = BOARD_Y + BOARD_H - 18; // power + analog header along the bottom edge
+const GND_X = PIN_X_START - 84;
+const FIVEV_X = PIN_X_START - 42;
+const GND_POINT = { x: GND_X, y: BOTTOM_HEADER_Y };
+const FIVEV_POINT = { x: FIVEV_X, y: BOTTOM_HEADER_Y };
+
+const BREADBOARD_X = 40, BREADBOARD_Y = BOARD_Y + BOARD_H + 55, BREADBOARD_W = 700, BREADBOARD_H = 330;
+const RAIL_TOP_Y = BREADBOARD_Y + 20;
+const RAIL_BOTTOM_Y = BREADBOARD_Y + BREADBOARD_H - 20;
+const TRAY_TOP = BREADBOARD_Y + 58;
+const TRAY_BOTTOM = BREADBOARD_Y + BREADBOARD_H - 130; // leaves room below for sliders that extend ~110px under a component
+
+const CANVAS_W = 780;
 
 const WIRE_PALETTE = [
   { name: "Red (power)", value: "#e2453c" },
@@ -240,13 +253,13 @@ export function createBoard(svgEl) {
   // ---------- wiring helpers ----------
 
   function pinPosition(pin) {
-    if (pin >= 14) return { x: PIN_X_START + (pin - 14) * PIN_X_STEP, y: ANALOG_PIN_Y };
-    return { x: PIN_X_START + pin * PIN_X_STEP, y: PIN_Y };
+    if (pin >= 14) return { x: PIN_X_START + (pin - 14) * PIN_X_STEP, y: BOTTOM_HEADER_Y };
+    return { x: PIN_X_START + pin * PIN_X_STEP, y: DIGITAL_PIN_Y };
   }
 
   function connectorPoint(id) {
-    if (id === "gnd") return { x: 60, y: PIN_Y };
-    if (id === "5v") return { x: 60, y: PIN_Y + 20 };
+    if (id === "gnd") return GND_POINT;
+    if (id === "5v") return FIVEV_POINT;
     if (id.startsWith("pin-")) return pinPosition(Number(id.slice(4)));
     const comp = components.find((c) => id.startsWith(c.id + "-"));
     if (!comp) return { x: 0, y: 0 };
@@ -444,28 +457,116 @@ export function createBoard(svgEl) {
     render();
   }
 
+  // A simplified but recognizable Arduino Uno silhouette: PCB body, USB
+  // connector notch, the main chip, a power indicator LED, and dark header
+  // strips backing the two pin rows (digital along the top edge, power +
+  // analog along the bottom edge - matching where a real Uno actually puts them).
+  function drawArduino() {
+    svgEl.appendChild(svgEl_("rect", {
+      x: BOARD_X, y: BOARD_Y, width: BOARD_W, height: BOARD_H,
+      rx: 8, fill: "#0e6350", stroke: "#083c30", "stroke-width": 2,
+    }));
+    svgEl.appendChild(svgEl_("rect", {
+      x: BOARD_X - 16, y: BOARD_Y + 30, width: 20, height: 34, rx: 3,
+      fill: "#c7c7cf", stroke: "#8a8a93", "stroke-width": 1.5,
+    })); // USB connector
+
+    const chipW = 110, chipH = 40;
+    const chipX = BOARD_X + BOARD_W / 2 - chipW / 2, chipY = BOARD_Y + BOARD_H / 2 - chipH / 2 + 4;
+    svgEl.appendChild(svgEl_("rect", { x: chipX, y: chipY, width: chipW, height: chipH, fill: "#161616", stroke: "#000", "stroke-width": 1 }));
+    const chipLabel = svgEl_("text", {
+      x: chipX + chipW / 2, y: chipY + chipH / 2 + 4, fill: "#8a8a8a", "font-size": 9.5,
+      "text-anchor": "middle", "font-family": "monospace",
+    });
+    chipLabel.textContent = "ATmega328P";
+    svgEl.appendChild(chipLabel);
+
+    svgEl.appendChild(svgEl_("circle", { cx: BOARD_X + 22, cy: BOARD_Y + BOARD_H - 12, r: 3.5, fill: running ? "#57d38c" : "#1f4a3c" }));
+    const onLabel = svgEl_("text", { x: BOARD_X + 22, y: BOARD_Y + BOARD_H - 20, fill: "#7fd9b8", "font-size": 7, "text-anchor": "middle", "font-family": "monospace" });
+    onLabel.textContent = "ON";
+    svgEl.appendChild(onLabel);
+
+    const boardLabel = svgEl_("text", { x: BOARD_X + BOARD_W - 14, y: BOARD_Y + BOARD_H - 12, fill: "#7fe0c4", "font-size": 11, "text-anchor": "end", "font-family": "monospace" });
+    boardLabel.textContent = running ? "UNO (running)" : "UNO (simulated)";
+    svgEl.appendChild(boardLabel);
+
+    // header strips - dark backing bars behind the two pin rows
+    svgEl.appendChild(svgEl_("rect", {
+      x: PIN_X_START - 16, y: DIGITAL_PIN_Y - 8, width: 13 * PIN_X_STEP + 32, height: 16,
+      rx: 2, fill: "#111318",
+    }));
+    svgEl.appendChild(svgEl_("rect", {
+      x: GND_X - 16, y: BOTTOM_HEADER_Y - 8, width: (FIVEV_X - GND_X) + 5 * PIN_X_STEP + 32, height: 16,
+      rx: 2, fill: "#111318",
+    }));
+  }
+
+  // The breadboard: a hole-grid pattern (one SVG <pattern>, not hundreds of
+  // individual circles - cheap to redraw on every render()) plus red/blue
+  // power rails top and bottom, exactly like a real one.
+  function ensureHolePattern() {
+    const defs = svgEl_("defs", {});
+    const pattern = svgEl_("pattern", { id: "bb-holes", width: 16, height: 16, patternUnits: "userSpaceOnUse" });
+    pattern.appendChild(svgEl_("rect", { x: 0, y: 0, width: 16, height: 16, fill: "#e8e0c8" }));
+    pattern.appendChild(svgEl_("circle", { cx: 8, cy: 8, r: 1.7, fill: "#8f8570" }));
+    defs.appendChild(pattern);
+    svgEl.appendChild(defs);
+  }
+
+  function drawRail(y) {
+    svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y - 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y - 6, stroke: "#d9453c", "stroke-width": 2 }));
+    svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y + 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y + 6, stroke: "#3f6fd9", "stroke-width": 2 }));
+    for (let x = BREADBOARD_X + 44; x < BREADBOARD_X + BREADBOARD_W - 20; x += 18) {
+      svgEl.appendChild(svgEl_("circle", { cx: x, cy: y - 6, r: 1.8, fill: "#8f8570" }));
+      svgEl.appendChild(svgEl_("circle", { cx: x, cy: y + 6, r: 1.8, fill: "#8f8570" }));
+    }
+    const plusLabel = svgEl_("text", { x: BREADBOARD_X + 10, y: y - 2, fill: "#d9453c", "font-size": 13, "font-weight": "bold" });
+    plusLabel.textContent = "+";
+    svgEl.appendChild(plusLabel);
+    const minusLabel = svgEl_("text", { x: BREADBOARD_X + 10, y: y + 12, fill: "#3f6fd9", "font-size": 13, "font-weight": "bold" });
+    minusLabel.textContent = "−";
+    svgEl.appendChild(minusLabel);
+  }
+
+  function drawBreadboard() {
+    ensureHolePattern();
+    svgEl.appendChild(svgEl_("rect", {
+      x: BREADBOARD_X, y: BREADBOARD_Y, width: BREADBOARD_W, height: BREADBOARD_H,
+      rx: 6, fill: "#efe7d0", stroke: "#b0a688", "stroke-width": 2,
+    }));
+
+    drawRail(RAIL_TOP_Y);
+    const gridTop = RAIL_TOP_Y + 24, gridBottom = RAIL_BOTTOM_Y - 24;
+    svgEl.appendChild(svgEl_("rect", {
+      x: BREADBOARD_X + 14, y: gridTop, width: BREADBOARD_W - 28, height: gridBottom - gridTop,
+      fill: "url(#bb-holes)",
+    }));
+    const midY = (gridTop + gridBottom) / 2;
+    svgEl.appendChild(svgEl_("line", {
+      x1: BREADBOARD_X + 14, y1: midY, x2: BREADBOARD_X + BREADBOARD_W - 14, y2: midY,
+      stroke: "#cabf9e", "stroke-width": 8,
+    }));
+    drawRail(RAIL_BOTTOM_Y);
+  }
+
   function render() {
     syncAnalogInputs();
     svgEl.innerHTML = "";
 
-    svgEl.appendChild(svgEl_("rect", {
-      x: BOARD_X, y: BOARD_Y, width: BOARD_W, height: BOARD_H,
-      rx: 10, fill: "#1c3d5a", stroke: "#0d2338", "stroke-width": 2,
-    }));
-    const label = svgEl_("text", { x: BOARD_X + 16, y: BOARD_Y + BOARD_H - 14, fill: "#7fb8e0", "font-size": 13, "font-family": "monospace" });
-    label.textContent = running ? "ARDUINO UNO (running)" : "ARDUINO UNO (simulated)";
-    svgEl.appendChild(label);
+    drawArduino();
+    drawBreadboard();
 
-    drawConnector("gnd", 60, PIN_Y, "GND", "#9aa0b4");
-    drawConnector("5v", 60, PIN_Y + 20, "5V", "#e8c547");
-    for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, PIN_Y, String(pin), "#4fc3f7");
-    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, ANALOG_PIN_Y, `A${pin - 14}`, "#b48ce8");
+    drawConnector("gnd", GND_POINT.x, GND_POINT.y, "GND", "#9aa0b4");
+    drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547");
+    for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, String(pin), "#4fc3f7");
+    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, BOTTOM_HEADER_Y, `A${pin - 14}`, "#b48ce8");
 
     for (const wire of wires) {
       const p1 = connectorPoint(wire.from);
       const p2 = connectorPoint(wire.to);
+      const bend = Math.max(35, Math.min(110, Math.abs(p2.y - p1.y) * 0.4));
       const path = svgEl_("path", {
-        d: `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y + 60}, ${p2.x} ${p2.y + 60}, ${p2.x} ${p2.y}`,
+        d: `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y + bend}, ${p2.x} ${p2.y + bend}, ${p2.x} ${p2.y}`,
         fill: "none", stroke: wire.color || "#57d38c", "stroke-width": 3, "stroke-linecap": "round",
         class: "sim-wire",
       });
@@ -476,10 +577,10 @@ export function createBoard(svgEl) {
     for (const comp of components) drawComponent(comp);
 
     // redraw connectors on top so they stay clickable over wires/components
-    drawConnector("gnd", 60, PIN_Y, "GND", "#9aa0b4", true);
-    drawConnector("5v", 60, PIN_Y + 20, "5V", "#e8c547", true);
-    for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, PIN_Y, "", "#4fc3f7", true);
-    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, ANALOG_PIN_Y, "", "#b48ce8", true);
+    drawConnector("gnd", GND_POINT.x, GND_POINT.y, "GND", "#9aa0b4", true);
+    drawConnector("5v", FIVEV_POINT.x, FIVEV_POINT.y, "5V", "#e8c547", true);
+    for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
+    for (const pin of ANALOG_PINS) drawConnector(`pin-${pin}`, PIN_X_START + (pin - 14) * PIN_X_STEP, BOTTOM_HEADER_Y, "", "#b48ce8", true);
     for (const comp of components) {
       for (const suffix of leadSuffixes(comp.kind)) {
         const id = comp.id + suffix;
@@ -540,9 +641,10 @@ export function createBoard(svgEl) {
   function drawLeads(g, comp) {
     const offsets = LEAD_OFFSETS[comp.kind] || {};
     for (const [suffix, [dx, dy]] of Object.entries(offsets)) {
+      // a bare metal lead wire plugging down into a breadboard hole
       g.appendChild(svgEl_("line", {
         x1: comp.x + dx, y1: comp.y + 6, x2: comp.x + dx, y2: comp.y + dy,
-        stroke: "#888", "stroke-width": 2,
+        stroke: "#c4c4c4", "stroke-width": 2, "stroke-linecap": "round",
       }));
     }
   }
