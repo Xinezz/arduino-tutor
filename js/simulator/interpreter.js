@@ -190,8 +190,23 @@ class Parser {
 
   isTypeKeyword() {
     const t = this.peek();
-    if (t.type !== "KEYWORD") return t.type === "IDENT" && t.value === "String" ? true : false;
+    if (t.type !== "KEYWORD") return false;
     return ["int", "float", "double", "bool", "boolean", "char", "long", "byte", "unsigned", "String", "const"].includes(t.value);
+  }
+
+  // Two identifiers in a row ("Servo myServo", "LiquidCrystal lcd") can only be
+  // a declaration in this grammar - a bare identifier can never be directly
+  // followed by another bare identifier in an expression. This lets us support
+  // library object types (Servo, LiquidCrystal, ...) without hardcoding a list
+  // of their names anywhere in the parser.
+  isObjectDeclStart() {
+    if (!this.check("IDENT")) return false;
+    const next = this.tokens[this.pos + 1];
+    return !!next && next.type === "IDENT";
+  }
+
+  isVarDeclStart() {
+    return this.isTypeKeyword() || this.isObjectDeclStart();
   }
 
   parseFunctionDecl() {
@@ -213,14 +228,37 @@ class Parser {
     let isConst = false;
     if (this.match("KEYWORD", "const")) isConst = true;
     if (this.check("KEYWORD", "unsigned")) this.advance(); // skip "unsigned", keep next type word
-    // consume the type keyword (int/float/bool/char/String/...)
-    this.advance();
+    // consume the type keyword/name (int/float/bool/String/Servo/LiquidCrystal/...)
+    const typeName = this.advance().value;
+
+    // A single "type" can declare several variables at once, comma-separated -
+    // e.g. int trigPin = 6, echoPin = 5; - a very common real Arduino pattern.
+    const declarators = [this.parseDeclarator()];
+    while (this.match("OP", ",")) declarators.push(this.parseDeclarator());
+
+    return { type: "VarDecl", typeName, isConst, declarators, line: this.peek().line };
+  }
+
+  // One name (and optional initializer / constructor args) within a
+  // declaration - "trigPin = 6" is one declarator, "echoPin = 5" is another,
+  // both sharing the "int" type from parseVarDecl.
+  parseDeclarator() {
     const name = this.expect("IDENT", undefined, "variable name").value;
     let init = null;
-    if (this.match("OP", "=")) {
+    if (this.match("OP", "(")) {
+      // Constructor-style declaration, e.g. LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+      // We don't need the actual pin numbers for the simulation (the display
+      // isn't wired pin-by-pin), but PARSING them means real Arduino code
+      // using a real library still copy-pastes in without a syntax error.
+      if (!this.check("OP", ")")) {
+        this.parseExpr();
+        while (this.match("OP", ",")) this.parseExpr();
+      }
+      this.expect("OP", ")");
+    } else if (this.match("OP", "=")) {
       init = this.parseExpr();
     }
-    return { type: "VarDecl", name, init, isConst, line: this.peek().line };
+    return { name, init };
   }
 
   parseBlock() {
@@ -254,7 +292,7 @@ class Parser {
       this.expect("OP", ";");
       return { type: "Return", line };
     }
-    if (this.isTypeKeyword() && !this.check("IDENT")) {
+    if (this.isVarDeclStart()) {
       return this.parseVarDeclStatement();
     }
     const line = this.peek().line;
@@ -281,7 +319,7 @@ class Parser {
     this.expect("OP", "(");
     let init = null;
     if (!this.check("OP", ";")) {
-      init = this.isTypeKeyword() ? this.parseVarDecl() : { type: "ExprStmt", expr: this.parseExpr() };
+      init = this.isVarDeclStart() ? this.parseVarDecl() : { type: "ExprStmt", expr: this.parseExpr() };
     }
     this.expect("OP", ";");
     let cond = null;
@@ -446,12 +484,29 @@ const CONSTANTS = {
   HIGH: 1, LOW: 0,
   OUTPUT: "OUTPUT", INPUT: "INPUT", INPUT_PULLUP: "INPUT_PULLUP",
   LED_BUILTIN: 13,
+  // Real Arduino Uno numbers its analog pins 14-19 internally (A0 = digital
+  // pin 14, and so on) - matching that exactly means analogRead(A0) behaves
+  // identically to real hardware, and the board's wiring system (which only
+  // knows about numbered pins) needs no special-casing for "analog" pins.
+  A0: 14, A1: 15, A2: 16, A3: 17, A4: 18, A5: 19,
 };
 
 class BreakSignal {}
 class ContinueSignal {}
 
 function truthy(v) { return v !== 0 && v !== false && v !== "" && v != null; }
+
+// Shared by BOTH places a variable can be declared without an initializer -
+// globals (Interpreter.run) and locals (execStmt's VarDecl case). Keeping
+// this in one function is deliberate: those two code paths drifting apart is
+// exactly how a real bug shipped here once already (global `Servo myServo;`
+// silently defaulted to 0 instead of a servo object, because only the local
+// path knew about object types).
+function defaultValueForType(typeName) {
+  if (typeName === "Servo") return { __kind: "Servo", pin: null, angle: 90 };
+  if (typeName === "LiquidCrystal") return { __kind: "LiquidCrystal" };
+  return 0;
+}
 
 class Interpreter {
   constructor(ast, api) {
@@ -463,7 +518,11 @@ class Interpreter {
 
   *run() {
     for (const decl of this.ast.globals) {
-      this.globals[decl.name] = decl.init ? yield* this.evalExpr(decl.init, this.globals) : 0;
+      for (const d of decl.declarators) {
+        this.globals[d.name] = d.init
+          ? yield* this.evalExpr(d.init, this.globals)
+          : defaultValueForType(decl.typeName);
+      }
     }
     if (this.ast.functions.setup) yield* this.execBlock(this.ast.functions.setup.body, this.globals);
     if (!this.ast.functions.loop) return;
@@ -487,8 +546,9 @@ class Interpreter {
         yield* this.execBlock(stmt, scope);
         return;
       case "VarDecl": {
-        const value = stmt.init ? yield* this.evalExpr(stmt.init, scope) : 0;
-        scope[stmt.name] = value;
+        for (const d of stmt.declarators) {
+          scope[d.name] = d.init ? yield* this.evalExpr(d.init, scope) : defaultValueForType(stmt.typeName);
+        }
         return;
       }
       case "ExprStmt":
@@ -602,6 +662,20 @@ class Interpreter {
         throw new SimError(`Unsupported member access`, node.line);
       }
       case "Call": {
+        // A call like myServo.write(90) or lcd.print("hi") is a METHOD call on
+        // a user variable, not a fixed namespace like Serial.println - it has
+        // to be resolved by looking up what object the variable actually
+        // holds, which only makes sense here (not in resolveCalleeName, which
+        // has no access to real values, only names).
+        if (node.callee.type === "Member" && node.callee.object.type === "Ident") {
+          const objScope = this.findScope(node.callee.object.name, scope);
+          const objValue = objScope && objScope[node.callee.object.name];
+          if (objValue && typeof objValue === "object" && objValue.__kind) {
+            const args = [];
+            for (const a of node.args) args.push(yield* this.evalExpr(a, scope));
+            return this.callObjectMethod(objValue, node.callee.property, args, node.line);
+          }
+        }
         const name = yield* this.resolveCalleeName(node.callee, scope);
         const args = [];
         for (const a of node.args) args.push(yield* this.evalExpr(a, scope));
@@ -639,7 +713,18 @@ class Interpreter {
       case "analogRead": return api.analogRead ? api.analogRead(args[0]) : 0;
       case "analogWrite": api.analogWrite && api.analogWrite(args[0], args[1]); return;
       case "delay": yield { type: "delay", ms: args[0] }; return;
+      case "delayMicroseconds": return; // sub-millisecond - too short to meaningfully simulate, treated as instant
       case "millis": return api.millisNow();
+      case "micros": return api.millisNow() * 1000;
+      case "pulseIn":
+        // Real pulseIn() blocks for as long as the pulse takes to arrive and
+        // finish - we approximate that with a small fixed real-time pause
+        // rather than 0, so it reads as "the sensor took a moment to respond"
+        // instead of being suspiciously instantaneous.
+        yield { type: "delay", ms: 30 };
+        return api.pulseIn ? api.pulseIn(args[0], args[1]) : 0;
+      case "tone": api.tone && api.tone(args[0], args[1], args[2]); return;
+      case "noTone": api.noTone && api.noTone(args[0]); return;
       case "Serial.begin": return;
       case "Serial.println": api.print(`${args[0] ?? ""}\n`); return;
       case "Serial.print": api.print(`${args[0] ?? ""}`); return;
@@ -658,6 +743,41 @@ class Interpreter {
       default:
         throw new SimError(`'${name}' is not a supported function in this simulator yet`, line);
     }
+  }
+
+  callObjectMethod(obj, method, args, line) {
+    const api = this.api;
+
+    if (obj.__kind === "Servo") {
+      switch (method) {
+        case "attach": obj.pin = args[0]; return;
+        case "write":
+          obj.angle = Math.min(Math.max(args[0], 0), 180);
+          api.servoWrite && api.servoWrite(obj.pin, obj.angle);
+          return;
+        case "writeMicroseconds":
+          obj.angle = Math.min(Math.max(((args[0] - 544) / (2400 - 544)) * 180, 0), 180);
+          api.servoWrite && api.servoWrite(obj.pin, obj.angle);
+          return;
+        case "read": return obj.angle;
+        case "detach": obj.pin = null; return;
+        default: throw new SimError(`Servo has no method '${method}'`, line);
+      }
+    }
+
+    if (obj.__kind === "LiquidCrystal") {
+      switch (method) {
+        case "begin": api.lcdBegin && api.lcdBegin(args[0], args[1]); return;
+        case "print": api.lcdPrint && api.lcdPrint(`${args[0] ?? ""}`); return;
+        case "write": api.lcdPrint && api.lcdPrint(String.fromCharCode(args[0])); return;
+        case "setCursor": api.lcdSetCursor && api.lcdSetCursor(args[0], args[1]); return;
+        case "clear": api.lcdClear && api.lcdClear(); return;
+        case "home": api.lcdSetCursor && api.lcdSetCursor(0, 0); return;
+        default: throw new SimError(`LiquidCrystal has no method '${method}'`, line);
+      }
+    }
+
+    throw new SimError(`Unknown object - no method '${method}'`, line);
   }
 }
 

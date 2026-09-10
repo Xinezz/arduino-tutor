@@ -42,8 +42,8 @@ const statusTextEl = document.getElementById("status-text");
 const resetCodeBtn = document.getElementById("reset-code-btn");
 const runBtn = document.getElementById("run-code-btn");
 const stopBtn = document.getElementById("stop-code-btn");
-const addLedBtn = document.getElementById("add-led-btn");
-const addButtonBtn = document.getElementById("add-button-btn");
+const componentPickerEl = document.getElementById("component-picker");
+const addComponentBtn = document.getElementById("add-component-btn");
 const clearWiringBtn = document.getElementById("clear-wiring-btn");
 const clearConsoleBtn = document.getElementById("clear-console-btn");
 const consoleEl = document.getElementById("sim-console");
@@ -125,7 +125,7 @@ try {
   buildWirePalette();
 } catch (err) {
   console.error("Failed to start the circuit simulator:", err);
-  for (const btn of [runBtn, stopBtn, addLedBtn, addButtonBtn, clearWiringBtn]) {
+  for (const btn of [runBtn, stopBtn, addComponentBtn, clearWiringBtn]) {
     btn.disabled = true;
     btn.title = "The simulator failed to load - check the browser console for details.";
   }
@@ -184,6 +184,16 @@ function runCode() {
     pinMode: board.pinMode,
     digitalWrite: board.digitalWrite,
     digitalRead: board.digitalRead,
+    analogRead: board.analogRead,
+    analogWrite: board.analogWrite,
+    pulseIn: board.pulseIn,
+    tone: board.tone,
+    noTone: board.noTone,
+    servoWrite: board.servoWrite,
+    lcdBegin: board.lcdBegin,
+    lcdPrint: board.lcdPrint,
+    lcdSetCursor: board.lcdSetCursor,
+    lcdClear: board.lcdClear,
   }, {
     onOutput: (text) => consoleWrite(text),
     onError: (message) => {
@@ -220,8 +230,7 @@ function guarded(fn) {
   };
 }
 
-addLedBtn.addEventListener("click", guarded(() => board.addComponent("led")));
-addButtonBtn.addEventListener("click", guarded(() => board.addComponent("button")));
+addComponentBtn.addEventListener("click", guarded(() => board.addComponent(componentPickerEl.value)));
 clearWiringBtn.addEventListener("click", guarded(() => board.clearWiring()));
 clearConsoleBtn.addEventListener("click", guarded(() => { consoleEl.innerHTML = ""; }));
 

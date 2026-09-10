@@ -8,6 +8,9 @@ import { lessons } from "./data.js";
 const LEVEL_NAMES = {
   1: "Level 1 · Arduino Basics",
   2: "Level 2 · Digital I/O",
+  3: "Level 3 · Analog Input",
+  4: "Level 4 · PWM & Outputs",
+  6: "Level 6 · Sensors",
 };
 
 export function renderSidebar(container, progress, onSelect) {

@@ -61,21 +61,33 @@
       <div class="editor-toolbar">
         <span class="editor-label">Circuit Board</span>
         <div class="editor-toolbar-actions">
-          <button id="add-led-btn" class="btn btn-secondary">+ LED</button>
-          <button id="add-button-btn" class="btn btn-secondary">+ Button</button>
+          <select id="component-picker" class="component-picker">
+            <option value="led">LED</option>
+            <option value="rgbled">RGB LED</option>
+            <option value="button">Push Button</option>
+            <option value="buzzer">Buzzer</option>
+            <option value="potentiometer">Potentiometer</option>
+            <option value="ldr">Light Sensor (LDR)</option>
+            <option value="tempsensor">Temperature Sensor</option>
+            <option value="ultrasonic">Ultrasonic Sensor</option>
+            <option value="irsensor">IR / Obstacle Sensor</option>
+            <option value="servo">Servo Motor</option>
+            <option value="lcd">LCD Display</option>
+          </select>
+          <button id="add-component-btn" class="btn btn-secondary">+ Add</button>
           <button id="clear-wiring-btn" class="btn btn-secondary">Clear Wiring</button>
         </div>
       </div>
       <p class="editor-note">
         Drag a component's body to move it. Click a pin, then click a component lead (or the other way round)
         to wire them — the wire color below applies to the next wire you draw. Click a wire to remove it.
-        Double-click an LED to cycle its color. While a program is running, click and hold a button's body to
-        press it.
+        Double-click an LED to cycle its color. While a program is running, drag a sensor's slider, click an
+        IR sensor to simulate an obstacle, or hold a button's body to press it.
       </p>
       <div class="wire-palette" id="wire-palette">
         <!-- filled in by app.js from board.getWirePalette() -->
       </div>
-      <svg id="sim-board" viewBox="0 0 760 460" class="sim-svg"></svg>
+      <svg id="sim-board" viewBox="0 0 760 580" class="sim-svg"></svg>
 
       <div class="console-toolbar">
         <span class="editor-label">Serial Monitor</span>

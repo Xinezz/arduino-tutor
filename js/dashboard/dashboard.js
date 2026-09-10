@@ -9,22 +9,30 @@ import { projects } from "../projects/data.js";
 import { quizzes } from "../quiz/data.js";
 import { getProjectProgress } from "../progress/progress.js";
 
-// The full ladder from the course design. Only the first two ranks are
-// reachable with the content built so far (Levels 1-2) - the rest are shown
-// as genuinely locked rather than faked, since Levels 3+ don't exist yet.
+// The full ladder from the course design. Only the first three ranks are
+// reachable with the content built so far (Levels 1, 2, 3, 4, 6) - the rest
+// are shown as genuinely locked rather than faked, since the levels they'd
+// represent (5, 7, 8, the full Level 9 project list) don't exist yet.
 const RANKS = [
   { name: "Arduino Beginner", desc: "Getting comfortable with the fundamentals: setup(), loop(), variables, the Serial Monitor." },
   { name: "Digital I/O Apprentice", desc: "Can wire and control LEDs and buttons, and reason about pin states." },
-  { name: "Sensor Explorer", desc: "Reads and interprets real-world sensor data (analog input).", future: true },
+  { name: "Sensor Explorer", desc: "Reads analog sensors, drives PWM outputs, and combines both into real automation." },
   { name: "Arduino Programmer", desc: "Fluent in the programming fundamentals behind every sketch.", future: true },
   { name: "Embedded Systems Builder", desc: "Writes non-blocking, interrupt-aware, multi-part programs.", future: true },
   { name: "Mechatronics Engineer", desc: "Builds full multi-sensor, multi-actuator mechatronics projects.", future: true },
 ];
 
+function isLevelDone(progress, levelNum) {
+  const ids = lessons.filter((l) => l.level === levelNum).map((l) => l.id);
+  return ids.length > 0 && ids.every((id) => progress.viewedLessons.includes(id));
+}
+
 function computeCurrentRankIndex(progress) {
-  const level1Ids = lessons.filter((l) => l.level === 1).map((l) => l.id);
-  const level1Done = level1Ids.every((id) => progress.viewedLessons.includes(id));
-  return level1Done ? 1 : 0;
+  const level1Done = isLevelDone(progress, 1);
+  const level2346Done = [1, 2, 3, 4, 6].every((lvl) => isLevelDone(progress, lvl));
+  if (level2346Done) return 2;
+  if (level1Done) return 1;
+  return 0;
 }
 
 function countChallenges() {
@@ -99,11 +107,12 @@ export function renderDashboard(container, progress) {
   });
   container.appendChild(ladder);
 
-  if (currentRankIndex === 1 && progress.viewedLessons.length >= lessons.length) {
+  const lastAchievableRankIndex = RANKS.findIndex((r) => r.future) - 1;
+  if (currentRankIndex === lastAchievableRankIndex && progress.viewedLessons.length >= lessons.length) {
     const note = el(
       "div",
       "quiz-result success",
-      "You've completed every lesson currently available! Levels 3+ (sensors, PWM, communication, and beyond) are planned for a future update."
+      "You've completed every lesson currently available! Programming Fundamentals, Communication, and the full mini-projects list are planned for a future update."
     );
     container.appendChild(note);
   }

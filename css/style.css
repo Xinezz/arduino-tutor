@@ -300,7 +300,16 @@ body {
   margin-top: 6px;
 }
 
-.editor-toolbar-actions { display: flex; gap: 8px; }
+.editor-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.component-picker {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
 
 /* ---------- Simulator / circuit board ---------- */
 .simulator-section { margin-top: 28px; }
