@@ -33,6 +33,19 @@ const addButtonBtn = document.getElementById("add-button-btn");
 const clearWiringBtn = document.getElementById("clear-wiring-btn");
 const clearConsoleBtn = document.getElementById("clear-console-btn");
 const consoleEl = document.getElementById("sim-console");
+const wirePaletteEl = document.getElementById("wire-palette");
+const sidebarToggleBtn = document.getElementById("sidebar-toggle");
+const sidebarBackdropEl = document.getElementById("sidebar-backdrop");
+
+function closeSidebarDrawer() {
+  sidebarEl.classList.remove("open");
+  sidebarBackdropEl.classList.remove("open");
+}
+sidebarToggleBtn.addEventListener("click", () => {
+  sidebarEl.classList.toggle("open");
+  sidebarBackdropEl.classList.toggle("open");
+});
+sidebarBackdropEl.addEventListener("click", closeSidebarDrawer);
 
 let progress = loadProgress();
 const editor = createEditor(document.getElementById("code-editor"));
@@ -44,12 +57,38 @@ let activeRun = null;
 let board = null;
 try {
   board = createBoard(document.getElementById("sim-board"));
+  buildWirePalette();
 } catch (err) {
   console.error("Failed to start the circuit simulator:", err);
   for (const btn of [runBtn, stopBtn, addLedBtn, addButtonBtn, clearWiringBtn]) {
     btn.disabled = true;
     btn.title = "The simulator failed to load - check the browser console for details.";
   }
+}
+
+function buildWirePalette() {
+  wirePaletteEl.innerHTML = "";
+
+  const autoBtn = document.createElement("button");
+  autoBtn.className = "wire-swatch auto active";
+  autoBtn.title = "Auto (red=5V, black=GND, rotates colors for signal wires)";
+  autoBtn.addEventListener("click", () => selectWireColor("auto", autoBtn));
+  wirePaletteEl.appendChild(autoBtn);
+
+  for (const { name, value } of board.getWirePalette()) {
+    const btn = document.createElement("button");
+    btn.className = "wire-swatch";
+    btn.style.background = value;
+    btn.title = name;
+    btn.addEventListener("click", () => selectWireColor(value, btn));
+    wirePaletteEl.appendChild(btn);
+  }
+}
+
+function selectWireColor(color, btnEl) {
+  board.setWireColor(color);
+  wirePaletteEl.querySelectorAll(".wire-swatch").forEach((el) => el.classList.remove("active"));
+  btnEl.classList.add("active");
 }
 
 function consoleWrite(text, cls) {
@@ -65,11 +104,13 @@ function stopRun() {
   activeRun = null;
   runBtn.disabled = false;
   stopBtn.disabled = true;
+  board?.setRunning(false);
 }
 
 function runCode() {
   stopRun();
   board.reset();
+  board.setRunning(true);
   consoleWrite(`--- Run started ---\n`, "sim-status");
   runBtn.disabled = true;
   stopBtn.disabled = false;
@@ -85,6 +126,7 @@ function runCode() {
       runBtn.disabled = false;
       stopBtn.disabled = true;
       activeRun = null;
+      board.setRunning(false);
     },
     onStopped: (message) => {
       if (message) consoleWrite(`${message}\n`, "sim-status");
@@ -92,6 +134,7 @@ function runCode() {
       runBtn.disabled = false;
       stopBtn.disabled = true;
       activeRun = null;
+      board.setRunning(false);
     },
   });
 }
@@ -136,6 +179,7 @@ function openLesson(lessonId) {
   const isCompleted = progress.viewedLessons.includes(lessonId);
   renderLesson(lessonContentEl, lesson, isCompleted);
   setActiveSidebarLink(sidebarEl, lessonId);
+  closeSidebarDrawer(); // on mobile, picking a lesson should close the slide-in drawer
 
   const challenge = getChallengeForLesson(lesson);
   renderChallenge(challengeSectionEl, challenge, (challengeId) => {

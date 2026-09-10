@@ -14,11 +14,16 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">Arduino<span>Tutor</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button id="sidebar-toggle" class="btn btn-secondary sidebar-toggle" aria-label="Toggle lesson list">☰ Lessons</button>
+    <div class="brand">Arduino<span>Tutor</span></div>
+  </div>
   <div class="progress-summary" id="progress-summary">Level 1 · 0 / 10 lessons</div>
 </header>
 
 <div class="layout">
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <!-- LEFT: lesson navigation -->
   <nav class="sidebar" id="sidebar">
@@ -56,10 +61,15 @@
         </div>
       </div>
       <p class="editor-note">
-        Click a pin, then click a component lead (or the other way round) to connect a wire. Click a wire to
-        remove it. While a program is running, click and hold a button's body to simulate pressing it.
+        Drag a component's body to move it. Click a pin, then click a component lead (or the other way round)
+        to wire them — the wire color below applies to the next wire you draw. Click a wire to remove it.
+        Double-click an LED to cycle its color. While a program is running, click and hold a button's body to
+        press it.
       </p>
-      <svg id="sim-board" viewBox="0 0 760 340" class="sim-svg"></svg>
+      <div class="wire-palette" id="wire-palette">
+        <!-- filled in by app.js from board.getWirePalette() -->
+      </div>
+      <svg id="sim-board" viewBox="0 0 760 460" class="sim-svg"></svg>
 
       <div class="console-toolbar">
         <span class="editor-label">Serial Monitor</span>
