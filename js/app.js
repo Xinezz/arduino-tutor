@@ -36,8 +36,21 @@ const consoleEl = document.getElementById("sim-console");
 
 let progress = loadProgress();
 const editor = createEditor(document.getElementById("code-editor"));
-const board = createBoard(document.getElementById("sim-board"));
 let activeRun = null;
+
+// The circuit board is built separately from the lesson viewer below, and
+// wrapped in try/catch, so that if IT fails for some reason, the rest of the
+// site (lessons, editor) still works instead of the whole page going dead.
+let board = null;
+try {
+  board = createBoard(document.getElementById("sim-board"));
+} catch (err) {
+  console.error("Failed to start the circuit simulator:", err);
+  for (const btn of [runBtn, stopBtn, addLedBtn, addButtonBtn, clearWiringBtn]) {
+    btn.disabled = true;
+    btn.title = "The simulator failed to load - check the browser console for details.";
+  }
+}
 
 function consoleWrite(text, cls) {
   const span = document.createElement("span");
@@ -88,10 +101,21 @@ stopBtn.addEventListener("click", () => {
   stopRun();
   consoleWrite(`--- Stopped ---\n`, "sim-status");
 });
-addLedBtn.addEventListener("click", () => board.addComponent("led"));
-addButtonBtn.addEventListener("click", () => board.addComponent("button"));
-clearWiringBtn.addEventListener("click", () => board.clearWiring());
-clearConsoleBtn.addEventListener("click", () => { consoleEl.innerHTML = ""; });
+function guarded(fn) {
+  return (...args) => {
+    try {
+      fn(...args);
+    } catch (err) {
+      console.error(err);
+      statusTextEl.textContent = `Something went wrong: ${err.message}`;
+    }
+  };
+}
+
+addLedBtn.addEventListener("click", guarded(() => board.addComponent("led")));
+addButtonBtn.addEventListener("click", guarded(() => board.addComponent("button")));
+clearWiringBtn.addEventListener("click", guarded(() => board.clearWiring()));
+clearConsoleBtn.addEventListener("click", guarded(() => { consoleEl.innerHTML = ""; }));
 
 function updateProgressSummary() {
   const total = getTotalLessonCount();
