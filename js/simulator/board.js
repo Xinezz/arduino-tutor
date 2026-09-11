@@ -126,6 +126,23 @@ const WIRE_PALETTE = [
 const SIGNAL_ROTATION = ["#f5c542", "#4fc3f7", "#57d38c", "#ff9f4a", "#b48ce8", "#e4e6ec"];
 const LED_COLORS = ["#ff5a4e", "#ffe066", "#57d38c", "#4fc3f7", "#ffffff"];
 
+// The resistor values a beginner actually reaches for, each with its REAL
+// 4-band color code (double-checked against the standard: digit, digit,
+// multiplier, gold tolerance) - so cycling through them doubles as practice
+// reading resistor bands, not just picking a number from a menu.
+// 220/330 ohm: what the "LEDs and Resistors" lesson recommends for a standard
+// LED at 5V. 1k ohm: a common general-purpose value. 10k ohm: the standard
+// pull-up/pull-down value mentioned in the "Floating Pin Problem" lesson.
+const RESISTOR_BAND_COLORS = {
+  black: "#2b2b2b", brown: "#6b4a2a", red: "#c0392b", orange: "#d9822b",
+};
+const RESISTOR_VALUES = [
+  { ohms: 220, label: "220Ω", bands: ["red", "red", "brown"] },
+  { ohms: 330, label: "330Ω", bands: ["orange", "orange", "brown"] },
+  { ohms: 1000, label: "1kΩ", bands: ["brown", "black", "red"] },
+  { ohms: 10000, label: "10kΩ", bands: ["brown", "black", "orange"] },
+];
+
 // Where each component type's leads sit, relative to the component's (x, y)
 // anchor point - this is the ONLY place that needs updating to change a
 // component's wiring geometry.
@@ -466,6 +483,7 @@ export function createBoard(svgEl) {
     const comp = { id, kind, x, y };
 
     if (kind === "led") comp.color = LED_COLORS[(nextComponentNum[kind] - 1) % LED_COLORS.length];
+    if (kind === "resistor") comp.ohms = RESISTOR_VALUES[0].ohms;
     if (kind === "potentiometer") comp.rawValue = 512;
     if (kind === "ldr") comp.lightPct = 50;
     if (kind === "tempsensor") comp.tempC = 22;
@@ -488,6 +506,12 @@ export function createBoard(svgEl) {
   function cycleLedColor(led) {
     const i = LED_COLORS.indexOf(led.color);
     led.color = LED_COLORS[(i + 1) % LED_COLORS.length];
+    render();
+  }
+
+  function cycleResistorValue(resistor) {
+    const i = RESISTOR_VALUES.findIndex((v) => v.ohms === resistor.ohms);
+    resistor.ohms = RESISTOR_VALUES[(i + 1) % RESISTOR_VALUES.length].ohms;
     render();
   }
 
@@ -849,11 +873,12 @@ export function createBoard(svgEl) {
   }
 
   // A resistor doesn't switch or light up - it's just a body sitting between
-  // its two leads - so unlike every other component here it has no "state"
-  // to react to. The color bands (red-red-brown = 220ohm) match the value
-  // the lessons actually recommend, so what's drawn here is the real part
-  // a learner would reach for.
+  // its two leads - so unlike every other component here its only "state" is
+  // which value it's set to. Double-click cycles through RESISTOR_VALUES,
+  // same interaction as double-clicking an LED to cycle its color, and the
+  // bands drawn always match the REAL color code for the current value.
   function drawResistor(comp) {
+    const value = RESISTOR_VALUES.find((v) => v.ohms === comp.ohms) || RESISTOR_VALUES[0];
     const g = wireGroup(comp);
     const bodyW = 30, bodyH = 13;
     const bodyX = comp.x - bodyW / 2, bodyY = comp.y;
@@ -863,15 +888,16 @@ export function createBoard(svgEl) {
       fill: "#d9c398", stroke: "#8a7550", "stroke-width": 1.5,
     });
     body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    body.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleResistorValue(comp); });
     g.appendChild(body);
-    const bandColors = ["#c0392b", "#c0392b", "#6b4a2a"]; // red-red-brown = 220 ohm
-    bandColors.forEach((color, i) => {
+    value.bands.forEach((bandName, i) => {
       g.appendChild(svgEl_("rect", {
-        x: bodyX + 6 + i * 7, y: bodyY, width: 3, height: bodyH, fill: color, style: "pointer-events:none",
+        x: bodyX + 6 + i * 7, y: bodyY, width: 3, height: bodyH,
+        fill: RESISTOR_BAND_COLORS[bandName], style: "pointer-events:none",
       }));
     });
     drawLeads(g, comp);
-    g.appendChild(componentLabel(comp.x, comp.y + 50, "Resistor · 220Ω"));
+    g.appendChild(componentLabel(comp.x, comp.y + 50, `Resistor · ${value.label}`));
     g.appendChild(removeGlyph(comp.x + 22, comp.y - 4, () => removeComponent(comp.id)));
     svgEl.appendChild(g);
   }
