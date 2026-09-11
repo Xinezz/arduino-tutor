@@ -60,27 +60,29 @@ const CANVAS_W = 780;
 // aren't wired to anything here.
 //
 // Both real-world grounding points AND the breadboard's power rails are
-// exposed as MULTIPLE clickable holes here, all belonging to the same GND (or
-// 5V) net - exactly like a real breadboard, where any hole along a rail is
-// electrically identical. Each hole gets its own id so a wire drawn to it
-// renders at THAT hole, not at some other point sharing the same net - but
-// electrically (for digitalRead/analogRead purposes) they're all just "GND"
-// or "5V". Simplification: unlike a real breadboard, a rail hole here is
-// "live" the moment you use it - you don't have to separately jumper the
-// Arduino's GND/5V pin to the rail first. That's a deliberate beginner-
-// friendly shortcut, not an oversight.
-const RAIL_TAP_DX = [110, 340, 570]; // x-offsets from BREADBOARD_X for the rail's functional holes
+// exposed as clickable holes here - EVERY hole drawn along a rail is a real,
+// independently-clickable connector (matching a real breadboard, where every
+// hole in a rail is electrically identical), not just a handful of fixed
+// "tap" points. Each hole gets its own id so a wire drawn to it renders at
+// THAT hole, not at some other point sharing the same net - but electrically
+// (for digitalRead/analogRead purposes) they're all just "GND" or "5V".
+// Simplification: unlike a real breadboard, a rail hole here is "live" the
+// moment you use it - you don't have to separately jumper the Arduino's
+// GND/5V pin to the rail first. That's a deliberate beginner-friendly
+// shortcut, not an oversight.
+const RAIL_HOLE_DX = [];
+for (let dx = 44; dx < BREADBOARD_W - 20; dx += 18) RAIL_HOLE_DX.push(dx);
 
 const GND_HOLES = {
   gnd: { x: POWER_PIN_X.GND1, y: BOTTOM_HEADER_Y, label: "GND" },
   "gnd-pwr2": { x: POWER_PIN_X.GND2, y: BOTTOM_HEADER_Y, label: "GND" },
-  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`gnd-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y + 6 }])),
-  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`gnd-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y + 6 }])),
+  ...Object.fromEntries(RAIL_HOLE_DX.map((dx, i) => [`gnd-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y + 6 }])),
+  ...Object.fromEntries(RAIL_HOLE_DX.map((dx, i) => [`gnd-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y + 6 }])),
 };
 const FIVEV_HOLES = {
   "5v": { x: POWER_PIN_X["5V"], y: BOTTOM_HEADER_Y, label: "5V" },
-  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`5v-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y - 6 }])),
-  ...Object.fromEntries(RAIL_TAP_DX.map((dx, i) => [`5v-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y - 6 }])),
+  ...Object.fromEntries(RAIL_HOLE_DX.map((dx, i) => [`5v-railtop-${i}`, { x: BREADBOARD_X + dx, y: RAIL_TOP_Y - 6 }])),
+  ...Object.fromEntries(RAIL_HOLE_DX.map((dx, i) => [`5v-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y - 6 }])),
 };
 
 const WIRE_PALETTE = [
@@ -586,12 +588,12 @@ export function createBoard(svgEl) {
   }
 
   function drawRail(y) {
+    // Note: no decorative hole dots drawn here - every hole position on a
+    // rail is now a REAL functional connector (see GND_HOLES/FIVEV_HOLES),
+    // drawn by render() right after this runs, so drawing plain dots here
+    // first would just be immediately covered up.
     svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y - 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y - 6, stroke: "#d9453c", "stroke-width": 2 }));
     svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y + 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y + 6, stroke: "#3f6fd9", "stroke-width": 2 }));
-    for (let x = BREADBOARD_X + 44; x < BREADBOARD_X + BREADBOARD_W - 20; x += 18) {
-      svgEl.appendChild(svgEl_("circle", { cx: x, cy: y - 6, r: 1.8, fill: "#8f8570" }));
-      svgEl.appendChild(svgEl_("circle", { cx: x, cy: y + 6, r: 1.8, fill: "#8f8570" }));
-    }
     const plusLabel = svgEl_("text", { x: BREADBOARD_X + 10, y: y - 2, fill: "#d9453c", "font-size": 13, "font-weight": "bold" });
     plusLabel.textContent = "+";
     svgEl.appendChild(plusLabel);
@@ -632,8 +634,8 @@ export function createBoard(svgEl) {
     drawDecorativePin(POWER_PIN_X.RESET, BOTTOM_HEADER_Y, "RST");
     drawDecorativePin(POWER_PIN_X["3V3"], BOTTOM_HEADER_Y, "3V3");
     drawDecorativePin(POWER_PIN_X.VIN, BOTTOM_HEADER_Y, "VIN");
-    for (const [id, p] of Object.entries(FIVEV_HOLES)) drawConnector(id, p.x, p.y, p.label || "", "#e8c547");
-    for (const [id, p] of Object.entries(GND_HOLES)) drawConnector(id, p.x, p.y, p.label || "", "#9aa0b4");
+    drawPowerHoles(FIVEV_HOLES, "#e8c547");
+    drawPowerHoles(GND_HOLES, "#9aa0b4");
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, String(pin), "#4fc3f7");
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, `A${pin - 14}`, "#b48ce8"); }
 
@@ -653,8 +655,8 @@ export function createBoard(svgEl) {
     for (const comp of components) drawComponent(comp);
 
     // redraw connectors on top so they stay clickable over wires/components
-    for (const [id, p] of Object.entries(FIVEV_HOLES)) drawConnector(id, p.x, p.y, "", "#e8c547", true);
-    for (const [id, p] of Object.entries(GND_HOLES)) drawConnector(id, p.x, p.y, "", "#9aa0b4", true);
+    drawPowerHoles(FIVEV_HOLES, "#e8c547", true);
+    drawPowerHoles(GND_HOLES, "#9aa0b4", true);
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
     for (const comp of components) {
@@ -666,10 +668,25 @@ export function createBoard(svgEl) {
     }
   }
 
-  function drawConnector(id, x, y, text, color, topLayer, radius) {
+  // GND_HOLES/FIVEV_HOLES mix a couple of "main" connectors (the Arduino's
+  // own pins - spaced far apart, fine at normal size) with dozens of rail
+  // holes (packed every 18px - normal-sized click targets would overlap
+  // their neighbors), so each hole picks its own size instead of one fixed
+  // size for the whole map.
+  function drawPowerHoles(holes, color, topLayer) {
+    for (const [id, p] of Object.entries(holes)) {
+      const isRailHole = id.includes("rail");
+      const r = isRailHole ? 2.4 : 7;
+      const pad = isRailHole ? 3 : 8;
+      drawConnector(id, p.x, p.y, topLayer ? "" : p.label || "", color, topLayer, r, pad);
+    }
+  }
+
+  function drawConnector(id, x, y, text, color, topLayer, radius, hitPad) {
     const r = radius || 7;
+    const pad = hitPad ?? 8; // smaller for densely-packed holes (breadboard rails) so neighboring hit zones don't overlap
     const isPending = pending === id;
-    const hitArea = svgEl_("circle", { cx: x, cy: y, r: r + 8, fill: "transparent", class: "sim-connector-hit" });
+    const hitArea = svgEl_("circle", { cx: x, cy: y, r: r + pad, fill: "transparent", class: "sim-connector-hit" });
     hitArea.addEventListener("click", () => handleConnectorClick(id));
     svgEl.appendChild(hitArea);
     const circle = svgEl_("circle", {
