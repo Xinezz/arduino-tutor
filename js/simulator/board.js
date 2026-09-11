@@ -719,7 +719,36 @@ export function createBoard(svgEl) {
     drawRail(RAIL_BOTTOM_Y);
   }
 
+  // render() rebuilds the ENTIRE board from scratch (every hole, wire, and
+  // component - a couple thousand SVG elements), so calling it directly
+  // from every pinMode()/digitalWrite()/etc. gets very expensive for a
+  // sketch whose loop() has no delay() in it: the interpreter runs up to
+  // TICKS_BEFORE_YIELD statements before ever handing control back to the
+  // browser, so a tight polling loop (e.g. a button->LED check with no
+  // delay()) can call digitalWrite() - and so render() - dozens of times
+  // before the browser gets a single chance to actually paint any of them.
+  // Only the LAST one before that paint is ever seen; the rest is pure
+  // wasted work, and it's exactly what made things "very laggy".
+  //
+  // Collapsing a burst of render() calls into one is done with setTimeout,
+  // not requestAnimationFrame: rAF is tied to the browser's actual paint
+  // cycle, which gets starved (confirmed by measurement - gaps over half a
+  // second between callbacks) once the window isn't the focused one, even
+  // while it's still fully visible. A student very plausibly has another
+  // window focused (reading a hint, switching to their notes) while their
+  // sketch keeps running - the board should keep updating at a steady rate
+  // either way, not silently stall until the tab regains focus.
+  let renderScheduled = false;
   function render() {
+    if (renderScheduled) return;
+    renderScheduled = true;
+    setTimeout(() => {
+      renderScheduled = false;
+      renderNow();
+    }, 16); // ~60fps cap - fast enough to look instant, slow enough to skip wasted rebuilds
+  }
+
+  function renderNow() {
     syncAnalogInputs();
     svgEl.innerHTML = "";
 
