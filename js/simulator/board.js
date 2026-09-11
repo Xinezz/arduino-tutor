@@ -819,8 +819,16 @@ export function createBoard(svgEl) {
     if (drawFn) drawFn(comp);
   }
 
+  // Every component sits on the cream breadboard body, so its label needs to
+  // read against THAT background, not the simulator's dark page chrome - a
+  // light gray-on-cream (the original color here) all but disappears. Dark
+  // navy at a slightly bigger, semi-bold weight is what actually stays
+  // legible at the small sizes labels get drawn at.
   function componentLabel(x, y, text) {
-    const label = svgEl_("text", { x, y, fill: "#9aa0b4", "font-size": 10, "text-anchor": "middle", "font-family": "monospace" });
+    const label = svgEl_("text", {
+      x, y, fill: "#0d2338", "font-size": 11, "font-weight": "600",
+      "text-anchor": "middle", "font-family": "monospace",
+    });
     label.textContent = text;
     return label;
   }
