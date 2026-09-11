@@ -131,6 +131,7 @@ const LED_COLORS = ["#ff5a4e", "#ffe066", "#57d38c", "#4fc3f7", "#ffffff"];
 // component's wiring geometry.
 const LEAD_OFFSETS = {
   led: { "-a": [-14, 38], "-k": [14, 38] },
+  resistor: { "-1": [-14, 36], "-2": [14, 36] },
   button: { "-1": [-14, 28], "-2": [14, 28] },
   rgbled: { "-r": [-24, 38], "-g": [-8, 38], "-b": [8, 38], "-c": [24, 38] },
   buzzer: { "-s": [-10, 42], "-g": [10, 42] },
@@ -347,13 +348,20 @@ export function createBoard(svgEl) {
   // header). A main-grid hole's net is its own 5-hole column, on its own side
   // of the trench - real breadboard behavior, and the whole reason plugging
   // two components into the same column connects them with no jumper wire.
-  // Pins and component leads return null: they have no automatic membership,
-  // only explicit wires connect them to anything.
+  // A resistor's two leads are also their own tiny net: unlike an LED or a
+  // button, a resistor isn't polarized or switched - anything touching one
+  // leg is electrically the same as touching the other (this simulator
+  // doesn't model actual resistance/current limiting, so "passes current
+  // straight through" is the whole of what a resistor needs to do here).
+  // Pins and every other component's leads return null: they have no
+  // automatic membership, only explicit wires connect them to anything.
   function implicitNetKey(id) {
     if (id in GND_HOLES) return "net:gnd";
     if (id in FIVEV_HOLES) return "net:5v";
     const m = id.match(/^grid-c(\d+)-([tb])/);
     if (m) return `net:col-${m[1]}-${m[2]}`;
+    const resistor = components.find((c) => c.kind === "resistor" && id.startsWith(c.id + "-"));
+    if (resistor) return `net:comp-${resistor.id}`;
     return null;
   }
 
@@ -365,6 +373,8 @@ export function createBoard(svgEl) {
       const col = Number(m[1]), half = m[2];
       return [0, 1, 2, 3, 4].map((row) => gridHoleId(col, half, row));
     }
+    const compM = netKey.match(/^net:comp-(.+)$/);
+    if (compM) return leadSuffixes("resistor").map((suffix) => compM[1] + suffix);
     return [];
   }
 
@@ -778,7 +788,7 @@ export function createBoard(svgEl) {
 
   function drawComponent(comp) {
     const drawFn = {
-      led: drawLed, button: drawButton, rgbled: drawRgbLed, buzzer: drawBuzzer,
+      led: drawLed, resistor: drawResistor, button: drawButton, rgbled: drawRgbLed, buzzer: drawBuzzer,
       potentiometer: drawPotentiometer, ldr: drawLdr, tempsensor: drawTempSensor,
       ultrasonic: drawUltrasonic, irsensor: drawIrSensor, servo: drawServo, lcd: drawLcd,
     }[comp.kind];
@@ -835,6 +845,34 @@ export function createBoard(svgEl) {
     drawLeads(g, led);
     g.appendChild(componentLabel(led.x, led.y + 74, pin !== null ? `LED (pin ${pin})` : "LED (unwired)"));
     g.appendChild(removeGlyph(led.x + 24, led.y - 4, () => removeComponent(led.id)));
+    svgEl.appendChild(g);
+  }
+
+  // A resistor doesn't switch or light up - it's just a body sitting between
+  // its two leads - so unlike every other component here it has no "state"
+  // to react to. The color bands (red-red-brown = 220ohm) match the value
+  // the lessons actually recommend, so what's drawn here is the real part
+  // a learner would reach for.
+  function drawResistor(comp) {
+    const g = wireGroup(comp);
+    const bodyW = 30, bodyH = 13;
+    const bodyX = comp.x - bodyW / 2, bodyY = comp.y;
+
+    const body = svgEl_("rect", {
+      x: bodyX, y: bodyY, width: bodyW, height: bodyH, rx: 5,
+      fill: "#d9c398", stroke: "#8a7550", "stroke-width": 1.5,
+    });
+    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    g.appendChild(body);
+    const bandColors = ["#c0392b", "#c0392b", "#6b4a2a"]; // red-red-brown = 220 ohm
+    bandColors.forEach((color, i) => {
+      g.appendChild(svgEl_("rect", {
+        x: bodyX + 6 + i * 7, y: bodyY, width: 3, height: bodyH, fill: color, style: "pointer-events:none",
+      }));
+    });
+    drawLeads(g, comp);
+    g.appendChild(componentLabel(comp.x, comp.y + 50, "Resistor · 220Ω"));
+    g.appendChild(removeGlyph(comp.x + 22, comp.y - 4, () => removeComponent(comp.id)));
     svgEl.appendChild(g);
   }
 
