@@ -749,14 +749,24 @@ export function createBoard(svgEl) {
       svgEl.appendChild(path);
     }
 
-    for (const comp of components) drawComponent(comp);
-
-    // redraw connectors on top so they stay clickable over wires/components
+    // redraw connectors on top so they stay clickable over wires - but
+    // BEFORE components, not after: a component's body sits on a lot of
+    // main-grid holes (the tray overlaps the grid), and if holes were
+    // redrawn after components too, their hit-circles would sit on top of
+    // the component and swallow every click/drag meant for it (exactly
+    // like a real breadboard, where the component itself physically blocks
+    // the holes underneath it once it's plugged in).
     drawPowerHoles(FIVEV_HOLES, "#e8c547", true);
     drawPowerHoles(GND_HOLES, "#9aa0b4", true);
     drawGridHoles(true);
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
+
+    for (const comp of components) drawComponent(comp);
+
+    // ...but a component's OWN leads still need to redraw on top of its own
+    // body (and the holes drawn above), since those are the actual plug
+    // points and must stay clickable no matter what.
     for (const comp of components) {
       for (const suffix of leadSuffixes(comp.kind)) {
         const id = comp.id + suffix;
