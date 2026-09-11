@@ -85,6 +85,34 @@ const FIVEV_HOLES = {
   ...Object.fromEntries(RAIL_HOLE_DX.map((dx, i) => [`5v-railbot-${i}`, { x: BREADBOARD_X + dx, y: RAIL_BOTTOM_Y - 6 }])),
 };
 
+// ---------- the main grid: this is what makes it a REAL breadboard ----------
+// A real breadboard's main area is two separate halves (split by the center
+// trench), each wired internally in short vertical COLUMNS of 5 holes - every
+// hole in a column is the same electrical node, and columns are otherwise
+// completely independent of each other (and of the other half across the
+// trench) unless a wire or a component leg bridges them. That's the entire
+// mechanism that lets you build a circuit without wiring every single
+// connection by hand: plug two legs into the same column, and they're
+// connected - no wire needed between them.
+const GRID_COL_START = BREADBOARD_X + 32;
+const GRID_COL_STEP = 18;
+const GRID_COLS = Math.floor((BREADBOARD_W - 64) / GRID_COL_STEP);
+const GRID_ROW_STEP = 14;
+const GRID_TOP_ROWS_Y = [0, 1, 2, 3, 4].map((row) => RAIL_TOP_Y + 30 + row * GRID_ROW_STEP);
+const GRID_BOTTOM_ROWS_Y = [0, 1, 2, 3, 4].map((row) => RAIL_BOTTOM_Y - 30 - (4 - row) * GRID_ROW_STEP);
+
+function gridHoleId(col, half, row) { return `grid-c${col}-${half}${row}`; }
+function gridColX(col) { return GRID_COL_START + col * GRID_COL_STEP; }
+
+// Every hole in the main grid, keyed by id, the same shape as GND_HOLES/
+// FIVEV_HOLES so it can be drawn with the same helper.
+const GRID_HOLES = {};
+for (let col = 0; col < GRID_COLS; col++) {
+  const x = gridColX(col);
+  GRID_TOP_ROWS_Y.forEach((y, row) => { GRID_HOLES[gridHoleId(col, "t", row)] = { x, y }; });
+  GRID_BOTTOM_ROWS_Y.forEach((y, row) => { GRID_HOLES[gridHoleId(col, "b", row)] = { x, y }; });
+}
+
 const WIRE_PALETTE = [
   { name: "Red (power)", value: "#e2453c" },
   { name: "Black (ground)", value: "#6b7280" },
@@ -305,6 +333,7 @@ export function createBoard(svgEl) {
   function connectorPoint(id) {
     if (id in GND_HOLES) return GND_HOLES[id];
     if (id in FIVEV_HOLES) return FIVEV_HOLES[id];
+    if (id in GRID_HOLES) return GRID_HOLES[id];
     if (id.startsWith("pin-")) return pinPosition(Number(id.slice(4)));
     const comp = components.find((c) => id.startsWith(c.id + "-"));
     if (!comp) return { x: 0, y: 0 };
@@ -313,24 +342,67 @@ export function createBoard(svgEl) {
     return { x: comp.x + dx, y: comp.y + dy };
   }
 
-  function otherEndsOf(connectorId) {
-    return wires
-      .filter((w) => w.from === connectorId || w.to === connectorId)
-      .map((w) => (w.from === connectorId ? w.to : w.from));
+  // A hole's IMPLICIT net - what it's electrically tied to just by existing,
+  // with no wire needed. GND/5V holes are each one big net (the whole rail +
+  // header). A main-grid hole's net is its own 5-hole column, on its own side
+  // of the trench - real breadboard behavior, and the whole reason plugging
+  // two components into the same column connects them with no jumper wire.
+  // Pins and component leads return null: they have no automatic membership,
+  // only explicit wires connect them to anything.
+  function implicitNetKey(id) {
+    if (id in GND_HOLES) return "net:gnd";
+    if (id in FIVEV_HOLES) return "net:5v";
+    const m = id.match(/^grid-c(\d+)-([tb])/);
+    if (m) return `net:col-${m[1]}-${m[2]}`;
+    return null;
+  }
+
+  function implicitGroupMembers(netKey) {
+    if (netKey === "net:gnd") return Object.keys(GND_HOLES);
+    if (netKey === "net:5v") return Object.keys(FIVEV_HOLES);
+    const m = netKey.match(/^net:col-(\d+)-([tb])$/);
+    if (m) {
+      const col = Number(m[1]), half = m[2];
+      return [0, 1, 2, 3, 4].map((row) => gridHoleId(col, half, row));
+    }
+    return [];
+  }
+
+  // Every connector electrically joined to startId - by explicit wires AND
+  // by implicit net membership (same column, same rail) - found the same way
+  // you'd trace a real circuit with a multimeter: keep following connections
+  // until nothing new turns up.
+  function connectedSet(startId) {
+    const visited = new Set();
+    const queue = [startId];
+    while (queue.length) {
+      const id = queue.pop();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      for (const w of wires) {
+        if (w.from === id) queue.push(w.to);
+        else if (w.to === id) queue.push(w.from);
+      }
+      const netKey = implicitNetKey(id);
+      if (netKey) for (const member of implicitGroupMembers(netKey)) queue.push(member);
+    }
+    return visited;
   }
 
   function wiredPinOf(connectorId) {
-    for (const other of otherEndsOf(connectorId)) {
-      if (other.startsWith("pin-")) return Number(other.slice(4));
+    for (const id of connectedSet(connectorId)) {
+      if (id !== connectorId && id.startsWith("pin-")) return Number(id.slice(4));
     }
     return null;
   }
 
   function isWiredToGnd(connectorId) {
-    return otherEndsOf(connectorId).some((id) => id in GND_HOLES);
+    for (const id of connectedSet(connectorId)) if (id in GND_HOLES) return true;
+    return false;
   }
   function isWiredTo5v(connectorId) {
-    return otherEndsOf(connectorId).some((id) => id in FIVEV_HOLES);
+    for (const id of connectedSet(connectorId)) if (id in FIVEV_HOLES) return true;
+    return false;
   }
 
   function ledConnectedPin(led) {
@@ -340,7 +412,9 @@ export function createBoard(svgEl) {
   function isTwoLeadWiredToPin(comp, pin, sigSuffix, gndSuffix) {
     const sigPin = wiredPinOf(comp.id + sigSuffix);
     if (sigPin !== pin) return false;
-    return isWiredToGnd(comp.id + gndSuffix) || isWiredTo5v(comp.id + gndSuffix);
+    const set = connectedSet(comp.id + gndSuffix);
+    for (const id of set) if (id in GND_HOLES || id in FIVEV_HOLES) return true;
+    return false;
   }
 
   function autoColor(fromId, toId) {
@@ -575,18 +649,6 @@ export function createBoard(svgEl) {
     svgEl.appendChild(t);
   }
 
-  // The breadboard: a hole-grid pattern (one SVG <pattern>, not hundreds of
-  // individual circles - cheap to redraw on every render()) plus red/blue
-  // power rails top and bottom, exactly like a real one.
-  function ensureHolePattern() {
-    const defs = svgEl_("defs", {});
-    const pattern = svgEl_("pattern", { id: "bb-holes", width: 16, height: 16, patternUnits: "userSpaceOnUse" });
-    pattern.appendChild(svgEl_("rect", { x: 0, y: 0, width: 16, height: 16, fill: "#e8e0c8" }));
-    pattern.appendChild(svgEl_("circle", { cx: 8, cy: 8, r: 1.7, fill: "#8f8570" }));
-    defs.appendChild(pattern);
-    svgEl.appendChild(defs);
-  }
-
   function drawRail(y) {
     // Note: no decorative hole dots drawn here - every hole position on a
     // rail is now a REAL functional connector (see GND_HOLES/FIVEV_HOLES),
@@ -603,23 +665,23 @@ export function createBoard(svgEl) {
   }
 
   function drawBreadboard() {
-    ensureHolePattern();
     svgEl.appendChild(svgEl_("rect", {
       x: BREADBOARD_X, y: BREADBOARD_Y, width: BREADBOARD_W, height: BREADBOARD_H,
       rx: 6, fill: "#efe7d0", stroke: "#b0a688", "stroke-width": 2,
     }));
 
     drawRail(RAIL_TOP_Y);
-    const gridTop = RAIL_TOP_Y + 24, gridBottom = RAIL_BOTTOM_Y - 24;
-    svgEl.appendChild(svgEl_("rect", {
-      x: BREADBOARD_X + 14, y: gridTop, width: BREADBOARD_W - 28, height: gridBottom - gridTop,
-      fill: "url(#bb-holes)",
-    }));
-    const midY = (gridTop + gridBottom) / 2;
+    // Note: no decorative hole-grid pattern drawn here - every position in
+    // the main grid is now a REAL functional connector (GRID_HOLES), drawn
+    // by render() right after this runs, exactly like the rails above.
+    const midY = (GRID_TOP_ROWS_Y[GRID_TOP_ROWS_Y.length - 1] + GRID_BOTTOM_ROWS_Y[0]) / 2;
     svgEl.appendChild(svgEl_("line", {
       x1: BREADBOARD_X + 14, y1: midY, x2: BREADBOARD_X + BREADBOARD_W - 14, y2: midY,
       stroke: "#cabf9e", "stroke-width": 8,
     }));
+    const trenchLabel = svgEl_("text", { x: BREADBOARD_X + BREADBOARD_W / 2, y: midY + 3, fill: "#9c9074", "font-size": 8, "text-anchor": "middle", "font-family": "monospace" });
+    trenchLabel.textContent = "center trench - each column only connects on ONE side of this line";
+    svgEl.appendChild(trenchLabel);
     drawRail(RAIL_BOTTOM_Y);
   }
 
@@ -636,6 +698,7 @@ export function createBoard(svgEl) {
     drawDecorativePin(POWER_PIN_X.VIN, BOTTOM_HEADER_Y, "VIN");
     drawPowerHoles(FIVEV_HOLES, "#e8c547");
     drawPowerHoles(GND_HOLES, "#9aa0b4");
+    drawGridHoles();
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, String(pin), "#4fc3f7");
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, `A${pin - 14}`, "#b48ce8"); }
 
@@ -657,6 +720,7 @@ export function createBoard(svgEl) {
     // redraw connectors on top so they stay clickable over wires/components
     drawPowerHoles(FIVEV_HOLES, "#e8c547", true);
     drawPowerHoles(GND_HOLES, "#9aa0b4", true);
+    drawGridHoles(true);
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
     for (const comp of components) {
@@ -679,6 +743,16 @@ export function createBoard(svgEl) {
       const r = isRailHole ? 2.4 : 7;
       const pad = isRailHole ? 3 : 8;
       drawConnector(id, p.x, p.y, topLayer ? "" : p.label || "", color, topLayer, r, pad);
+    }
+  }
+
+  // The main grid has no fixed electrical identity (unlike the yellow/gray
+  // power rails) - every hole is just "part of a column", so they all get
+  // one neutral hole color. Sized small like rail holes since columns pack
+  // holes only 18px apart horizontally and 14px apart vertically.
+  function drawGridHoles(topLayer) {
+    for (const [id, p] of Object.entries(GRID_HOLES)) {
+      drawConnector(id, p.x, p.y, "", "#8a8064", topLayer, 2.2, 2.5);
     }
   }
 
