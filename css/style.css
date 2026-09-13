@@ -8,24 +8,45 @@
   --text-dim: #9aa0b4;
   --accent: #4fc3f7;
   --accent-dim: #2b5a70;
+  --accent-glow: rgba(79, 195, 247, 0.45);
   --green: #57d38c;
+  --green-glow: rgba(87, 211, 140, 0.45);
   --yellow: #e8c547;
   --red: #ef6461;
+  --red-glow: rgba(239, 100, 97, 0.5);
   --purple: #b48ce8;
-  --radius: 8px;
+  --radius: 10px;
 }
 
 * { box-sizing: border-box; }
 
+/* A faint circuit-trace tile (thin right-angle wires + via-dots), plus two
+   soft color glows anchored near the top corners - a nod to the subject
+   matter (this is a circuit simulator) instead of a plain flat dark page.
+   Kept very low-opacity so it reads as ambient texture, not decoration you
+   consciously notice or that competes with actual lesson content. */
 body {
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  background: var(--bg);
   color: var(--text);
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 550px at 12% -10%, rgba(79, 195, 247, 0.09), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(87, 211, 140, 0.06), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%234fc3f7' stroke-width='1' opacity='0.05'%3E%3Cpath d='M0 24 H44 V64 H88'/%3E%3Cpath d='M120 96 H88 V64'/%3E%3Ccircle cx='44' cy='64' r='2.5' fill='%234fc3f7'/%3E%3Ccircle cx='88' cy='64' r='2.5' fill='%234fc3f7'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-attachment: fixed;
 }
+
+/* A calmer scrollbar than the browser default, matching the dark theme -
+   applies everywhere scrolling happens (sidebar, lesson content, editor). */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); background-clip: padding-box; }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -35,13 +56,17 @@ body {
   padding: 10px 18px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .topbar-left { display: flex; align-items: center; gap: 10px; }
 
-.brand { font-weight: 600; font-size: 1.1rem; }
-.brand span { color: var(--accent); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.1rem; }
+.brand-icon { color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+.brand span { color: var(--accent); text-shadow: 0 0 14px var(--accent-glow); }
 
 .progress-summary {
   font-size: 0.85rem;
@@ -104,10 +129,19 @@ body {
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: var(--panel);
+  background: linear-gradient(180deg, var(--panel-alt), var(--panel) 220px);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  padding: 10px 0;
+  padding: 0;
+}
+
+/* A thin gradient "trace" along the top, echoing the circuit board this
+   whole app teaches - a small detail rather than a loud banner. */
+.sidebar::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--green), var(--purple));
 }
 
 .sidebar-toggle { display: none; }
@@ -189,23 +223,38 @@ body {
 }
 
 .sidebar-level {
-  padding: 8px 16px 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 4px;
   font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-dim);
   margin-top: 8px;
 }
 
+.sidebar-level::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  flex-shrink: 0;
+}
+
 .lesson-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 0.9rem;
   border-left: 3px solid transparent;
   color: var(--text-dim);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .lesson-link:hover { background: var(--panel-alt); color: var(--text); }
@@ -214,6 +263,7 @@ body {
   border-left-color: var(--accent);
   background: var(--panel-alt);
   color: var(--text);
+  box-shadow: inset 0 0 20px -12px var(--accent-glow);
 }
 
 .lesson-check {
@@ -222,12 +272,23 @@ body {
   border-radius: 50%;
   border: 1.5px solid var(--text-dim);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .lesson-link.done .lesson-check {
   background: var(--green);
   border-color: var(--green);
+  color: #06301b;
+  box-shadow: 0 0 8px var(--green-glow);
 }
+
+.lesson-link.done .lesson-check::after { content: "✓"; }
 
 /* ---------- Main panel ---------- */
 .main-panel {
@@ -424,17 +485,21 @@ body {
 /* ---------- Buttons ---------- */
 .btn {
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   padding: 6px 14px;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { cursor: default; transform: none; opacity: 0.5; }
 
 .btn-secondary { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover { background: var(--border); }
 
 .btn-primary { background: var(--accent); color: #06202b; font-weight: 600; }
-.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary:hover { filter: brightness(1.1); box-shadow: 0 0 14px var(--accent-glow); }
 
 .btn-hint {
   background: transparent;
@@ -443,18 +508,30 @@ body {
 }
 .btn-hint:hover { background: rgba(79, 195, 247, 0.1); }
 
+/* Stop is only ever clickable while a sketch is actively running (it's
+   disabled otherwise) - a soft pulse while enabled reinforces "this is
+   live" for free, straight from the existing disabled attribute with no
+   JS changes needed. */
 .btn-danger {
   background: transparent;
   color: var(--red);
   border: 1px solid var(--red);
 }
+.btn-danger:hover:not(:disabled) { background: rgba(239, 100, 97, 0.12); }
+.btn-danger:not(:disabled) { animation: btn-pulse-red 1.6s ease-in-out infinite; }
 
 .btn-complete {
   background: var(--green);
   color: #06301b;
   font-weight: 600;
+  box-shadow: 0 0 0 rgba(87, 211, 140, 0);
 }
-.btn-complete:hover { filter: brightness(1.1); }
+.btn-complete:hover { filter: brightness(1.1); box-shadow: 0 0 14px var(--green-glow); }
+
+@keyframes btn-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 rgba(239, 100, 97, 0); }
+  50% { box-shadow: 0 0 10px var(--red-glow); }
+}
 
 /* ---------- Challenge section ---------- */
 .challenge-section { margin-top: 28px; }
