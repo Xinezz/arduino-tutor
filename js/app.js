@@ -52,6 +52,8 @@ const consoleEl = document.getElementById("sim-console");
 const wirePaletteEl = document.getElementById("wire-palette");
 const sidebarToggleBtn = document.getElementById("sidebar-toggle");
 const sidebarBackdropEl = document.getElementById("sidebar-backdrop");
+const sidebarCollapseBtn = document.getElementById("sidebar-collapse-btn");
+const layoutEl = document.querySelector(".layout");
 const viewTabsEl = document.getElementById("view-tabs");
 const viewEls = {
   lessons: document.getElementById("view-lessons"),
@@ -74,6 +76,26 @@ sidebarBackdropEl.addEventListener("click", closeSidebarDrawer);
 let progress = loadProgress();
 touchStreak(progress);
 const editor = createEditor(document.getElementById("code-editor"));
+
+// Desktop-only sidebar collapse (separate from the mobile drawer above) -
+// removes the sidebar from the layout entirely so the lesson content, editor,
+// and circuit board can use the freed-up width instead of leaving it blank.
+// Persisted so a collapsed sidebar stays collapsed across page reloads.
+const SIDEBAR_COLLAPSED_KEY = "arduino-tutor-sidebar-collapsed";
+function setSidebarCollapsed(collapsed) {
+  layoutEl.classList.toggle("sidebar-collapsed", collapsed);
+  sidebarCollapseBtn.textContent = collapsed ? "›" : "‹";
+  const label = collapsed ? "Show lesson list" : "Collapse lesson list";
+  sidebarCollapseBtn.title = label;
+  sidebarCollapseBtn.setAttribute("aria-label", label);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  editor.refresh(); // the editor's container width just changed, so CodeMirror needs to re-measure
+}
+sidebarCollapseBtn.addEventListener("click", () => {
+  setSidebarCollapsed(!layoutEl.classList.contains("sidebar-collapsed"));
+});
+setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+
 let activeRun = null;
 let currentView = "lessons";
 let currentProjectId = null;

@@ -113,6 +113,35 @@ body {
 .sidebar-toggle { display: none; }
 .sidebar-backdrop { display: none; }
 
+/* Desktop-only collapse tab, sitting right on the seam between the sidebar
+   and the lesson content - a separate control from .sidebar-toggle above,
+   which only exists for the mobile drawer. Collapsing here just removes the
+   sidebar from the flex row entirely, so .main-panel (flex: 1) naturally
+   expands to fill the space - no separate "collapsed width" rule needed. */
+.sidebar-collapse-btn {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0;
+  }
+  .sidebar-collapse-btn:hover { background: var(--panel-alt); color: var(--text); }
+
+  .layout.sidebar-collapsed .sidebar { display: none; }
+}
+
 /* Below ~768px the two-column layout doesn't fit - the sidebar becomes a
    slide-in drawer instead of a permanent column, opened with a button in
    the top bar. This matters because a student is just as likely to open
@@ -203,7 +232,14 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 24px 32px 60px;
-  max-width: 900px;
+  max-width: 1400px;
+}
+
+/* The lesson prose itself stays at a readable line length even though its
+   container (.main-panel, above) now stretches much wider - only the code
+   editor and circuit board actually benefit from the extra width. */
+.lesson-content {
+  max-width: 760px;
 }
 
 .lesson-content h1 {
