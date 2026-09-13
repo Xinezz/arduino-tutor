@@ -1,5 +1,5 @@
 // Quiz "mini-games" attached to specific lessons, keyed by lesson id - the
-// same pattern data.js uses for challenges. Two types:
+// same pattern data.js uses for challenges. Five types:
 //
 //   "order"   - a Parsons problem: lines of a correct program are shown
 //               scrambled, and the learner drags/reorders them back into a
@@ -9,6 +9,20 @@
 //   "predict" - multiple choice "what does this code do / why is it wrong"
 //               question. Tests reading comprehension of code, which is a
 //               different (and just as important) skill from writing it.
+//
+//   "debug"   - a full listing with one real bug in it; the learner clicks
+//               the buggy line instead of describing what's wrong. Trains
+//               recognizing what specific mistakes actually LOOK like -
+//               needs `lines`, `buggyLineIndex`, `explanation`, `fixedLine`.
+//
+//   "fill"    - a known-correct snippet with one word blanked out, filled
+//               in from a multiple-choice word bank (not free typing - the
+//               point is recognizing the right piece, not typos). Needs
+//               `codeBefore`, `codeAfter`, `choices`, `correctChoice`.
+//
+//   "match"   - click a term on the left, then its meaning on the right;
+//               wrong guesses just flash and reset instead of ending the
+//               attempt. Needs `pairs`: [{ left, right }, ...].
 //
 // Every quiz has a `topic` string - the dashboard uses this to tell the
 // learner which topics they keep getting wrong, not just which lessons
@@ -139,6 +153,98 @@ export const quizzes = {
       "With nothing pulling the pin to a definite voltage when the button is open, the pin is \"floating\" " +
       "and picks up tiny amounts of electrical noise - it can read HIGH or LOW seemingly at random. This is " +
       "exactly why pull-up/pull-down resistors exist.",
+  },
+
+  "l1-15": {
+    id: "quiz-missing-semicolon",
+    type: "debug",
+    topic: "Syntax Errors",
+    title: "Find the Bug",
+    prompt: "This sketch won't compile. Click the line the compiler would actually complain about.",
+    lines: [
+      "int ledPin = 13;",
+      "",
+      "void setup() {",
+      "  pinMode(ledPin, OUTPUT)",
+      "}",
+      "",
+      "void loop() {",
+      "  digitalWrite(ledPin, HIGH);",
+      "  delay(500);",
+      "  digitalWrite(ledPin, LOW);",
+      "  delay(500);",
+      "}",
+    ],
+    buggyLineIndex: 3,
+    explanation:
+      "Every statement needs a semicolon at the end - pinMode(ledPin, OUTPUT) is missing one. Compilers " +
+      "usually report this kind of error on the NEXT line (wherever they finally hit something that doesn't " +
+      "make sense), which is exactly the trap this lesson warns about: the reported line number is a " +
+      "starting point for your search, not necessarily the exact spot.",
+    fixedLine: "  pinMode(ledPin, OUTPUT);",
+  },
+
+  "l2-3": {
+    id: "quiz-fill-digitalwrite",
+    type: "fill",
+    topic: "digitalWrite()",
+    title: "Fill in the Blank",
+    prompt: "Complete the line that turns an LED on pin 9 on.",
+    codeBefore: "pinMode(9, OUTPUT);\n",
+    codeAfter: "(9, HIGH);",
+    choices: ["digitalWrite", "digitalRead", "analogWrite", "pinMode"],
+    correctChoice: "digitalWrite",
+    explanation:
+      "digitalWrite(pin, HIGH/LOW) is the function that actually drives an output pin high or low. " +
+      "digitalRead() only reads inputs, and pinMode() just configures a pin's role - it doesn't set its " +
+      "output level.",
+  },
+
+  "l2-8": {
+    id: "quiz-pullup-inverted",
+    type: "debug",
+    topic: "INPUT_PULLUP Logic",
+    title: "Find the Bug",
+    prompt:
+      "This button+LED code compiles fine, but the LED lights up while the button is NOT pressed, and " +
+      "turns off while it IS pressed - backwards from what was intended. Click the buggy line.",
+    lines: [
+      "int buttonPin = 7;",
+      "int ledPin = 13;",
+      "",
+      "void setup() {",
+      "  pinMode(ledPin, OUTPUT);",
+      "  pinMode(buttonPin, INPUT_PULLUP);",
+      "}",
+      "",
+      "void loop() {",
+      "  if (digitalRead(buttonPin) == HIGH) {",
+      "    digitalWrite(ledPin, HIGH);",
+      "  } else {",
+      "    digitalWrite(ledPin, LOW);",
+      "  }",
+      "}",
+    ],
+    buggyLineIndex: 9,
+    explanation:
+      "INPUT_PULLUP means the pin reads HIGH by default and LOW while the button is actually pressed - the " +
+      "opposite of what most people assume. Checking == HIGH lights the LED exactly when the button ISN'T " +
+      "being touched. Checking == LOW instead would match the pressed state correctly.",
+    fixedLine: "  if (digitalRead(buttonPin) == LOW) {",
+  },
+
+  "l3-1": {
+    id: "quiz-match-analog-digital",
+    type: "match",
+    topic: "Analog vs Digital",
+    title: "Match the Pairs",
+    prompt: "Match each term to what it actually means.",
+    pairs: [
+      { left: "Digital signal", right: "Only two possible states - HIGH or LOW" },
+      { left: "Analog signal", right: "Any value across a continuous range" },
+      { left: "ADC", right: "Converts a continuously-variable voltage into a number" },
+      { left: "Dimmer knob", right: "The lesson's real-world example of an analog signal" },
+    ],
   },
 };
 

@@ -113,7 +113,12 @@ function switchView(viewName) {
   } else if (viewName === "projects") {
     renderProjectsView();
   } else if (viewName === "dashboard") {
-    renderDashboard(dashboardPanelEl, progress);
+    renderDashboard(dashboardPanelEl, progress, {
+      onReviewTopic: (lessonId) => {
+        switchView("lessons");
+        openLesson(lessonId);
+      },
+    });
   }
 }
 

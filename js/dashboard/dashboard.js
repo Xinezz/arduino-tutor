@@ -48,7 +48,17 @@ function el(tag, className, text) {
   return e;
 }
 
-export function renderDashboard(container, progress) {
+// quizzes (imported above) is keyed by lesson id, each value carrying its
+// own quiz id - this just walks it backwards, since all we have on a weak
+// topic is the quiz id progress.js recorded the result under.
+function findLessonIdForQuizId(quizId) {
+  for (const [lessonId, quiz] of Object.entries(quizzes)) {
+    if (quiz.id === quizId) return lessonId;
+  }
+  return null;
+}
+
+export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   container.innerHTML = "";
 
   const header = el("div", "dashboard-header");
@@ -61,7 +71,7 @@ export function renderDashboard(container, progress) {
   const doneLessons = progress.viewedLessons.length;
   const totalChallenges = countChallenges();
   const doneChallenges = progress.completedChallenges.length;
-  const quizEntries = Object.values(progress.quizzes || {});
+  const quizEntries = Object.entries(progress.quizzes || {}).map(([quizId, entry]) => ({ ...entry, quizId }));
   const solvedQuizzes = quizEntries.filter((q) => q.solved).length;
   const totalQuizzes = Object.keys(quizzes).length;
   const projectStagesDone = projects.reduce(
@@ -134,7 +144,22 @@ export function renderDashboard(container, progress) {
     for (const entry of weakTopics) {
       const row = el("div", "weak-topic-row");
       row.appendChild(el("span", null, entry.topic));
-      row.appendChild(el("span", "tag", `${entry.attempts} attempt${entry.attempts === 1 ? "" : "s"}, not yet correct`));
+
+      const right = el("div", "weak-topic-row-right");
+      right.appendChild(el("span", "tag", `${entry.attempts} attempt${entry.attempts === 1 ? "" : "s"}, not yet correct`));
+
+      // Passively listing what you got wrong doesn't help you get it right -
+      // jump straight back to the actual quiz instead of just naming it.
+      const lessonId = findLessonIdForQuizId(entry.quizId);
+      if (lessonId && onReviewTopic) {
+        const reviewBtn = document.createElement("button");
+        reviewBtn.className = "btn btn-hint weak-topic-review-btn";
+        reviewBtn.textContent = "Review →";
+        reviewBtn.addEventListener("click", () => onReviewTopic(lessonId));
+        right.appendChild(reviewBtn);
+      }
+      row.appendChild(right);
+
       list.appendChild(row);
     }
     container.appendChild(list);
