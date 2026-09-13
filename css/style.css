@@ -115,9 +115,10 @@ body {
 
 /* Desktop-only collapse tab, sitting right on the seam between the sidebar
    and the lesson content - a separate control from .sidebar-toggle above,
-   which only exists for the mobile drawer. Collapsing here just removes the
-   sidebar from the flex row entirely, so .main-panel (flex: 1) naturally
-   expands to fill the space - no separate "collapsed width" rule needed. */
+   which only exists for the mobile drawer. Collapsing removes the sidebar
+   from the flex row entirely, and also lifts .main-panel's max-width cap -
+   otherwise the panel would just stop at its own cap instead of actually
+   using the space the sidebar left behind. */
 .sidebar-collapse-btn {
   display: none;
 }
@@ -140,6 +141,7 @@ body {
   .sidebar-collapse-btn:hover { background: var(--panel-alt); color: var(--text); }
 
   .layout.sidebar-collapsed .sidebar { display: none; }
+  .layout.sidebar-collapsed .main-panel { max-width: none; }
 }
 
 /* Below ~768px the two-column layout doesn't fit - the sidebar becomes a
