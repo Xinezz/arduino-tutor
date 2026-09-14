@@ -49,20 +49,25 @@ export function renderQuiz(container, quiz, onResult) {
 // ---------- "order" type: drag scrambled code lines into the right sequence ----------
 
 function renderOrderQuiz(container, quiz, onResult) {
-  let currentOrder = shuffledDistinctFrom(quiz.lines);
+  // Each line gets a stable id, separate from its current position - the
+  // FLIP reorder animation below needs SOME way to recognize "this element
+  // is the same logical line, just moved" across a full re-render, and a
+  // plain array index can't do that (the whole point is that indices change).
+  const items = quiz.lines.map((text, id) => ({ id, text }));
+  let currentOrder = shuffledDistinctFrom(items);
   let hasChecked = false;
   let showedAnswer = false;
   let solutionTyped = false; // so re-renders (checking again, shuffling) after the reveal don't re-type it
 
   function checkOrder() {
-    const isCorrect = currentOrder.every((line, i) => line === quiz.lines[i]);
+    const isCorrect = currentOrder.every((item, i) => item.text === quiz.lines[i]);
     hasChecked = true;
     render();
     onResult(quiz.id, isCorrect, quiz.topic);
   }
 
   function shuffleAgain() {
-    currentOrder = shuffledDistinctFrom(quiz.lines);
+    currentOrder = shuffledDistinctFrom(items);
     hasChecked = false;
     render();
   }
@@ -101,7 +106,47 @@ function renderOrderQuiz(container, quiz, onResult) {
     window.addEventListener("mouseup", onUp);
   }
 
+  // FLIP technique (First, Last, Invert, Play): capture where every line
+  // currently sits on screen BEFORE the DOM is torn down and rebuilt in the
+  // new order, then after rebuilding, jump each one back to its old spot
+  // with a transform and immediately transition that away to zero - so
+  // instead of the whole list just snapping into its new order, lines
+  // visibly slide to where they're going. Matched up by the stable id from
+  // `items` above, since array position is exactly what's changing.
+  function captureRects() {
+    const rects = new Map();
+    container.querySelectorAll(".quiz-line-item").forEach((el) => {
+      rects.set(el.dataset.itemId, el.getBoundingClientRect());
+    });
+    return rects;
+  }
+
+  function playFlip(oldRects) {
+    const els = container.querySelectorAll(".quiz-line-item");
+    const moved = [];
+    els.forEach((el) => {
+      const oldRect = oldRects.get(el.dataset.itemId);
+      if (!oldRect) return; // wasn't on screen before (first render) - nothing to animate from
+      const deltaY = oldRect.top - el.getBoundingClientRect().top;
+      if (Math.abs(deltaY) < 1) return; // didn't actually move
+      el.classList.add("no-transition");
+      el.style.transform = `translateY(${deltaY}px)`;
+      moved.push(el);
+    });
+    if (moved.length === 0) return;
+    // one frame so the browser actually paints the "jumped back" position
+    // above before transitioning away from it - without this the jump and
+    // the settle happen in the same frame and nothing visibly animates.
+    requestAnimationFrame(() => {
+      moved.forEach((el) => {
+        el.classList.remove("no-transition");
+        el.style.transform = "";
+      });
+    });
+  }
+
   function render(draggingIndex) {
+    const oldRects = captureRects();
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card";
@@ -109,11 +154,12 @@ function renderOrderQuiz(container, quiz, onResult) {
 
     const list = document.createElement("ul");
     list.className = "quiz-order-list";
-    currentOrder.forEach((line, i) => {
+    currentOrder.forEach((item, i) => {
       const li = document.createElement("li");
       li.className = "quiz-line-item";
+      li.dataset.itemId = item.id;
       if (i === draggingIndex) li.classList.add("dragging");
-      if (hasChecked) li.classList.add(line === quiz.lines[i] ? "correct" : "incorrect");
+      if (hasChecked) li.classList.add(item.text === quiz.lines[i] ? "correct" : "incorrect");
 
       const handle = document.createElement("span");
       handle.className = "quiz-drag-handle";
@@ -124,7 +170,7 @@ function renderOrderQuiz(container, quiz, onResult) {
 
       const text = document.createElement("span");
       text.className = "quiz-line-text";
-      text.textContent = line;
+      text.textContent = item.text;
       li.appendChild(text);
 
       const moveBtns = document.createElement("div");
@@ -170,7 +216,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     card.appendChild(controls);
 
     if (hasChecked) {
-      const allCorrect = currentOrder.every((line, i) => line === quiz.lines[i]);
+      const allCorrect = currentOrder.every((item, i) => item.text === quiz.lines[i]);
       const result = document.createElement("div");
       result.className = "quiz-result " + (allCorrect ? "success" : "failure");
       result.textContent = allCorrect
@@ -192,6 +238,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     }
 
     container.appendChild(card);
+    playFlip(oldRects);
   }
 
   render();

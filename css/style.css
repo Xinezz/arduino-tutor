@@ -717,9 +717,28 @@ body {
   font-size: 0.85rem;
   white-space: pre;
   user-select: none;
+  /* transform here is what makes the FLIP reorder animation in quiz.js
+     actually animate - it sets a translateY then clears it, relying on
+     THIS transition to turn that into a visible slide. border-color/
+     background/box-shadow/opacity are for the drag and correct/incorrect
+     states below, so all of it eases smoothly instead of snapping. */
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease,
+    opacity 0.2s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* Applied for exactly one frame during the FLIP "invert" step, so the jump
+   back to a line's old position doesn't itself animate - only the release
+   back to transform: none (the "play" step) should be visible. */
+.quiz-line-item.no-transition { transition: none; }
 
-.quiz-line-item.dragging { opacity: 0.4; border-color: var(--accent); }
+.quiz-line-item.dragging {
+  opacity: 0.7;
+  border-color: var(--accent);
+  background: #10131b;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-dim);
+  position: relative;
+  z-index: 2;
+}
+.quiz-line-item.dragging .quiz-drag-handle { color: var(--accent); }
 .quiz-line-item.correct { border-color: var(--green); background: rgba(87, 211, 140, 0.08); }
 .quiz-line-item.incorrect { border-color: var(--red); background: rgba(239, 100, 97, 0.08); }
 
@@ -729,6 +748,7 @@ body {
   font-size: 1rem;
   flex-shrink: 0;
   touch-action: none;
+  transition: color 0.15s ease;
 }
 .quiz-drag-handle:active { cursor: grabbing; }
 
@@ -746,8 +766,10 @@ body {
   line-height: 1;
   cursor: pointer;
   padding: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
-.quiz-move-btn:hover { color: var(--text); }
+.quiz-move-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent-dim); }
+.quiz-move-btn:active:not(:disabled) { transform: scale(0.85); }
 .quiz-move-btn:disabled { opacity: 0.3; cursor: default; }
 
 .quiz-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
