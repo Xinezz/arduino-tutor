@@ -4,6 +4,7 @@
 // completely different visual style without touching a single lesson's content.
 
 import { lessons } from "./data.js";
+import { typewriterText } from "../utils/typewriter.js";
 
 const LEVEL_NAMES = {
   1: "Level 1 · Arduino Basics",
@@ -57,7 +58,7 @@ function renderBlock(block) {
 
   if (block.type === "code") {
     el.className = "code-block";
-    el.textContent = block.text;
+    typewriterText(el, block.text);
   } else if (block.type === "note") {
     el.className = "note-box";
     el.textContent = block.text;

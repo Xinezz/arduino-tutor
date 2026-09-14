@@ -6,6 +6,7 @@
 
 import { projects } from "./data.js";
 import { getProjectProgress } from "../progress/progress.js";
+import { typewriterText } from "../utils/typewriter.js";
 
 export function renderProjectList(container, progress, { onSelectProject }) {
   container.innerHTML = "";
@@ -165,7 +166,7 @@ function renderStageCard(project, stage, isDone, onStageComplete) {
     box.className = "solution-box";
     const codeEl = document.createElement("pre");
     codeEl.className = "code-block";
-    codeEl.textContent = stage.exampleCode;
+    typewriterText(codeEl, stage.exampleCode);
     box.appendChild(codeEl);
     revealArea.appendChild(box);
     exampleBtn.disabled = true;

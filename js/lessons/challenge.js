@@ -4,6 +4,8 @@
 // one at a time (you can't skip straight to hint 3 without seeing 1 and 2 first) -
 // the point is to make you think before you see the answer.
 
+import { typewriterText } from "../utils/typewriter.js";
+
 const DIFFICULTY_LABELS = {
   easy: { text: "🟢 Easy", cls: "difficulty-easy" },
   medium: { text: "🟡 Medium", cls: "difficulty-medium" },
@@ -92,7 +94,7 @@ export function renderChallenge(container, challenge, onComplete) {
 
     const codeEl = document.createElement("pre");
     codeEl.className = "code-block";
-    codeEl.textContent = challenge.solution;
+    typewriterText(codeEl, challenge.solution);
     box.appendChild(codeEl);
 
     const explainHeading = document.createElement("strong");

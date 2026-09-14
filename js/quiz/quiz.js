@@ -2,6 +2,8 @@
 // onResult(quizId, success, topic) is called once per attempt so app.js can
 // record it in progress (for the dashboard's weak-topics list).
 
+import { typewriterText } from "../utils/typewriter.js";
+
 function shuffledDistinctFrom(original) {
   const arr = [...original];
   // Fisher-Yates shuffle - the standard unbiased way to shuffle an array.
@@ -50,6 +52,7 @@ function renderOrderQuiz(container, quiz, onResult) {
   let currentOrder = shuffledDistinctFrom(quiz.lines);
   let hasChecked = false;
   let showedAnswer = false;
+  let solutionTyped = false; // so re-renders (checking again, shuffling) after the reveal don't re-type it
 
   function checkOrder() {
     const isCorrect = currentOrder.every((line, i) => line === quiz.lines[i]);
@@ -181,7 +184,9 @@ function renderOrderQuiz(container, quiz, onResult) {
       box.className = "solution-box";
       const codeEl = document.createElement("pre");
       codeEl.className = "code-block";
-      codeEl.textContent = quiz.lines.join("\n");
+      const solutionText = quiz.lines.join("\n");
+      if (solutionTyped) codeEl.textContent = solutionText;
+      else { typewriterText(codeEl, solutionText); solutionTyped = true; }
       box.appendChild(codeEl);
       card.appendChild(box);
     }
@@ -197,6 +202,7 @@ function renderOrderQuiz(container, quiz, onResult) {
 function renderPredictQuiz(container, quiz, onResult) {
   let answered = false;
   let selectedIndex = null;
+  let codeTyped = false; // so re-rendering after an answer doesn't re-type code that hasn't changed
 
   function selectOption(index) {
     if (answered) return;
@@ -215,7 +221,8 @@ function renderPredictQuiz(container, quiz, onResult) {
 
     const codeBlock = document.createElement("pre");
     codeBlock.className = "code-block";
-    codeBlock.textContent = quiz.code;
+    if (codeTyped) codeBlock.textContent = quiz.code;
+    else { typewriterText(codeBlock, quiz.code); codeTyped = true; }
     card.appendChild(codeBlock);
 
     const optionsWrap = document.createElement("div");
@@ -312,7 +319,7 @@ function renderDebugQuiz(container, quiz, onResult) {
       label.textContent = "Fixed line";
       const codeEl = document.createElement("pre");
       codeEl.className = "code-block";
-      codeEl.textContent = quiz.fixedLine;
+      typewriterText(codeEl, quiz.fixedLine);
       box.appendChild(label);
       box.appendChild(codeEl);
       card.appendChild(box);
