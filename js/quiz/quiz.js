@@ -101,6 +101,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     function onUp() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      render(); // no draggingIndex now - clears the "dragging" look and lets FLIP settle everything into its final spot
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -146,7 +147,19 @@ function renderOrderQuiz(container, quiz, onResult) {
   }
 
   function render(draggingIndex) {
-    const oldRects = captureRects();
+    // While a drag is actively in progress, onMove can call this on every
+    // single row crossing - many times a second during a fast drag. FLIP's
+    // own bookkeeping (two full getBoundingClientRect sweeps over every
+    // item, per call) is exactly the kind of per-frame cost that's fine
+    // once but adds up badly at that frequency, and it isn't needed here
+    // anyway: the item under the cursor already tracks the mouse, and the
+    // OTHER items snapping instantly out of its way during a fast drag
+    // reads as perfectly normal (that's how this looks in most drag-to-
+    // reorder UIs). The animation is worth its cost for the lower-frequency
+    // moments - Shuffle, the ▲▼ buttons, and the final settle on mouseup
+    // (below) - just not on every intermediate frame of the drag itself.
+    const isDragging = draggingIndex !== undefined;
+    const oldRects = isDragging ? null : captureRects();
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card";
@@ -238,7 +251,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     }
 
     container.appendChild(card);
-    playFlip(oldRects);
+    if (!isDragging) playFlip(oldRects);
   }
 
   render();
