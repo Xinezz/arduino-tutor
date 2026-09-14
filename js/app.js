@@ -62,6 +62,18 @@ const viewEls = {
 };
 const projectsPanelEl = document.getElementById("projects-panel");
 const dashboardPanelEl = document.getElementById("dashboard-panel");
+const mainPanelEl = document.querySelector(".main-panel");
+
+// A CSS animation only plays when an element first matches its selector -
+// since lessonContentEl/viewEls are long-lived nodes we just refill with new
+// children, adding the class back a second time would normally do nothing.
+// Removing it, forcing a reflow, then re-adding it makes the browser treat
+// it as a fresh trigger each time.
+function replayFadeIn(el) {
+  el.classList.remove("fade-in-content");
+  void el.offsetWidth;
+  el.classList.add("fade-in-content");
+}
 
 function closeSidebarDrawer() {
   sidebarEl.classList.remove("open");
@@ -120,6 +132,7 @@ function switchView(viewName) {
       },
     });
   }
+  replayFadeIn(viewEls[viewName]);
 }
 
 viewTabsEl.querySelectorAll(".view-tab").forEach((btn) => {
@@ -143,6 +156,7 @@ function renderProjectsView() {
       onSelectProject: (id) => { currentProjectId = id; renderProjectsView(); },
     });
   }
+  replayFadeIn(projectsPanelEl);
 }
 
 // The circuit board is built separately from the lesson viewer below, and
@@ -331,6 +345,7 @@ function openLesson(lessonId) {
   statusTextEl.textContent = `Viewing: ${lesson.title}`;
   window.scrollTo({ top: 0 });
   lessonContentEl.scrollIntoView({ block: "start" });
+  replayFadeIn(mainPanelEl);
 }
 
 resetCodeBtn.addEventListener("click", () => {

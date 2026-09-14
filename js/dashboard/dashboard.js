@@ -81,11 +81,11 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   const projectStagesTotal = projects.reduce((sum, p) => sum + p.stages.length, 0);
 
   const statGrid = el("div", "stat-grid");
-  statGrid.appendChild(statTile(`${doneLessons} / ${totalLessons}`, "Lessons Complete"));
-  statGrid.appendChild(statTile(`${doneChallenges} / ${totalChallenges}`, "Challenges Solved"));
-  statGrid.appendChild(statTile(`${solvedQuizzes} / ${totalQuizzes}`, "Quizzes Solved"));
-  statGrid.appendChild(statTile(`${projectStagesDone} / ${projectStagesTotal}`, "Project Stages Built"));
-  statGrid.appendChild(statTile(`${progress.streak || 0} 🔥`, "Day Streak"));
+  statGrid.appendChild(statTile(doneLessons, ` / ${totalLessons}`, "Lessons Complete"));
+  statGrid.appendChild(statTile(doneChallenges, ` / ${totalChallenges}`, "Challenges Solved"));
+  statGrid.appendChild(statTile(solvedQuizzes, ` / ${totalQuizzes}`, "Quizzes Solved"));
+  statGrid.appendChild(statTile(projectStagesDone, ` / ${projectStagesTotal}`, "Project Stages Built"));
+  statGrid.appendChild(statTile(progress.streak || 0, " 🔥", "Day Streak"));
   container.appendChild(statGrid);
 
   // ---- rank ladder ----
@@ -166,9 +166,38 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   }
 }
 
-function statTile(value, label) {
+function statTile(toValue, suffix, label) {
   const tile = el("div", "stat-tile");
-  tile.appendChild(el("div", "stat-tile-value", value));
+  const valueEl = el("div", "stat-tile-value", "0" + suffix);
+  tile.appendChild(valueEl);
   tile.appendChild(el("div", "stat-tile-label", label));
+  animateCount(valueEl, toValue, suffix);
   return tile;
+}
+
+// Counts up from 0 instead of just appearing - a small thing, but it's the
+// difference between a dashboard that feels alive and one that's just text.
+// Skipped for anyone who's told their OS they get motion-sick from this
+// kind of thing (prefers-reduced-motion) - they see the final value immediately.
+//
+// Deliberately setTimeout and not requestAnimationFrame: rAF only fires
+// tied to an actual paint, which browsers are free to throttle heavily (or
+// stop firing almost entirely) the moment a tab isn't the focused one - a
+// dashboard opened in a background tab would otherwise just sit stuck on
+// "0" forever instead of counting up once you switch to it.
+function animateCount(el, toValue, suffix) {
+  if (toValue <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.textContent = toValue + suffix;
+    return;
+  }
+  const duration = 700;
+  const frameMs = 16;
+  const start = Date.now();
+  function tick() {
+    const t = Math.min((Date.now() - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic - fast start, gentle landing
+    el.textContent = Math.round(eased * toValue) + suffix;
+    if (t < 1) setTimeout(tick, frameMs);
+  }
+  tick();
 }
