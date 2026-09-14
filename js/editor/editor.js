@@ -19,6 +19,16 @@ export function createEditor(textareaEl) {
 
   cm.setValue(DEFAULT_TEMPLATE);
 
+  // CodeMirror measures character widths (to know where the cursor and each
+  // character go) as soon as it's created - but the custom web font almost
+  // always finishes downloading AFTER that first measurement, not before.
+  // The text re-renders in the new font once it arrives, but CodeMirror
+  // doesn't know to re-measure on its own, so the cursor keeps landing at
+  // the OLD (fallback-font) character positions - visibly "off" from the
+  // text itself. document.fonts.ready resolves once every requested font
+  // has actually loaded, which is exactly when a refresh needs to happen.
+  document.fonts.ready.then(() => cm.refresh());
+
   return {
     getValue: () => cm.getValue(),
     setValue: (text) => cm.setValue(text),

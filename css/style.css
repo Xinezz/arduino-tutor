@@ -454,14 +454,13 @@ body {
   height: 220px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-family: var(--font-terminal);
+  font-size: 1.25rem;
+  line-height: 1.35;
 }
 /* A glowing cursor while actually typing - real "insert mode" terminal
-   feel, without touching the font (this is code you're writing and
-   debugging, not a display, so it stays clear and readable throughout).
-   The dracula theme's own .cm-s-dracula.CodeMirror rule sets `border:
-   none` at higher specificity (two classes vs one) than a plain
+   feel. The dracula theme's own .cm-s-dracula.CodeMirror rule sets
+   `border: none` at higher specificity (two classes vs one) than a plain
    .CodeMirror-focused selector, which silently ate a wrapper-level focus
    glow attempted here earlier - the cursor itself has no such conflict. */
 .CodeMirror-cursor { box-shadow: 0 0 6px var(--accent-glow); }
