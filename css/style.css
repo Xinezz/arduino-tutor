@@ -160,6 +160,111 @@ body {
   font-size: 0.95rem;
 }
 
+/* ---------- Main menu ----------
+   This is a TEMPLATE - deliberately plain/functional rather than
+   decorative, since the visual design for this screen is being done
+   separately and will replace most of this. Keep it easy to re-skin: no
+   layout logic buried in these rules that a redesign would have to fight. */
+/* :not([hidden]) rather than a bare #app-shell selector - an ID selector
+   would outrank the browser's default [hidden]{display:none} rule (higher
+   specificity wins regardless of which one actually matches the element's
+   current state), which would keep this flex row showing right through the
+   hidden attribute app.js sets before the menu hands off. */
+#app-shell:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* lets .main-panel's own overflow-y:auto still work correctly inside a flex column */
+}
+
+/* Same reasoning as #app-shell above: :not([hidden]) so this rule's own
+   display:flex can never outrank the [hidden] attribute app.js sets on this
+   element once the menu hands off. */
+#menu-screen:not([hidden]) {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.menu-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 26px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.menu-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.menu-brand svg { filter: drop-shadow(0 0 4px var(--accent-glow)); flex-shrink: 0; }
+.menu-brand b { font-weight: 700; }
+
+.menu-tagline {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+
+.menu-mentor { text-align: left; margin-bottom: 20px; }
+
+.menu-summary {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+}
+
+.menu-input-label {
+  display: block;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.menu-name-input {
+  width: 100%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
+.menu-name-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+.menu-primary-btn { width: 100%; font-size: 0.95rem; padding: 10px; }
+
+.menu-switch-link {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-top: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.menu-switch-link:hover { color: var(--text); }
+
 /* ---------- Top bar ---------- */
 .topbar {
   display: flex;

@@ -9,6 +9,7 @@ import {
   saveProgress,
   markLessonViewed,
   toggleLessonFlag,
+  setPlayerName,
   markChallengeCompleted,
   recordQuizResult,
   markProjectStageDone,
@@ -35,10 +36,13 @@ import { findProject } from "./projects/data.js";
 import { renderProjectList, renderProjectDetail } from "./projects/projects.js";
 import { renderDashboard } from "./dashboard/dashboard.js";
 import { renderMentorBox, getLessonIntroLine, getLessonCompleteLine, getChallengeCompleteLine, getLevelUpLine } from "./npc/mentor.js";
+import { renderMenuScreen } from "./menu/menu.js";
 import { createEditor } from "./editor/editor.js";
 import { createBoard } from "./simulator/board.js";
 import { startProgram } from "./simulator/interpreter.js";
 
+const menuScreenEl = document.getElementById("menu-screen");
+const appShellEl = document.getElementById("app-shell");
 const sidebarEl = document.getElementById("sidebar");
 const mentorBoxEl = document.getElementById("mentor-box");
 const lessonContentEl = document.getElementById("lesson-content");
@@ -476,10 +480,27 @@ resetCodeBtn.addEventListener("click", () => {
   statusTextEl.textContent = "Editor reset to template.";
 });
 
-// initial boot
-renderSidebar(sidebarEl, progress, openLesson);
-updateProgressSummary();
-updateCreditsDisplay();
-updateLevelDisplay();
-openLesson(progress.lastLessonId || getFirstLessonId());
-editor.refresh();
+// The actual app only boots once the main menu hands off, via onStart below -
+// everything above this (editor, board, wire palette) is safe to create
+// while #app-shell is still hidden, but rendering the lesson itself waits
+// until there's somewhere visible to put it.
+function startApp() {
+  renderSidebar(sidebarEl, progress, openLesson);
+  updateProgressSummary();
+  updateCreditsDisplay();
+  updateLevelDisplay();
+  openLesson(progress.lastLessonId || getFirstLessonId());
+  editor.refresh(); // was created/sized while hidden behind the menu, needs a re-measure now that it's visible
+}
+
+// initial boot: show the main menu first. name is a freshly-typed string
+// from the first-time form, or null when a returning learner just clicked
+// Continue (nothing new to save in that case).
+renderMenuScreen(menuScreenEl, progress, {
+  onStart: (name) => {
+    if (name) progress = setPlayerName(progress, name);
+    menuScreenEl.hidden = true;
+    appShellEl.hidden = false;
+    startApp();
+  },
+});

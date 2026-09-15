@@ -43,6 +43,7 @@ function defaultProgress() {
     xp: 0,
     milestonesAwarded: [],   // levels (from LEVEL_MILESTONES) whose bonus has already been paid out
     flaggedLessons: [],      // lesson ids the learner marked "I struggled with this" - a personal bookmark, not an achievement
+    playerName: null,        // set on the main menu - null means "never signed in," not just "empty string"
   };
 }
 
@@ -116,6 +117,16 @@ export function saveProgress(progress) {
 // must never become literally unreachable just because of a low balance.
 export function spendCredits(progress, amount) {
   progress.credits -= amount;
+  saveProgress(progress);
+  return progress;
+}
+
+// Set from the main menu. There's no real authentication behind this - it's
+// a local-only nickname (this whole app has no backend/server, see the
+// header comment), used purely to personalize greetings. Trimmed so a
+// name typed with trailing spaces doesn't render oddly in "Welcome back, X".
+export function setPlayerName(progress, name) {
+  progress.playerName = name.trim();
   saveProgress(progress);
   return progress;
 }

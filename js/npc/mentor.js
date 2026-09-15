@@ -62,6 +62,20 @@ export function getDashboardGreeting(progress) {
   return pick(GENERAL_GREETING_LINES);
 }
 
+const MENU_RETURNING_LINES = [
+  (name) => `Welcome back, ${name}. Bench is right where you left it.`,
+  (name) => `Good to see you again, ${name}.`,
+  (name) => `${name}! Right on time. Let's pick up where we left off.`,
+];
+
+// Reuses FIRST_VISIT_LINE for a brand-new name (same "day one" moment the
+// Dashboard would otherwise show first) - name is null until setPlayerName
+// has been called at least once.
+export function getMenuGreeting(name) {
+  if (!name) return FIRST_VISIT_LINE;
+  return pick(MENU_RETURNING_LINES)(name);
+}
+
 // Only levels that actually have content get a curated pool - a level
 // without one just falls back to a plain, always-correct templated line
 // below rather than an empty/wrong dialogue box.
