@@ -8,6 +8,7 @@ import {
   loadProgress,
   saveProgress,
   markLessonViewed,
+  toggleLessonFlag,
   markChallengeCompleted,
   recordQuizResult,
   markProjectStageDone,
@@ -344,7 +345,8 @@ function openLesson(lessonId) {
   saveProgress(progress);
 
   const isCompleted = progress.viewedLessons.includes(lessonId);
-  renderLesson(lessonContentEl, lesson, isCompleted);
+  const isFlagged = progress.flaggedLessons.includes(lessonId);
+  renderLesson(lessonContentEl, lesson, isCompleted, isFlagged);
   renderMentorBox(mentorBoxEl, { text: getLessonIntroLine(lesson), tag: "Quest Briefing" });
   setActiveSidebarLink(sidebarEl, lessonId);
   closeSidebarDrawer(); // on mobile, picking a lesson should close the slide-in drawer
@@ -440,6 +442,22 @@ function openLesson(lessonId) {
         ? { text: getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus), tag: "Level Up!" }
         : { text: getLessonCompleteLine(), tag: "Nice work" });
     }
+  });
+  // A lighter-weight update than the complete button above: flagging is
+  // purely cosmetic bookkeeping, not a state change that affects credits,
+  // XP, or the rest of the lesson - so this updates the button and sidebar
+  // directly instead of re-running openLesson(), which would also restart
+  // the fade-in, retype Sam's line, and reset scroll position for no reason.
+  lessonContentEl.querySelector('[data-action="toggle-flag"]')?.addEventListener("click", (e) => {
+    const nowFlagged = !progress.flaggedLessons.includes(lessonId);
+    progress = toggleLessonFlag(progress, lessonId);
+    e.currentTarget.classList.toggle("flagged", nowFlagged);
+    e.currentTarget.textContent = nowFlagged ? "🚩 Flagged" : "🏳️ Flag for Review";
+    renderSidebar(sidebarEl, progress, openLesson); // updates the flag icon in the Quest Log
+    setActiveSidebarLink(sidebarEl, lessonId); // renderSidebar rebuilds the list, so the active highlight needs reapplying
+    statusTextEl.textContent = nowFlagged
+      ? `"${lesson.title}" flagged for review - you'll see it in the sidebar and on your Dashboard.`
+      : `"${lesson.title}" unflagged.`;
   });
 
   statusTextEl.textContent = `Viewing: ${lesson.title}`;

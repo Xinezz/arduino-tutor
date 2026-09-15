@@ -158,6 +158,42 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
     container.appendChild(note);
   }
 
+  // ---- flagged lessons ----
+  // Reuses the exact weak-topic-list markup/classes below - both sections
+  // are the same shape ("a list of things to jump back into"), just sourced
+  // from a different signal (a manual flag vs. an unsolved quiz).
+  container.appendChild(el("div", "dashboard-section-title", "Flagged for Review"));
+  const flaggedLessons = (progress.flaggedLessons || [])
+    .map((id) => lessons.find((l) => l.id === id))
+    .filter(Boolean);
+  if (flaggedLessons.length === 0) {
+    container.appendChild(el(
+      "div",
+      "dashboard-empty",
+      'Nothing flagged yet - use "Flag for Review" on any lesson page to bookmark it here.'
+    ));
+  } else {
+    const flagList = el("div", "weak-topic-list");
+    for (const lesson of flaggedLessons) {
+      const row = el("div", "weak-topic-row");
+      row.appendChild(el("span", null, lesson.title));
+
+      const right = el("div", "weak-topic-row-right");
+      right.appendChild(el("span", "tag", `Level ${lesson.level}`));
+
+      if (onReviewTopic) {
+        const reviewBtn = document.createElement("button");
+        reviewBtn.className = "btn btn-hint weak-topic-review-btn";
+        reviewBtn.textContent = "Review →";
+        reviewBtn.addEventListener("click", () => onReviewTopic(lesson.id));
+        right.appendChild(reviewBtn);
+      }
+      row.appendChild(right);
+      flagList.appendChild(row);
+    }
+    container.appendChild(flagList);
+  }
+
   // ---- weak topics ----
   container.appendChild(el("div", "dashboard-section-title", "Topics to Review"));
   const weakTopics = quizEntries.filter((q) => !q.solved);

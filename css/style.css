@@ -487,13 +487,44 @@ body {
   margin-bottom: 4px;
 }
 
+.lesson-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 .lesson-eyebrow {
   color: var(--accent);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 6px;
 }
+
+/* A quick, reversible "I struggled here" bookmark - see toggleLessonFlag in
+   progress.js. Unlike the primary lesson buttons this is deliberately
+   understated (a plain outline, not a filled .btn) since it's a personal
+   note-to-self, not a call to action. */
+.flag-btn {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.flag-btn:hover { color: var(--text); border-color: var(--accent-dim); }
+.flag-btn.flagged {
+  color: var(--yellow);
+  background: rgba(232, 197, 71, 0.1);
+  border-color: rgba(232, 197, 71, 0.35);
+}
+
+.lesson-flag-icon { margin-left: auto; flex-shrink: 0; }
 
 .lesson-content p {
   line-height: 1.6;

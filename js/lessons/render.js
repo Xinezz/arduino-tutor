@@ -43,6 +43,19 @@ export function renderSidebar(container, progress, onSelect) {
 
     link.appendChild(check);
     link.appendChild(label);
+
+    // A flagged lesson (see the "Flag for Review" button on the lesson page
+    // itself) gets a small marker here too, so scanning the Quest Log is
+    // enough to remember where you got stuck - you don't have to click back
+    // into every lesson to check.
+    if (progress.flaggedLessons?.includes(lesson.id)) {
+      const flagIcon = document.createElement("span");
+      flagIcon.className = "lesson-flag-icon";
+      flagIcon.textContent = "🚩";
+      flagIcon.title = "Flagged for review";
+      link.appendChild(flagIcon);
+    }
+
     link.addEventListener("click", () => onSelect(lesson.id));
     link.dataset.lessonId = lesson.id;
 
@@ -77,13 +90,28 @@ export function findLesson(lessonId) {
   return lessons.find((l) => l.id === lessonId);
 }
 
-export function renderLesson(container, lesson, isCompleted) {
+export function renderLesson(container, lesson, isCompleted, isFlagged) {
   container.innerHTML = "";
+
+  const topRow = document.createElement("div");
+  topRow.className = "lesson-top-row";
 
   const eyebrow = document.createElement("div");
   eyebrow.className = "lesson-eyebrow";
   eyebrow.textContent = `Level ${lesson.level}`;
-  container.appendChild(eyebrow);
+  topRow.appendChild(eyebrow);
+
+  // A quick way to bookmark "I struggled here" the moment it happens, rather
+  // than at the end of the lesson - it's a toggle (unlike "Mark as Done"),
+  // since the whole point is clearing it again once you've gone back and it
+  // actually clicked.
+  const flagBtn = document.createElement("button");
+  flagBtn.dataset.action = "toggle-flag";
+  flagBtn.className = "flag-btn" + (isFlagged ? " flagged" : "");
+  flagBtn.textContent = isFlagged ? "🚩 Flagged" : "🏳️ Flag for Review";
+  topRow.appendChild(flagBtn);
+
+  container.appendChild(topRow);
 
   const heading = document.createElement("h1");
   heading.textContent = lesson.title;

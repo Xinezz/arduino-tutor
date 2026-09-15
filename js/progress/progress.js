@@ -42,6 +42,7 @@ function defaultProgress() {
     credits: STARTING_CREDITS,
     xp: 0,
     milestonesAwarded: [],   // levels (from LEVEL_MILESTONES) whose bonus has already been paid out
+    flaggedLessons: [],      // lesson ids the learner marked "I struggled with this" - a personal bookmark, not an achievement
   };
 }
 
@@ -129,6 +130,18 @@ export function markLessonViewed(progress, lessonId) {
     applyXp(progress, CREDIT_REWARDS.lesson);
   }
   progress.lastLessonId = lessonId;
+  saveProgress(progress);
+  return progress;
+}
+
+// A real toggle, unlike everything else in this file - flagging is a
+// personal "remind me" bookmark, not a recorded achievement, so unlike
+// completing a lesson there's no reason it shouldn't be reversible once
+// you've gone back and it's finally clicked.
+export function toggleLessonFlag(progress, lessonId) {
+  const index = progress.flaggedLessons.indexOf(lessonId);
+  if (index === -1) progress.flaggedLessons.push(lessonId);
+  else progress.flaggedLessons.splice(index, 1);
   saveProgress(progress);
   return progress;
 }
