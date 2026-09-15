@@ -31,11 +31,13 @@ import { renderQuiz } from "./quiz/quiz.js";
 import { findProject } from "./projects/data.js";
 import { renderProjectList, renderProjectDetail } from "./projects/projects.js";
 import { renderDashboard } from "./dashboard/dashboard.js";
+import { renderMentorBox, getLessonIntroLine, getLessonCompleteLine, getChallengeCompleteLine } from "./npc/mentor.js";
 import { createEditor } from "./editor/editor.js";
 import { createBoard } from "./simulator/board.js";
 import { startProgram } from "./simulator/interpreter.js";
 
 const sidebarEl = document.getElementById("sidebar");
+const mentorBoxEl = document.getElementById("mentor-box");
 const lessonContentEl = document.getElementById("lesson-content");
 const editorSectionEl = document.querySelector(".editor-section");
 const simulatorSectionEl = document.querySelector(".simulator-section");
@@ -310,6 +312,7 @@ function openLesson(lessonId) {
 
   const isCompleted = progress.viewedLessons.includes(lessonId);
   renderLesson(lessonContentEl, lesson, isCompleted);
+  renderMentorBox(mentorBoxEl, { text: getLessonIntroLine(lesson), tag: "Quest Briefing" });
   setActiveSidebarLink(sidebarEl, lessonId);
   closeSidebarDrawer(); // on mobile, picking a lesson should close the slide-in drawer
 
@@ -318,6 +321,7 @@ function openLesson(lessonId) {
     onComplete: (challengeId) => {
       progress = markChallengeCompleted(progress, challengeId);
       updateCreditsDisplay();
+      renderMentorBox(mentorBoxEl, { text: getChallengeCompleteLine(), tag: "Nice work" });
       statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved. +${CREDIT_REWARDS.challenge} credits!`;
     },
     onSpend: (cost, label) => {
@@ -371,17 +375,25 @@ function openLesson(lessonId) {
     updateCreditsDisplay();
     renderSidebar(sidebarEl, progress, openLesson); // re-render so the "done" dot updates
     openLesson(lessonId); // re-render this lesson so the button flips to "✓ Completed"
-    // openLesson() above sets its own "Viewing: ..." status text, which would
-    // instantly overwrite this if set beforehand - set it AFTER instead so
-    // the credit payout is actually the thing left on screen.
+    // openLesson() above sets its own "Viewing: ..." status text and its own
+    // lesson-intro mentor line, which would instantly overwrite these if set
+    // beforehand - set them AFTER instead so the completion reaction is
+    // actually what's left on screen.
     statusTextEl.textContent = alreadyDone
       ? `"${lesson.title}" marked as done.`
       : `"${lesson.title}" marked as done. +${CREDIT_REWARDS.lesson} credits!`;
+    if (!alreadyDone) {
+      renderMentorBox(mentorBoxEl, { text: getLessonCompleteLine(), tag: "Nice work" });
+    }
   });
 
   statusTextEl.textContent = `Viewing: ${lesson.title}`;
   window.scrollTo({ top: 0 });
-  lessonContentEl.scrollIntoView({ block: "start" });
+  // Scrolls .main-panel itself back to its top rather than scrolling
+  // lessonContentEl into view - the mentor box now sits above it as the
+  // first child, and scrolling THAT element into view would push Sam's
+  // line straight back off-screen on every lesson change.
+  mainPanelEl.scrollTo({ top: 0 });
   replayFadeIn(mainPanelEl);
 }
 

@@ -25,7 +25,7 @@ export function renderProjectList(container, progress, { onSelectProject }) {
     const totalStages = project.stages.length;
 
     const card = document.createElement("div");
-    card.className = "project-card" + (isUnlocked ? "" : " locked");
+    card.className = "project-card hud-frame" + (isUnlocked ? "" : " locked");
 
     const icon = document.createElement("div");
     icon.className = "project-card-icon";
@@ -119,7 +119,7 @@ export function renderProjectDetail(container, project, progress, { onBack, onSt
 
 function renderStageCard(project, stage, isDone, onStageComplete) {
   const card = document.createElement("div");
-  card.className = "project-stage-card" + (isDone ? " done" : "");
+  card.className = "project-stage-card hud-frame" + (isDone ? " done" : "");
 
   const h3 = document.createElement("h3");
   h3.textContent = stage.title + (isDone ? " ✓" : "");

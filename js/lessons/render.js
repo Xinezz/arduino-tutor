@@ -17,6 +17,11 @@ const LEVEL_NAMES = {
 export function renderSidebar(container, progress, onSelect) {
   container.innerHTML = "";
 
+  const questLogHeading = document.createElement("div");
+  questLogHeading.className = "sidebar-heading";
+  questLogHeading.textContent = "📋 Quest Log";
+  container.appendChild(questLogHeading);
+
   let currentLevel = null;
   for (const lesson of lessons) {
     if (lesson.level !== currentLevel) {

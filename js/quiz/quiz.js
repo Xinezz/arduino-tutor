@@ -162,7 +162,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     const oldRects = isDragging ? null : captureRects();
     container.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "quiz-card";
+    card.className = "quiz-card hud-frame";
     renderQuizHeader(card, quiz, "🧩");
 
     const list = document.createElement("ul");
@@ -276,7 +276,7 @@ function renderPredictQuiz(container, quiz, onResult) {
   function render() {
     container.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "quiz-card";
+    card.className = "quiz-card hud-frame";
     renderQuizHeader(card, quiz, "❓");
 
     const codeBlock = document.createElement("pre");
@@ -336,7 +336,7 @@ function renderDebugQuiz(container, quiz, onResult) {
   function render() {
     container.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "quiz-card";
+    card.className = "quiz-card hud-frame";
     renderQuizHeader(card, quiz, "🐛");
 
     const list = document.createElement("ul");
@@ -412,7 +412,7 @@ function renderFillBlankQuiz(container, quiz, onResult) {
   function render() {
     container.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "quiz-card";
+    card.className = "quiz-card hud-frame";
     renderQuizHeader(card, quiz, "✏️");
 
     const codeBlock = document.createElement("pre");
@@ -501,7 +501,7 @@ function renderMatchQuiz(container, quiz, onResult) {
   function render() {
     container.innerHTML = "";
     const card = document.createElement("div");
-    card.className = "quiz-card";
+    card.className = "quiz-card hud-frame";
     renderQuizHeader(card, quiz, "🔗");
 
     const board = document.createElement("div");

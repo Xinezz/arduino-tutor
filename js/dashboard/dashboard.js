@@ -8,6 +8,7 @@ import { lessons } from "../lessons/data.js";
 import { projects } from "../projects/data.js";
 import { quizzes } from "../quiz/data.js";
 import { getProjectProgress } from "../progress/progress.js";
+import { renderMentorBox, getDashboardGreeting } from "../npc/mentor.js";
 
 // The full ladder from the course design. Only the first three ranks are
 // reachable with the content built so far (Levels 1, 2, 3, 4, 6) - the rest
@@ -61,6 +62,10 @@ function findLessonIdForQuizId(quizId) {
 export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   container.innerHTML = "";
 
+  const mentorBox = el("div", "mentor-box hud-frame");
+  container.appendChild(mentorBox);
+  renderMentorBox(mentorBox, { text: getDashboardGreeting(progress), tag: "Check-in" });
+
   const header = el("div", "dashboard-header");
   header.appendChild(el("h1", null, "Your Progress"));
   header.appendChild(el("p", null, "Your record as a junior tech at CircuitWorks Robotics - what you've learned, practiced, and built so far."));
@@ -94,14 +99,15 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   // ---- rank ladder ----
   container.appendChild(el("div", "dashboard-section-title", "Progression at CircuitWorks Robotics"));
   const currentRankIndex = computeCurrentRankIndex(progress);
-  const ladder = el("div", "rank-ladder");
+  const ladder = el("div", "rank-ladder hud-frame");
   RANKS.forEach((rank, i) => {
     const step = el("div", "rank-step");
     if (i < currentRankIndex) step.classList.add("achieved");
     else if (i === currentRankIndex) step.classList.add("current");
     else step.classList.add("locked");
 
-    const badge = el("div", "rank-step-badge", i < currentRankIndex ? "✓" : String(i + 1));
+    const badgeText = i < currentRankIndex ? "✓" : i === currentRankIndex ? String(i + 1) : "🔒";
+    const badge = el("div", "rank-step-badge", badgeText);
     step.appendChild(badge);
 
     const textWrap = document.createElement("div");

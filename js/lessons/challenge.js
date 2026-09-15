@@ -25,7 +25,7 @@ export function renderChallenge(container, challenge, { onComplete, onSpend }) {
   let solutionRevealed = false;
 
   const card = document.createElement("div");
-  card.className = "challenge-card";
+  card.className = "challenge-card hud-frame";
 
   const titleRow = document.createElement("div");
   titleRow.className = "challenge-title-row";
