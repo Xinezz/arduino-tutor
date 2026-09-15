@@ -9,32 +9,8 @@ import { projects } from "../projects/data.js";
 import { quizzes } from "../quiz/data.js";
 import { getProjectProgress, getLevelInfo, LEVEL_MILESTONES } from "../progress/progress.js";
 import { renderMentorBox, getDashboardGreeting } from "../npc/mentor.js";
-
-// The full ladder from the course design. Only the first three ranks are
-// reachable with the content built so far (Levels 1, 2, 3, 4, 6) - the rest
-// are shown as genuinely locked rather than faked, since the levels they'd
-// represent (5, 7, 8, the full Level 9 project list) don't exist yet.
-const RANKS = [
-  { name: "Arduino Beginner", desc: "Getting comfortable with the fundamentals: setup(), loop(), variables, the Serial Monitor." },
-  { name: "Digital I/O Apprentice", desc: "Can wire and control LEDs and buttons, and reason about pin states." },
-  { name: "Sensor Explorer", desc: "Reads analog sensors, drives PWM outputs, and combines both into real automation." },
-  { name: "Arduino Programmer", desc: "Fluent in the programming fundamentals behind every sketch.", future: true },
-  { name: "Embedded Systems Builder", desc: "Writes non-blocking, interrupt-aware, multi-part programs.", future: true },
-  { name: "Mechatronics Engineer", desc: "Builds full multi-sensor, multi-actuator mechatronics projects.", future: true },
-];
-
-function isLevelDone(progress, levelNum) {
-  const ids = lessons.filter((l) => l.level === levelNum).map((l) => l.id);
-  return ids.length > 0 && ids.every((id) => progress.viewedLessons.includes(id));
-}
-
-function computeCurrentRankIndex(progress) {
-  const level1Done = isLevelDone(progress, 1);
-  const level2346Done = [1, 2, 3, 4, 6].every((lvl) => isLevelDone(progress, lvl));
-  if (level2346Done) return 2;
-  if (level1Done) return 1;
-  return 0;
-}
+import { animateCount } from "../utils/animateCount.js";
+import { RANKS, computeCurrentRankIndex } from "../progress/ranks.js";
 
 function countChallenges() {
   let total = 0;
@@ -240,31 +216,4 @@ function statTile(toValue, suffix, label) {
   tile.appendChild(el("div", "stat-tile-label", label));
   animateCount(valueEl, toValue, suffix);
   return tile;
-}
-
-// Counts up from 0 instead of just appearing - a small thing, but it's the
-// difference between a dashboard that feels alive and one that's just text.
-// Skipped for anyone who's told their OS they get motion-sick from this
-// kind of thing (prefers-reduced-motion) - they see the final value immediately.
-//
-// Deliberately setTimeout and not requestAnimationFrame: rAF only fires
-// tied to an actual paint, which browsers are free to throttle heavily (or
-// stop firing almost entirely) the moment a tab isn't the focused one - a
-// dashboard opened in a background tab would otherwise just sit stuck on
-// "0" forever instead of counting up once you switch to it.
-function animateCount(el, toValue, suffix) {
-  if (toValue <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    el.textContent = toValue + suffix;
-    return;
-  }
-  const duration = 700;
-  const frameMs = 16;
-  const start = Date.now();
-  function tick() {
-    const t = Math.min((Date.now() - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic - fast start, gentle landing
-    el.textContent = Math.round(eased * toValue) + suffix;
-    if (t < 1) setTimeout(tick, frameMs);
-  }
-  tick();
 }

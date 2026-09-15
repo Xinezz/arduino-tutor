@@ -484,23 +484,30 @@ resetCodeBtn.addEventListener("click", () => {
 // everything above this (editor, board, wire palette) is safe to create
 // while #app-shell is still hidden, but rendering the lesson itself waits
 // until there's somewhere visible to put it.
-function startApp() {
+//
+// target picks where you land, matching the menu's own action buttons:
+// undefined/null resumes the last-viewed lesson (the default), "dashboard"
+// goes straight to the Dashboard, and anything else is treated as a lesson
+// id to jump directly into (e.g. the menu's "Review ->" on a flagged lesson).
+function startApp(target) {
   renderSidebar(sidebarEl, progress, openLesson);
   updateProgressSummary();
   updateCreditsDisplay();
   updateLevelDisplay();
-  openLesson(progress.lastLessonId || getFirstLessonId());
+  const lessonTarget = target && target !== "dashboard" ? target : progress.lastLessonId || getFirstLessonId();
+  openLesson(lessonTarget);
   editor.refresh(); // was created/sized while hidden behind the menu, needs a re-measure now that it's visible
+  if (target === "dashboard") switchView("dashboard");
 }
 
 // initial boot: show the main menu first. name is a freshly-typed string
 // from the first-time form, or null when a returning learner just clicked
 // Continue (nothing new to save in that case).
 renderMenuScreen(menuScreenEl, progress, {
-  onStart: (name) => {
+  onStart: (name, target) => {
     if (name) progress = setPlayerName(progress, name);
     menuScreenEl.hidden = true;
     appShellEl.hidden = false;
-    startApp();
+    startApp(target);
   },
 });
