@@ -7,7 +7,7 @@
 import { lessons } from "../lessons/data.js";
 import { projects } from "../projects/data.js";
 import { quizzes } from "../quiz/data.js";
-import { getProjectProgress } from "../progress/progress.js";
+import { getProjectProgress, getLevelInfo, LEVEL_MILESTONES } from "../progress/progress.js";
 import { renderMentorBox, getDashboardGreeting } from "../npc/mentor.js";
 
 // The full ladder from the course design. Only the first three ranks are
@@ -70,6 +70,28 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   header.appendChild(el("h1", null, "Your Progress"));
   header.appendChild(el("p", null, "Your record as a junior tech at CircuitWorks Robotics - what you've learned, practiced, and built so far."));
   container.appendChild(header);
+
+  // ---- XP bar ----
+  // Deliberately separate from the Credits stat tile below: credits are a
+  // spendable balance (see spendCredits in progress.js), XP only goes up, so
+  // this bar always reflects total progress even after a hint spends credits
+  // down into the red.
+  const { level, xpIntoLevel, xpForLevel, pct } = getLevelInfo(progress.xp);
+  const xpBar = el("div", "xp-bar-wrap hud-frame");
+  const xpHeader = el("div", "xp-bar-header");
+  xpHeader.appendChild(el("span", "xp-level", `Level ${level}`));
+  xpHeader.appendChild(el("span", "xp-numbers", `${xpIntoLevel} / ${xpForLevel} XP`));
+  xpBar.appendChild(xpHeader);
+  const xpTrack = el("div", "xp-bar-track");
+  const xpFill = el("div", "xp-bar-fill");
+  xpFill.style.width = `${pct}%`;
+  xpTrack.appendChild(xpFill);
+  xpBar.appendChild(xpTrack);
+  const nextMilestone = Object.keys(LEVEL_MILESTONES).map(Number).find((lvl) => lvl > level);
+  if (nextMilestone) {
+    xpBar.appendChild(el("div", "xp-bar-note", `Next bonus at Level ${nextMilestone}: +${LEVEL_MILESTONES[nextMilestone]} credits`));
+  }
+  container.appendChild(xpBar);
 
   // ---- stat tiles ----
   const totalLessons = lessons.length;

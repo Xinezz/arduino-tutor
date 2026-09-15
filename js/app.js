@@ -14,6 +14,8 @@ import {
   touchStreak,
   spendCredits,
   CREDIT_REWARDS,
+  getLevelInfo,
+  LEVEL_MILESTONES,
 } from "./progress/progress.js";
 import {
   renderSidebar,
@@ -31,7 +33,7 @@ import { renderQuiz } from "./quiz/quiz.js";
 import { findProject } from "./projects/data.js";
 import { renderProjectList, renderProjectDetail } from "./projects/projects.js";
 import { renderDashboard } from "./dashboard/dashboard.js";
-import { renderMentorBox, getLessonIntroLine, getLessonCompleteLine, getChallengeCompleteLine } from "./npc/mentor.js";
+import { renderMentorBox, getLessonIntroLine, getLessonCompleteLine, getChallengeCompleteLine, getLevelUpLine } from "./npc/mentor.js";
 import { createEditor } from "./editor/editor.js";
 import { createBoard } from "./simulator/board.js";
 import { startProgram } from "./simulator/interpreter.js";
@@ -45,6 +47,7 @@ const challengeSectionEl = document.getElementById("challenge-section");
 const quizSectionEl = document.getElementById("quiz-section");
 const progressSummaryEl = document.getElementById("progress-summary");
 const creditsDisplayEl = document.getElementById("credits-display");
+const levelDisplayEl = document.getElementById("level-display");
 const statusTextEl = document.getElementById("status-text");
 const resetCodeBtn = document.getElementById("reset-code-btn");
 const runBtn = document.getElementById("run-code-btn");
@@ -150,8 +153,16 @@ function renderProjectsView() {
     renderProjectDetail(projectsPanelEl, project, progress, {
       onBack: () => { currentProjectId = null; renderProjectsView(); },
       onStageComplete: (projectId, stageId) => {
+        const xpBefore = progress.xp;
+        const milestonesBefore = progress.milestonesAwarded.length;
         progress = markProjectStageDone(progress, projectId, stageId);
-        statusTextEl.textContent = `Stage marked complete in "${project.title}".`;
+        updateCreditsDisplay(); // was previously missing here - a stage completion earns credits same as anything else
+        updateLevelDisplay();
+        // Projects has no mentor box on screen (that stays scoped to Lessons/
+        // Dashboard), so a level-up here rides along on the status line instead.
+        const levelUp = checkLevelUp(xpBefore, milestonesBefore);
+        statusTextEl.textContent = `Stage marked complete in "${project.title}".`
+          + (levelUp ? ` ${getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus)}` : "");
         renderProjectsView(); // re-render so the stage tracker dots at the top update too
       },
       onOpenEditor: () => switchView("lessons"),
@@ -300,6 +311,28 @@ function updateCreditsDisplay() {
     : "Credits earned at CircuitWorks Robotics - spend them on hints.";
 }
 
+function updateLevelDisplay() {
+  levelDisplayEl.textContent = `🎖️ Lv ${getLevelInfo(progress.xp).level}`;
+}
+
+// Call sites that can award XP snapshot progress.xp and
+// progress.milestonesAwarded.length BEFORE calling the earn function, then
+// pass those snapshots here afterward to find out whether that one action
+// crossed a level - milestonesAwarded growing is the authoritative signal
+// for "a milestone bonus was just paid" (it's guarded at the mutation site
+// in progress.js, not just inferred from level numbers here).
+function checkLevelUp(xpBefore, milestonesBefore) {
+  if (progress.milestonesAwarded.length > milestonesBefore) {
+    const level = progress.milestonesAwarded[progress.milestonesAwarded.length - 1];
+    return { level, bonus: LEVEL_MILESTONES[level], isMilestone: true };
+  }
+  const levelAfter = getLevelInfo(progress.xp).level;
+  if (levelAfter > getLevelInfo(xpBefore).level) {
+    return { level: levelAfter, bonus: null, isMilestone: false };
+  }
+  return null;
+}
+
 function openLesson(lessonId) {
   const lesson = findLesson(lessonId);
   if (!lesson) return;
@@ -319,9 +352,15 @@ function openLesson(lessonId) {
   const challenge = getChallengeForLesson(lesson);
   renderChallenge(challengeSectionEl, challenge, {
     onComplete: (challengeId) => {
+      const xpBefore = progress.xp;
+      const milestonesBefore = progress.milestonesAwarded.length;
       progress = markChallengeCompleted(progress, challengeId);
       updateCreditsDisplay();
-      renderMentorBox(mentorBoxEl, { text: getChallengeCompleteLine(), tag: "Nice work" });
+      updateLevelDisplay();
+      const levelUp = checkLevelUp(xpBefore, milestonesBefore);
+      renderMentorBox(mentorBoxEl, levelUp
+        ? { text: getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus), tag: "Level Up!" }
+        : { text: getChallengeCompleteLine(), tag: "Nice work" });
       statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved. +${CREDIT_REWARDS.challenge} credits!`;
     },
     onSpend: (cost, label) => {
@@ -350,12 +389,22 @@ function openLesson(lessonId) {
       // already-solved quiz (e.g. revisiting the lesson) correctly earns
       // nothing again, and the status message should say so honestly.
       const alreadySolved = progress.quizzes[quizId]?.solved;
+      const xpBefore = progress.xp;
+      const milestonesBefore = progress.milestonesAwarded.length;
       progress = recordQuizResult(progress, quizId, success, topic);
       updateCreditsDisplay();
+      updateLevelDisplay();
       const earnedCredits = success && !alreadySolved;
       statusTextEl.textContent = success
         ? `Quiz correct! ("${topic}")` + (earnedCredits ? ` +${CREDIT_REWARDS.quiz} credits!` : "")
         : `Quiz attempt recorded - not quite right yet ("${topic}").`;
+      // A quiz normally doesn't touch the mentor box at all (that stays
+      // scoped to lessons/challenges) - a level-up is the one exception,
+      // since it's a bigger moment than a routine correct answer.
+      const levelUp = checkLevelUp(xpBefore, milestonesBefore);
+      if (levelUp) {
+        renderMentorBox(mentorBoxEl, { text: getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus), tag: "Level Up!" });
+      }
     });
   }
 
@@ -370,9 +419,12 @@ function openLesson(lessonId) {
   });
   lessonContentEl.querySelector('[data-action="complete"]')?.addEventListener("click", () => {
     const alreadyDone = progress.viewedLessons.includes(lessonId);
+    const xpBefore = progress.xp;
+    const milestonesBefore = progress.milestonesAwarded.length;
     progress = markLessonViewed(progress, lessonId);
     updateProgressSummary();
     updateCreditsDisplay();
+    updateLevelDisplay();
     renderSidebar(sidebarEl, progress, openLesson); // re-render so the "done" dot updates
     openLesson(lessonId); // re-render this lesson so the button flips to "✓ Completed"
     // openLesson() above sets its own "Viewing: ..." status text and its own
@@ -383,7 +435,10 @@ function openLesson(lessonId) {
       ? `"${lesson.title}" marked as done.`
       : `"${lesson.title}" marked as done. +${CREDIT_REWARDS.lesson} credits!`;
     if (!alreadyDone) {
-      renderMentorBox(mentorBoxEl, { text: getLessonCompleteLine(), tag: "Nice work" });
+      const levelUp = checkLevelUp(xpBefore, milestonesBefore);
+      renderMentorBox(mentorBoxEl, levelUp
+        ? { text: getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus), tag: "Level Up!" }
+        : { text: getLessonCompleteLine(), tag: "Nice work" });
     }
   });
 
@@ -407,5 +462,6 @@ resetCodeBtn.addEventListener("click", () => {
 renderSidebar(sidebarEl, progress, openLesson);
 updateProgressSummary();
 updateCreditsDisplay();
+updateLevelDisplay();
 openLesson(progress.lastLessonId || getFirstLessonId());
 editor.refresh();

@@ -21,6 +21,15 @@ export const CREDIT_REWARDS = {
 export const HINT_COSTS = [5, 10, 15]; // cost of hint 1, hint 2, hint 3
 export const SOLUTION_COST = 25;
 
+// XP tracks the exact same actions as credits, and earns the exact same
+// amounts (see applyXp below) - but where credits are a spendable balance
+// that can dip negative, XP only ever goes up, so spending on a hint can put
+// you in the red without ever un-leveling you. Milestone levels pay out a
+// one-time credit bonus, guarded via milestonesAwarded the same way every
+// other payout in this file is guarded against firing twice.
+export const LEVEL_MILESTONES = { 5: 50, 10: 100, 20: 200 };
+const LEVEL_XP_SCALE = 2.5; // tuned so Level 20 lands near the XP total of finishing everything currently on the site
+
 function defaultProgress() {
   return {
     viewedLessons: [],       // lesson ids the learner has opened
@@ -31,7 +40,36 @@ function defaultProgress() {
     streak: 0,               // consecutive calendar days visited
     lastVisitDate: null,     // "YYYY-MM-DD", used to update the streak
     credits: STARTING_CREDITS,
+    xp: 0,
+    milestonesAwarded: [],   // levels (from LEVEL_MILESTONES) whose bonus has already been paid out
   };
+}
+
+// Cumulative XP needed to REACH a level follows LEVEL_XP_SCALE * (level-1)^2 -
+// a curve, not a flat per-level amount, so early levels come fast and later
+// ones take real accumulated effort. Inverting that formula (rather than
+// looping/searching) gives the level for any XP total directly.
+export function getLevelInfo(xp) {
+  const level = 1 + Math.floor(Math.sqrt(xp / LEVEL_XP_SCALE));
+  const currentLevelXp = Math.round(LEVEL_XP_SCALE * (level - 1) ** 2);
+  const nextLevelXp = Math.round(LEVEL_XP_SCALE * level ** 2);
+  const xpIntoLevel = xp - currentLevelXp;
+  const xpForLevel = nextLevelXp - currentLevelXp;
+  return { level, xpIntoLevel, xpForLevel, pct: Math.min(100, Math.round((xpIntoLevel / xpForLevel) * 100)) };
+}
+
+// Shared by every earn function below instead of each doing its own
+// `progress.credits += ...` - keeps the XP/credit amounts perfectly in sync
+// and means the milestone-bonus check only has to live in one place.
+function applyXp(progress, amount) {
+  progress.credits += amount;
+  progress.xp += amount;
+  const level = getLevelInfo(progress.xp).level;
+  const bonus = LEVEL_MILESTONES[level];
+  if (bonus && !progress.milestonesAwarded.includes(level)) {
+    progress.milestonesAwarded.push(level);
+    progress.credits += bonus;
+  }
 }
 
 function todayString() {
@@ -88,7 +126,7 @@ export function markLessonViewed(progress, lessonId) {
   const isFirstTime = !progress.viewedLessons.includes(lessonId);
   if (isFirstTime) {
     progress.viewedLessons.push(lessonId);
-    progress.credits += CREDIT_REWARDS.lesson;
+    applyXp(progress, CREDIT_REWARDS.lesson);
   }
   progress.lastLessonId = lessonId;
   saveProgress(progress);
@@ -99,7 +137,7 @@ export function markChallengeCompleted(progress, challengeId) {
   const isFirstTime = !progress.completedChallenges.includes(challengeId);
   if (isFirstTime) {
     progress.completedChallenges.push(challengeId);
-    progress.credits += CREDIT_REWARDS.challenge;
+    applyXp(progress, CREDIT_REWARDS.challenge);
   }
   saveProgress(progress);
   return progress;
@@ -118,7 +156,7 @@ export function recordQuizResult(progress, quizId, success, topic) {
   existing.topic = topic;
   if (success) existing.solved = true;
   progress.quizzes[quizId] = existing;
-  if (success && !wasAlreadySolved) progress.credits += CREDIT_REWARDS.quiz;
+  if (success && !wasAlreadySolved) applyXp(progress, CREDIT_REWARDS.quiz);
   saveProgress(progress);
   return progress;
 }
@@ -128,7 +166,7 @@ export function markProjectStageDone(progress, projectId, stageId) {
   const isFirstTime = !entry.stagesDone.includes(stageId);
   if (isFirstTime) {
     entry.stagesDone.push(stageId);
-    progress.credits += CREDIT_REWARDS.projectStage;
+    applyXp(progress, CREDIT_REWARDS.projectStage);
   }
   progress.projects[projectId] = entry;
   saveProgress(progress);

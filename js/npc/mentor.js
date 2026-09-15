@@ -116,6 +116,26 @@ export function getChallengeCompleteLine() {
   return pick(CHALLENGE_COMPLETE_LINES);
 }
 
+// A plain level-up gets a small nod; a milestone level (5/10/20 - see
+// LEVEL_MILESTONES in progress.js) gets a bigger reaction that names the
+// bonus, since that's the one that actually paid out extra credits.
+const LEVEL_UP_LINES = [
+  (level) => `Level ${level} now. Nice climb.`,
+  (level) => `Level ${level}. You're getting good at this.`,
+  (level) => `That's level ${level}. Keep it up.`,
+];
+
+const MILESTONE_LINES = [
+  (level, bonus) => `Level ${level}! That's a real milestone - I put in for a bonus, +${bonus} credits just landed.`,
+  (level, bonus) => `Level ${level} already. That one comes with a +${bonus} credit bonus - nice work.`,
+  (level, bonus) => `Whoa, level ${level}. Payroll noticed - +${bonus} credits on top of the usual.`,
+];
+
+export function getLevelUpLine(level, isMilestone, bonus) {
+  const pool = isMilestone ? MILESTONE_LINES : LEVEL_UP_LINES;
+  return pick(pool)(level, bonus);
+}
+
 // Renders Sam's dialogue box: portrait, nameplate (+ optional small tag like
 // "Quest Briefing"), and the line itself typed out character-by-character -
 // reusing the same reveal effect as the rest of the site's terminal/code
