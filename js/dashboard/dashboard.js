@@ -63,7 +63,7 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
 
   const header = el("div", "dashboard-header");
   header.appendChild(el("h1", null, "Your Progress"));
-  header.appendChild(el("p", null, "A snapshot of what you've learned, practiced, and built so far."));
+  header.appendChild(el("p", null, "Your record as a junior tech at CircuitWorks Robotics - what you've learned, practiced, and built so far."));
   container.appendChild(header);
 
   // ---- stat tiles ----
@@ -86,10 +86,13 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   statGrid.appendChild(statTile(solvedQuizzes, ` / ${totalQuizzes}`, "Quizzes Solved"));
   statGrid.appendChild(statTile(projectStagesDone, ` / ${projectStagesTotal}`, "Project Stages Built"));
   statGrid.appendChild(statTile(progress.streak || 0, " 🔥", "Day Streak"));
+  const creditsTile = statTile(progress.credits, "", "⚡ Credits");
+  if (progress.credits < 0) creditsTile.querySelector(".stat-tile-value").classList.add("credits-debt");
+  statGrid.appendChild(creditsTile);
   container.appendChild(statGrid);
 
   // ---- rank ladder ----
-  container.appendChild(el("div", "dashboard-section-title", "Progression"));
+  container.appendChild(el("div", "dashboard-section-title", "Progression at CircuitWorks Robotics"));
   const currentRankIndex = computeCurrentRankIndex(progress);
   const ladder = el("div", "rank-ladder");
   RANKS.forEach((rank, i) => {

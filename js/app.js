@@ -12,6 +12,8 @@ import {
   recordQuizResult,
   markProjectStageDone,
   touchStreak,
+  spendCredits,
+  CREDIT_REWARDS,
 } from "./progress/progress.js";
 import {
   renderSidebar,
@@ -40,6 +42,7 @@ const simulatorSectionEl = document.querySelector(".simulator-section");
 const challengeSectionEl = document.getElementById("challenge-section");
 const quizSectionEl = document.getElementById("quiz-section");
 const progressSummaryEl = document.getElementById("progress-summary");
+const creditsDisplayEl = document.getElementById("credits-display");
 const statusTextEl = document.getElementById("status-text");
 const resetCodeBtn = document.getElementById("reset-code-btn");
 const runBtn = document.getElementById("run-code-btn");
@@ -283,6 +286,18 @@ function updateProgressSummary() {
   progressSummaryEl.textContent = `${done} / ${total} lessons complete`;
 }
 
+// In the red is a normal, expected state (see spendCredits in progress.js -
+// a hint always stays available even if it puts you into debt), so it gets
+// its own look rather than reading like something went wrong.
+function updateCreditsDisplay() {
+  const inDebt = progress.credits < 0;
+  creditsDisplayEl.textContent = `⚡ ${progress.credits}`;
+  creditsDisplayEl.classList.toggle("credits-debt", inDebt);
+  creditsDisplayEl.title = inDebt
+    ? "You're in the red - finish a lesson or challenge to earn it back."
+    : "Credits earned at CircuitWorks Robotics - spend them on hints.";
+}
+
 function openLesson(lessonId) {
   const lesson = findLesson(lessonId);
   if (!lesson) return;
@@ -299,9 +314,17 @@ function openLesson(lessonId) {
   closeSidebarDrawer(); // on mobile, picking a lesson should close the slide-in drawer
 
   const challenge = getChallengeForLesson(lesson);
-  renderChallenge(challengeSectionEl, challenge, (challengeId) => {
-    progress = markChallengeCompleted(progress, challengeId);
-    statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved.`;
+  renderChallenge(challengeSectionEl, challenge, {
+    onComplete: (challengeId) => {
+      progress = markChallengeCompleted(progress, challengeId);
+      updateCreditsDisplay();
+      statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved. +${CREDIT_REWARDS.challenge} credits!`;
+    },
+    onSpend: (cost, label) => {
+      progress = spendCredits(progress, cost);
+      updateCreditsDisplay();
+      statusTextEl.textContent = `${label} revealed. -${cost} credits.`;
+    },
   });
 
   // The practice editor and circuit board only matter when THIS lesson has
@@ -318,9 +341,16 @@ function openLesson(lessonId) {
   quizSectionEl.innerHTML = "";
   if (quiz) {
     renderQuiz(quizSectionEl, quiz, (quizId, success, topic) => {
+      // Checked BEFORE recording, since recordQuizResult only pays out credits
+      // the first time a quiz flips to solved - re-answering an
+      // already-solved quiz (e.g. revisiting the lesson) correctly earns
+      // nothing again, and the status message should say so honestly.
+      const alreadySolved = progress.quizzes[quizId]?.solved;
       progress = recordQuizResult(progress, quizId, success, topic);
+      updateCreditsDisplay();
+      const earnedCredits = success && !alreadySolved;
       statusTextEl.textContent = success
-        ? `Quiz correct! ("${topic}")`
+        ? `Quiz correct! ("${topic}")` + (earnedCredits ? ` +${CREDIT_REWARDS.quiz} credits!` : "")
         : `Quiz attempt recorded - not quite right yet ("${topic}").`;
     });
   }
@@ -335,11 +365,18 @@ function openLesson(lessonId) {
     if (nextId) openLesson(nextId);
   });
   lessonContentEl.querySelector('[data-action="complete"]')?.addEventListener("click", () => {
+    const alreadyDone = progress.viewedLessons.includes(lessonId);
     progress = markLessonViewed(progress, lessonId);
     updateProgressSummary();
+    updateCreditsDisplay();
     renderSidebar(sidebarEl, progress, openLesson); // re-render so the "done" dot updates
-    statusTextEl.textContent = `"${lesson.title}" marked as done.`;
     openLesson(lessonId); // re-render this lesson so the button flips to "✓ Completed"
+    // openLesson() above sets its own "Viewing: ..." status text, which would
+    // instantly overwrite this if set beforehand - set it AFTER instead so
+    // the credit payout is actually the thing left on screen.
+    statusTextEl.textContent = alreadyDone
+      ? `"${lesson.title}" marked as done.`
+      : `"${lesson.title}" marked as done. +${CREDIT_REWARDS.lesson} credits!`;
   });
 
   statusTextEl.textContent = `Viewing: ${lesson.title}`;
@@ -357,5 +394,6 @@ resetCodeBtn.addEventListener("click", () => {
 // initial boot
 renderSidebar(sidebarEl, progress, openLesson);
 updateProgressSummary();
+updateCreditsDisplay();
 openLesson(progress.lastLessonId || getFirstLessonId());
 editor.refresh();

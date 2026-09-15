@@ -97,6 +97,8 @@ body {
 .brand-icon { color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow)); }
 .brand span { color: var(--accent); text-shadow: 0 0 14px var(--accent-glow); }
 
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
 .progress-summary {
   font-size: 0.85rem;
   color: var(--text-dim);
@@ -105,6 +107,27 @@ body {
   border-radius: 999px;
   border: 1px solid var(--border);
   white-space: nowrap;
+}
+
+/* Your pay at CircuitWorks Robotics - see progress.js for the full system.
+   Going into the red is expected, not an error state (a hint never actually
+   locks you out for lack of funds), so .credits-debt is a color shift, not
+   an alarm. */
+.credits-display {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--yellow);
+  background: rgba(232, 197, 71, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 197, 71, 0.3);
+  white-space: nowrap;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.credits-display.credits-debt {
+  color: var(--red);
+  background: rgba(239, 100, 97, 0.1);
+  border-color: rgba(239, 100, 97, 0.35);
 }
 
 /* ---------- View tabs (Lessons / Projects / Dashboard) ---------- */
@@ -246,7 +269,7 @@ body {
   .main-panel, .main-panel-wide { max-width: 100%; padding: 16px; }
   .topbar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; row-gap: 8px; }
   .brand { font-size: 1rem; }
-  .progress-summary { font-size: 0.75rem; padding: 3px 8px; }
+  .progress-summary, .credits-display { font-size: 0.75rem; padding: 3px 8px; }
   .view-tabs { order: 3; width: 100%; justify-content: center; }
   .view-tab { flex: 1; text-align: center; }
 }
@@ -1002,6 +1025,7 @@ body {
 }
 .stat-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
 .stat-tile-value { font-size: 1.6rem; font-weight: 700; }
+.stat-tile-value.credits-debt { color: var(--red); }
 .stat-tile-label { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
 
 .dashboard-section-title {

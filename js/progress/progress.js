@@ -5,6 +5,22 @@
 
 const STORAGE_KEY = "arduinoTutorProgress";
 
+// The career layer: you're a junior tech at CircuitWorks Robotics, paid in
+// Credits for finished work. Credits CAN go negative (see spendCredits) -
+// a hint always stays available even if you can't currently afford it, it
+// just puts you in the red until your next bit of finished work pays it
+// back down. The point is real stakes, not a wall that locks anyone out of
+// help - see the "hint gating" decision this was built around.
+const STARTING_CREDITS = 25;
+export const CREDIT_REWARDS = {
+  lesson: 10,
+  challenge: 20,
+  quiz: 5,
+  projectStage: 15,
+};
+export const HINT_COSTS = [5, 10, 15]; // cost of hint 1, hint 2, hint 3
+export const SOLUTION_COST = 25;
+
 function defaultProgress() {
   return {
     viewedLessons: [],       // lesson ids the learner has opened
@@ -14,6 +30,7 @@ function defaultProgress() {
     projects: {},            // projectId -> { stagesDone: [stageId, ...] }
     streak: 0,               // consecutive calendar days visited
     lastVisitDate: null,     // "YYYY-MM-DD", used to update the streak
+    credits: STARTING_CREDITS,
   };
 }
 
@@ -56,9 +73,22 @@ export function saveProgress(progress) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
+// Spending is unguarded on purpose - it's allowed to go negative. A hint
+// must never become literally unreachable just because of a low balance.
+export function spendCredits(progress, amount) {
+  progress.credits -= amount;
+  saveProgress(progress);
+  return progress;
+}
+
 export function markLessonViewed(progress, lessonId) {
-  if (!progress.viewedLessons.includes(lessonId)) {
+  // Guarded so calling this again for an already-completed lesson (the
+  // button becomes non-interactive once done, but this stays defensive
+  // rather than trusting the UI alone) can't pay out credits twice.
+  const isFirstTime = !progress.viewedLessons.includes(lessonId);
+  if (isFirstTime) {
     progress.viewedLessons.push(lessonId);
+    progress.credits += CREDIT_REWARDS.lesson;
   }
   progress.lastLessonId = lessonId;
   saveProgress(progress);
@@ -66,8 +96,10 @@ export function markLessonViewed(progress, lessonId) {
 }
 
 export function markChallengeCompleted(progress, challengeId) {
-  if (!progress.completedChallenges.includes(challengeId)) {
+  const isFirstTime = !progress.completedChallenges.includes(challengeId);
+  if (isFirstTime) {
     progress.completedChallenges.push(challengeId);
+    progress.credits += CREDIT_REWARDS.challenge;
   }
   saveProgress(progress);
   return progress;
@@ -75,21 +107,29 @@ export function markChallengeCompleted(progress, challengeId) {
 
 // Records the outcome of one quiz attempt. We keep attempts/lastResult (not
 // just a pass/fail flag) so the dashboard can surface topics the learner
-// keeps getting wrong, not just topics they haven't tried yet.
+// keeps getting wrong, not just topics they haven't tried yet. Credits only
+// pay out the first time a quiz flips from unsolved to solved - retrying an
+// already-solved quiz (or failing again) never pays out again.
 export function recordQuizResult(progress, quizId, success, topic) {
   const existing = progress.quizzes[quizId] || { attempts: 0, solved: false, topic };
+  const wasAlreadySolved = existing.solved;
   existing.attempts += 1;
   existing.lastResult = success ? "success" : "failure";
   existing.topic = topic;
   if (success) existing.solved = true;
   progress.quizzes[quizId] = existing;
+  if (success && !wasAlreadySolved) progress.credits += CREDIT_REWARDS.quiz;
   saveProgress(progress);
   return progress;
 }
 
 export function markProjectStageDone(progress, projectId, stageId) {
   const entry = progress.projects[projectId] || { stagesDone: [] };
-  if (!entry.stagesDone.includes(stageId)) entry.stagesDone.push(stageId);
+  const isFirstTime = !entry.stagesDone.includes(stageId);
+  if (isFirstTime) {
+    entry.stagesDone.push(stageId);
+    progress.credits += CREDIT_REWARDS.projectStage;
+  }
   progress.projects[projectId] = entry;
   saveProgress(progress);
   return progress;

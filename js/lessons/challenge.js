@@ -2,9 +2,13 @@
 // Hint 1 (concept) -> Hint 2 (which function/concept to use) -> Hint 3 (small example) -> Solution.
 // Each tier only appears after the learner explicitly asks for it, and they're revealed
 // one at a time (you can't skip straight to hint 3 without seeing 1 and 2 first) -
-// the point is to make you think before you see the answer.
+// the point is to make you think before you see the answer. Now with a real cost
+// attached to that too: each tier is priced (escalating, so thinking it through
+// stays cheaper than skipping ahead), reported to app.js via onSpend rather than
+// touching progress/credits directly here - this module only renders and reports.
 
 import { typewriterText } from "../utils/typewriter.js";
+import { HINT_COSTS, SOLUTION_COST } from "../progress/progress.js";
 
 const DIFFICULTY_LABELS = {
   easy: { text: "🟢 Easy", cls: "difficulty-easy" },
@@ -13,7 +17,7 @@ const DIFFICULTY_LABELS = {
   boss: { text: "💀 Boss Challenge", cls: "difficulty-boss" },
 };
 
-export function renderChallenge(container, challenge, onComplete) {
+export function renderChallenge(container, challenge, { onComplete, onSpend }) {
   container.innerHTML = "";
   if (!challenge) return;
 
@@ -68,13 +72,16 @@ export function renderChallenge(container, challenge, onComplete) {
       hintBtn.textContent = "No More Hints";
       hintBtn.disabled = true;
     } else {
-      hintBtn.textContent = `Show Hint ${hintsRevealed + 1} of ${challenge.hints.length}`;
+      const cost = HINT_COSTS[hintsRevealed] ?? HINT_COSTS[HINT_COSTS.length - 1];
+      hintBtn.textContent = `Show Hint ${hintsRevealed + 1} of ${challenge.hints.length} · ⚡${cost}`;
     }
   }
 
   hintBtn.addEventListener("click", () => {
+    const cost = HINT_COSTS[hintsRevealed] ?? HINT_COSTS[HINT_COSTS.length - 1];
     const hintText = challenge.hints[hintsRevealed];
     hintsRevealed += 1;
+    onSpend(cost, `Hint ${hintsRevealed}`);
 
     const box = document.createElement("div");
     box.className = "hint-box";
@@ -84,10 +91,11 @@ export function renderChallenge(container, challenge, onComplete) {
     updateHintButton();
   });
 
-  solutionBtn.textContent = "Show Solution";
+  solutionBtn.textContent = `Show Solution · ⚡${SOLUTION_COST}`;
   solutionBtn.addEventListener("click", () => {
     if (solutionRevealed) return;
     solutionRevealed = true;
+    onSpend(SOLUTION_COST, "Solution");
 
     const box = document.createElement("div");
     box.className = "solution-box";
