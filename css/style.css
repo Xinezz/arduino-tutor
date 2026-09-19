@@ -911,6 +911,17 @@ body {
 }
 
 /* ---------- Editor ---------- */
+/* ---------- Free Practice intro ---------- */
+.practice-intro {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-card);
+}
+.practice-intro h1 { margin: 0 0 6px; font-size: 1.4rem; }
+.practice-intro p { margin: 0; color: var(--text-dim); line-height: 1.5; }
+
 .editor-section { margin-top: 28px; }
 
 .editor-toolbar {

@@ -37,9 +37,7 @@ import { renderProjectList, renderProjectDetail } from "./projects/projects.js";
 import { renderDashboard } from "./dashboard/dashboard.js";
 import { renderMentorBox, getLessonIntroLine, getLessonCompleteLine, getChallengeCompleteLine, getLevelUpLine } from "./npc/mentor.js";
 import { renderMenuScreen } from "./menu/menu.js";
-import { createEditor } from "./editor/editor.js";
-import { createBoard } from "./simulator/board.js";
-import { startProgram } from "./simulator/interpreter.js";
+import { createSimulatorPanel } from "./simulator/panel.js";
 
 const menuScreenEl = document.getElementById("menu-screen");
 const appShellEl = document.getElementById("app-shell");
@@ -54,15 +52,6 @@ const progressSummaryEl = document.getElementById("progress-summary");
 const creditsDisplayEl = document.getElementById("credits-display");
 const levelDisplayEl = document.getElementById("level-display");
 const statusTextEl = document.getElementById("status-text");
-const resetCodeBtn = document.getElementById("reset-code-btn");
-const runBtn = document.getElementById("run-code-btn");
-const stopBtn = document.getElementById("stop-code-btn");
-const componentPickerEl = document.getElementById("component-picker");
-const addComponentBtn = document.getElementById("add-component-btn");
-const clearWiringBtn = document.getElementById("clear-wiring-btn");
-const clearConsoleBtn = document.getElementById("clear-console-btn");
-const consoleEl = document.getElementById("sim-console");
-const wirePaletteEl = document.getElementById("wire-palette");
 const sidebarToggleBtn = document.getElementById("sidebar-toggle");
 const sidebarBackdropEl = document.getElementById("sidebar-backdrop");
 const sidebarCollapseBtn = document.getElementById("sidebar-collapse-btn");
@@ -71,6 +60,7 @@ const viewTabsEl = document.getElementById("view-tabs");
 const viewEls = {
   lessons: document.getElementById("view-lessons"),
   projects: document.getElementById("view-projects"),
+  practice: document.getElementById("view-practice"),
   dashboard: document.getElementById("view-dashboard"),
 };
 const projectsPanelEl = document.getElementById("projects-panel");
@@ -100,7 +90,41 @@ sidebarBackdropEl.addEventListener("click", closeSidebarDrawer);
 
 let progress = loadProgress();
 touchStreak(progress);
-const editor = createEditor(document.getElementById("code-editor"));
+
+// Two fully independent editor+board+console units - one for the lesson
+// view's built-in practice editor, one for the standalone Free Practice
+// view below. Each is self-contained (see createSimulatorPanel), so
+// nothing built in one leaks into or gets clobbered by the other.
+const lessonsPanel = createSimulatorPanel({
+  codeEditorEl: document.getElementById("code-editor"),
+  boardSvgEl: document.getElementById("sim-board"),
+  runBtn: document.getElementById("run-code-btn"),
+  stopBtn: document.getElementById("stop-code-btn"),
+  resetBtn: document.getElementById("reset-code-btn"),
+  componentPickerEl: document.getElementById("component-picker"),
+  addComponentBtn: document.getElementById("add-component-btn"),
+  clearWiringBtn: document.getElementById("clear-wiring-btn"),
+  clearConsoleBtn: document.getElementById("clear-console-btn"),
+  consoleEl: document.getElementById("sim-console"),
+  wirePaletteEl: document.getElementById("wire-palette"),
+  onStatus: (message) => { statusTextEl.textContent = message; },
+});
+const editor = lessonsPanel.editor;
+
+const practicePanel = createSimulatorPanel({
+  codeEditorEl: document.getElementById("practice-code-editor"),
+  boardSvgEl: document.getElementById("practice-sim-board"),
+  runBtn: document.getElementById("practice-run-btn"),
+  stopBtn: document.getElementById("practice-stop-btn"),
+  resetBtn: document.getElementById("practice-reset-btn"),
+  componentPickerEl: document.getElementById("practice-component-picker"),
+  addComponentBtn: document.getElementById("practice-add-component-btn"),
+  clearWiringBtn: document.getElementById("practice-clear-wiring-btn"),
+  clearConsoleBtn: document.getElementById("practice-clear-console-btn"),
+  consoleEl: document.getElementById("practice-sim-console"),
+  wirePaletteEl: document.getElementById("practice-wire-palette"),
+  onStatus: (message) => { statusTextEl.textContent = message; },
+});
 
 // Desktop-only sidebar collapse (separate from the mobile drawer above) -
 // removes the sidebar from the layout entirely so the lesson content, editor,
@@ -121,7 +145,6 @@ sidebarCollapseBtn.addEventListener("click", () => {
 });
 setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
 
-let activeRun = null;
 let currentView = "lessons";
 let currentProjectId = null;
 
@@ -135,6 +158,8 @@ function switchView(viewName) {
   });
   if (viewName === "lessons") {
     editor.refresh(); // CodeMirror needs this after being hidden/shown to size itself correctly
+  } else if (viewName === "practice") {
+    practicePanel.editor.refresh(); // same deal - was hidden, needs to re-measure now that it's visible
   } else if (viewName === "projects") {
     renderProjectsView();
   } else if (viewName === "dashboard") {
@@ -179,124 +204,6 @@ function renderProjectsView() {
   }
   replayFadeIn(projectsPanelEl);
 }
-
-// The circuit board is built separately from the lesson viewer below, and
-// wrapped in try/catch, so that if IT fails for some reason, the rest of the
-// site (lessons, editor) still works instead of the whole page going dead.
-let board = null;
-try {
-  board = createBoard(document.getElementById("sim-board"));
-  buildWirePalette();
-} catch (err) {
-  console.error("Failed to start the circuit simulator:", err);
-  for (const btn of [runBtn, stopBtn, addComponentBtn, clearWiringBtn]) {
-    btn.disabled = true;
-    btn.title = "The simulator failed to load - check the browser console for details.";
-  }
-}
-
-function buildWirePalette() {
-  wirePaletteEl.innerHTML = "";
-
-  const autoBtn = document.createElement("button");
-  autoBtn.className = "wire-swatch auto active";
-  autoBtn.title = "Auto (red=5V, black=GND, rotates colors for signal wires)";
-  autoBtn.addEventListener("click", () => selectWireColor("auto", autoBtn));
-  wirePaletteEl.appendChild(autoBtn);
-
-  for (const { name, value } of board.getWirePalette()) {
-    const btn = document.createElement("button");
-    btn.className = "wire-swatch";
-    btn.style.background = value;
-    btn.title = name;
-    btn.addEventListener("click", () => selectWireColor(value, btn));
-    wirePaletteEl.appendChild(btn);
-  }
-}
-
-function selectWireColor(color, btnEl) {
-  board.setWireColor(color);
-  wirePaletteEl.querySelectorAll(".wire-swatch").forEach((el) => el.classList.remove("active"));
-  btnEl.classList.add("active");
-}
-
-function consoleWrite(text, cls) {
-  const span = document.createElement("span");
-  if (cls) span.className = cls;
-  span.textContent = text;
-  consoleEl.appendChild(span);
-  consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-
-function stopRun() {
-  if (activeRun) activeRun.stop();
-  activeRun = null;
-  runBtn.disabled = false;
-  stopBtn.disabled = true;
-  board?.setRunning(false);
-}
-
-function runCode() {
-  stopRun();
-  board.reset();
-  board.setRunning(true);
-  consoleWrite(`--- Run started ---\n`, "sim-status");
-  runBtn.disabled = true;
-  stopBtn.disabled = false;
-
-  activeRun = startProgram(editor.getValue(), {
-    pinMode: board.pinMode,
-    digitalWrite: board.digitalWrite,
-    digitalRead: board.digitalRead,
-    analogRead: board.analogRead,
-    analogWrite: board.analogWrite,
-    pulseIn: board.pulseIn,
-    tone: board.tone,
-    noTone: board.noTone,
-    servoWrite: board.servoWrite,
-    lcdBegin: board.lcdBegin,
-    lcdPrint: board.lcdPrint,
-    lcdSetCursor: board.lcdSetCursor,
-    lcdClear: board.lcdClear,
-  }, {
-    onOutput: (text) => consoleWrite(text),
-    onError: (message) => {
-      consoleWrite(`Error: ${message}\n`, "sim-error");
-      runBtn.disabled = false;
-      stopBtn.disabled = true;
-      activeRun = null;
-      board.setRunning(false);
-    },
-    onStopped: (message) => {
-      if (message) consoleWrite(`${message}\n`, "sim-status");
-      else consoleWrite(`--- loop() finished ---\n`, "sim-status");
-      runBtn.disabled = false;
-      stopBtn.disabled = true;
-      activeRun = null;
-      board.setRunning(false);
-    },
-  });
-}
-
-runBtn.addEventListener("click", runCode);
-stopBtn.addEventListener("click", () => {
-  stopRun();
-  consoleWrite(`--- Stopped ---\n`, "sim-status");
-});
-function guarded(fn) {
-  return (...args) => {
-    try {
-      fn(...args);
-    } catch (err) {
-      console.error(err);
-      statusTextEl.textContent = `Something went wrong: ${err.message}`;
-    }
-  };
-}
-
-addComponentBtn.addEventListener("click", guarded(() => board.addComponent(componentPickerEl.value)));
-clearWiringBtn.addEventListener("click", guarded(() => board.clearWiring()));
-clearConsoleBtn.addEventListener("click", guarded(() => { consoleEl.innerHTML = ""; }));
 
 function updateProgressSummary() {
   const total = getTotalLessonCount();
@@ -473,12 +380,6 @@ function openLesson(lessonId) {
   mainPanelEl.scrollTo({ top: 0 });
   replayFadeIn(mainPanelEl);
 }
-
-resetCodeBtn.addEventListener("click", () => {
-  stopRun();
-  editor.reset();
-  statusTextEl.textContent = "Editor reset to template.";
-});
 
 // The actual app only boots once the main menu hands off, via onStart below -
 // everything above this (editor, board, wire palette) is safe to create
