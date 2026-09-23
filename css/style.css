@@ -69,9 +69,15 @@ h1, h2, h3 {
 
 /* The rest of the pixel-theme sweep: every short label/badge/nameplate
    across the site, gathered into one rule since all of them need exactly
-   the same one property added (font-family) and nothing else - their own
-   font-size/color/spacing rules (defined at their usual spot further down
-   this file) are untouched and still fully in control of everything else. */
+   the same two properties added (font-family, line-height) and nothing
+   else - their own font-size/color/spacing rules (defined at their usual
+   spot further down this file) are untouched and still fully in control
+   of everything else. line-height matters here specifically because none
+   of these had one set before Press Start 2P arrived: a couple of these
+   (.sidebar-level in particular, e.g. "LEVEL 2 · DIGITAL I/O") routinely
+   wrap to 2 lines, and the browser's default line-height reads as cramped
+   once the font is this chunky - 1.5 was already the fix applied to
+   headings above, so labels get the same breathing room. */
 .mentor-name, .mentor-tag,
 .menu-header-title, .menu-rank-pill-label, .menu-rank-pill-value,
 .menu-card-eyebrow, .menu-stat-label,
@@ -87,6 +93,7 @@ h1, h2, h3 {
 .dashboard-section-title,
 .tag {
   font-family: var(--font-pixel);
+  line-height: 1.5;
 }
 
 /* A calmer scrollbar than the browser default, matching the dark theme -
