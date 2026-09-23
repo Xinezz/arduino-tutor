@@ -15,12 +15,22 @@
   --red: #ef6461;
   --red-glow: rgba(239, 100, 97, 0.5);
   --purple: #b48ce8;
-  --radius: 10px;
+  /* Retro pixel theme: 0 everywhere instead of a soft rounded --radius -
+     pixel-art has no curves, so every panel/badge/button that already
+     references this token goes sharp-cornered from this one change. */
+  --radius: 0px;
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   --font-terminal: "VT323", var(--font-mono);
+  /* Reserved for short, punchy text only (headings, buttons, badges) - see
+     the comment above the Google Fonts <link> in index.html for why it's
+     never used for body copy. */
+  --font-pixel: "Press Start 2P", var(--font-mono);
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.25);
   --shadow-card-hover: 0 10px 28px rgba(0, 0, 0, 0.35);
+  /* The classic 8-bit "raised button" shadow - hard-edged and unblurred
+     (no blur radius at all), unlike every other shadow in this file. */
+  --pixel-shadow-color: #05070c;
 }
 
 * { box-sizing: border-box; }
@@ -46,11 +56,44 @@ body {
   background-attachment: fixed;
 }
 
+/* Pixel theme: every heading sitewide gets the bitmap font - deliberately
+   ONLY font-family here, not font-size, so each heading's own existing
+   size rule (set per-context elsewhere in this file) keeps controlling how
+   big it renders. Press Start 2P is unusually wide per character, so a few
+   of the larger headings needed their own font-size trimmed down after
+   testing this - see .lesson-content h1, .menu-hero-heading, etc. */
+h1, h2, h3 {
+  font-family: var(--font-pixel);
+  line-height: 1.5;
+}
+
+/* The rest of the pixel-theme sweep: every short label/badge/nameplate
+   across the site, gathered into one rule since all of them need exactly
+   the same one property added (font-family) and nothing else - their own
+   font-size/color/spacing rules (defined at their usual spot further down
+   this file) are untouched and still fully in control of everything else. */
+.mentor-name, .mentor-tag,
+.menu-header-title, .menu-rank-pill-label, .menu-rank-pill-value,
+.menu-card-eyebrow, .menu-stat-label,
+.brand,
+.progress-summary, .credits-display, .level-display,
+.view-tab,
+.sidebar-heading, .sidebar-level,
+.lesson-eyebrow,
+.difficulty-badge,
+.xp-level,
+.rank-step-tag, .rank-step-name,
+.stat-tile-label,
+.dashboard-section-title,
+.tag {
+  font-family: var(--font-pixel);
+}
+
 /* A calmer scrollbar than the browser default, matching the dark theme -
    applies everywhere scrolling happens (sidebar, lesson content, editor). */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */ border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); background-clip: padding-box; }
 
 /* ---------- Motion ----------
@@ -85,24 +128,21 @@ body {
    `background` shorthand) so it layers on top of whatever background-color
    that card already set instead of fighting it for control of the whole
    property - order-independent no matter where in the cascade it lands. */
+/* Pixel-theme corner "rivets" - four solid 10x10 blocks, one per corner,
+   standing in for the thin-line HUD brackets this used to draw. Still just
+   background-image (not the `background` shorthand), so it keeps layering
+   safely on top of whatever background-color a caller already set,
+   regardless of cascade order - see the callers of .hud-frame across
+   menu.js/challenge.js/quiz.js/projects.js/dashboard.js, none of which
+   needed to change for this reskin since the class name didn't move. */
 .hud-frame {
   position: relative;
   background-repeat: no-repeat;
   background-image:
     linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
     linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent));
-  background-size:
-    14px 2px, 2px 14px,
-    14px 2px, 2px 14px,
-    14px 2px, 2px 14px,
-    14px 2px, 2px 14px;
-  background-position:
-    top 0 left 0, top 0 left 0,
-    top 0 right 0, top 0 right 0,
-    bottom 0 left 0, bottom 0 left 0,
-    bottom 0 right 0, bottom 0 right 0;
+  background-size: 10px 10px, 10px 10px, 10px 10px, 10px 10px;
+  background-position: top left, top right, bottom left, bottom right;
 }
 
 /* ---------- Mentor dialogue (Sam, your NPC guide at CircuitWorks) ---------- */
@@ -148,7 +188,7 @@ body {
 .mentor-tag {
   font-size: 0.7rem;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   background: var(--panel-alt);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -449,14 +489,14 @@ body {
   height: 8px;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   overflow: hidden;
 }
 .menu-stat-bar-fill {
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, var(--accent), var(--green));
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   box-shadow: 0 0 8px var(--accent-glow);
   transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -467,6 +507,12 @@ body {
   .menu-hero-heading { font-size: 1.4rem; }
   .menu-header { padding: 12px 16px; }
   .menu-rank-pill { align-items: flex-start; }
+  /* .menu-header-right (the rank pill + "Not <name>?" button) wraps as ONE
+     unit onto its own row via .menu-header's flex-wrap above, but that
+     alone doesn't stop the button inside IT from overflowing past the
+     screen edge if the two together are still too wide - needs its own
+     wrap too, plus permission to actually use the full row once wrapped. */
+  .menu-header-right { flex-wrap: wrap; width: 100%; }
 }
 
 /* ---------- Top bar ---------- */
@@ -485,18 +531,22 @@ body {
 
 .topbar-left { display: flex; align-items: center; gap: 10px; }
 
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.1rem; }
+/* font-size dropped hard from its pre-pixel-theme 1.1rem - Press Start 2P
+   runs roughly 1.5-1.7x wider per character than the sans font this used
+   to be, so keeping the old size would push "ArduinoTutor" past the edge
+   of the topbar on anything narrower than a very wide desktop window. */
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.75rem; }
 .brand-icon { color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow)); }
 .brand span { color: var(--accent); text-shadow: 0 0 14px var(--accent-glow); }
 
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
 .progress-summary {
-  font-size: 0.85rem;
+  font-size: 0.55rem; /* same pixel-font width correction as .brand above */
   color: var(--text-dim);
   background: var(--panel-alt);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -506,12 +556,12 @@ body {
    locks you out for lack of funds), so .credits-debt is a color shift, not
    an alarm. */
 .credits-display {
-  font-size: 0.85rem;
+  font-size: 0.55rem; /* same pixel-font width correction as .brand above */
   font-weight: 600;
   color: var(--yellow);
   background: rgba(232, 197, 71, 0.1);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid rgba(232, 197, 71, 0.3);
   white-space: nowrap;
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -526,12 +576,12 @@ body {
    next to it) never goes back down. Accent-colored to read as a distinct
    stat from the yellow credits pill beside it. */
 .level-display {
-  font-size: 0.85rem;
+  font-size: 0.55rem; /* same pixel-font width correction as .brand above */
   font-weight: 600;
   color: var(--accent);
   background: rgba(79, 195, 247, 0.1);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid rgba(79, 195, 247, 0.3);
   white-space: nowrap;
 }
@@ -542,7 +592,7 @@ body {
   gap: 4px;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   padding: 3px;
 }
 
@@ -550,9 +600,10 @@ body {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
+  font-family: var(--font-pixel);
+  font-size: 0.55rem; /* same pixel-font width correction as .brand - 4 tabs need to fit one row even on a phone */
   cursor: pointer;
 }
 
@@ -674,10 +725,13 @@ body {
 
   .main-panel, .main-panel-wide { max-width: 100%; padding: 16px; }
   .topbar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; row-gap: 8px; }
-  .brand { font-size: 1rem; }
-  .progress-summary, .credits-display, .level-display { font-size: 0.75rem; padding: 3px 8px; }
-  .view-tabs { order: 3; width: 100%; justify-content: center; }
-  .view-tab { flex: 1; text-align: center; }
+  /* .brand used to get BIGGER on mobile (1rem, up from a smaller desktop
+     size) back when it was a normal-width sans font - now that it's the
+     wide pixel font, the correction runs the other way. */
+  .brand { font-size: 0.62rem; }
+  .progress-summary, .credits-display, .level-display { font-size: 0.5rem; padding: 3px 8px; }
+  .view-tabs { order: 3; width: 100%; justify-content: center; gap: 2px; padding: 2px; }
+  .view-tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 0.42rem; }
   .lesson-content { padding: 18px 16px; }
   .mentor-box { padding: 10px 12px; gap: 10px; }
   .mentor-portrait { width: 36px; height: 36px; }
@@ -818,7 +872,7 @@ body {
 .flag-btn {
   font-size: 0.78rem;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-dim);
@@ -1048,18 +1102,31 @@ body {
 /* Two different speeds on purpose: hover eases in like the button is
    lifting off the page (150ms), but the press-down on click is snappier
    (70ms) so it actually feels like a click landing, not a slow squish. */
+/* Classic 8-bit "raised button": a hard, unblurred offset shadow instead of
+   the soft glows everything else uses, and NO hover lift/scale (too smooth
+   for the theme) - hovering just brightens it, and clicking visually
+   pushes the button down into its own shadow by translating it exactly
+   the shadow's offset and dropping the shadow entirely, then springing
+   back on release. Press Start 2P is wide and has no descenders, so this
+   needs real breathing room (padding, line-height) and permission to wrap
+   onto a second line - some buttons here carry dynamic text (a hint's
+   live cost, a lesson title) that won't always fit on one line, and
+   letting it wrap beats truncating or overflowing its container. */
 .btn {
   border: none;
-  border-radius: 7px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-family: var(--font-pixel);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  white-space: normal;
   cursor: pointer;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
-  transition: transform 0.15s ease, filter 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, filter 0.15s ease, background 0.15s ease;
 }
-.btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
-.btn:active:not(:disabled) { transform: translateY(0) scale(0.96); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition-duration: 0.07s; }
-.btn:disabled { cursor: default; transform: none; opacity: 0.5; box-shadow: none; }
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
+.btn:disabled { cursor: default; opacity: 0.5; box-shadow: none; }
 
 .btn-secondary { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover:not(:disabled) { background: var(--border); }
@@ -1119,7 +1186,7 @@ body {
 .difficulty-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid var(--border);
 }
 
@@ -1176,7 +1243,7 @@ body {
 .quiz-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid var(--purple);
   color: var(--purple);
 }
@@ -1380,11 +1447,11 @@ body {
 .project-progress-bar {
   height: 6px;
   background: var(--panel-alt);
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   overflow: hidden;
   margin-top: 10px;
 }
-.project-progress-fill { height: 100%; background: var(--green); border-radius: 999px; }
+.project-progress-fill { height: 100%; background: var(--green); border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */ }
 
 .project-lock-note { font-size: 0.78rem; color: var(--red); margin-top: 8px; }
 
@@ -1457,14 +1524,14 @@ body {
   height: 10px;
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   overflow: hidden;
 }
 
 .xp-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--green));
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   box-shadow: 0 0 8px var(--accent-glow);
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1527,7 +1594,7 @@ body {
   margin-left: auto;
   font-size: 0.72rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 2px; /* pixel theme: was a smooth 999px pill/circle */
   border: 1px solid var(--border);
   color: var(--text-dim);
   white-space: nowrap;
