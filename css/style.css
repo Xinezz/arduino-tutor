@@ -1105,6 +1105,30 @@ h1, h2, h3 {
 .sim-console .sim-error { color: var(--red); }
 .sim-console .sim-status { color: var(--text-dim); }
 
+/* Serial Monitor input box - added under each console by js/simulator/panel.js */
+.serial-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.serial-input {
+  flex: 1;
+  min-width: 0;
+  background: #0b0d13;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-family: var(--font-terminal);
+  font-size: 1.05rem;
+  color: var(--green);
+}
+
+.serial-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ---------- Buttons ---------- */
 /* Two different speeds on purpose: hover eases in like the button is
    lifting off the page (150ms), but the press-down on click is snappier
@@ -1656,3 +1680,4 @@ h1, h2, h3 {
   font-size: 0.9rem;
   padding: 12px 0;
 }
+

@@ -1,0 +1,9 @@
+{
+  "name": "arduino-tutor",
+  "private": true,
+  "type": "module",
+  "description": "Learn Arduino in the browser. No build step: the site is plain ES modules served as-is; this file only exists to run the tests.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

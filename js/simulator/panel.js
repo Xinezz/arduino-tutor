@@ -36,6 +36,36 @@ export function createSimulatorPanel({
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
+  // The Serial Monitor's input box, like the one at the top of the Arduino
+  // IDE's Serial Monitor. Built here (rather than in index.html) so both
+  // panels get one without duplicating markup.
+  const serialInputRow = document.createElement("form");
+  serialInputRow.className = "serial-input-row";
+  const serialInputEl = document.createElement("input");
+  serialInputEl.type = "text";
+  serialInputEl.className = "serial-input";
+  serialInputEl.placeholder = "Message to send to the board (Enter to send)";
+  serialInputEl.setAttribute("aria-label", "Serial Monitor input");
+  serialInputEl.autocomplete = "off";
+  const serialSendBtn = document.createElement("button");
+  serialSendBtn.type = "submit";
+  serialSendBtn.className = "btn btn-secondary";
+  serialSendBtn.textContent = "Send";
+  serialInputRow.append(serialInputEl, serialSendBtn);
+  consoleEl.after(serialInputRow);
+
+  serialInputRow.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!activeRun) {
+      consoleWrite(`(Click Run first - the sketch has to be running to read Serial input)\n`, "sim-status");
+      return;
+    }
+    // Like the Arduino IDE's default "New Line" setting: a newline is sent
+    // after the text, so readStringUntil('\n') and parseInt() see where it ends.
+    activeRun.sendSerial(`${serialInputEl.value}\n`);
+    serialInputEl.value = "";
+  });
+
   function selectWireColor(color, btnEl) {
     board.setWireColor(color);
     wirePaletteEl.querySelectorAll(".wire-swatch").forEach((el) => el.classList.remove("active"));

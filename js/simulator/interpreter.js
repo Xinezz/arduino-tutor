@@ -1,6 +1,7 @@
-// A small interpreter for a SUBSET of Arduino C++ - just enough to run the
-// code taught in Levels 1-2 (variables, if/else, for/while, the built-in
-// pinMode/digitalWrite/digitalRead/delay/Serial functions). This is NOT a
+// A small interpreter for a SUBSET of Arduino C++ - variables, arrays,
+// if/else, for/while, your own functions (with parameters and return
+// values), the built-in pinMode/digitalWrite/digitalRead/delay functions,
+// and Serial output AND input (Serial.available/read/parseInt/...). This is NOT a
 // real C++ compiler - it's a tree-walking interpreter, the same basic
 // technique used by simple scripting language engines.
 //
@@ -23,6 +24,12 @@ const KEYWORDS = new Set([
   "void", "int", "float", "double", "bool", "boolean", "char", "long", "byte",
   "unsigned", "String", "const", "if", "else", "for", "while", "return",
   "break", "continue", "true", "false",
+]);
+
+// The keywords that can start a variable/parameter type. ("void" is only
+// valid as a function return type, so it's handled separately.)
+const TYPE_KEYWORDS = new Set([
+  "int", "float", "double", "bool", "boolean", "char", "long", "byte", "unsigned", "String", "const",
 ]);
 
 function stripDefines(source) {
@@ -48,6 +55,11 @@ function stripDefines(source) {
   }
   return text;
 }
+
+// Backslash escapes inside "..." and '...' - without this, "\n" would come
+// out as a literal letter n instead of a new line.
+const ESCAPES = { n: "\n", t: "\t", r: "\r", "0": "\0" };
+function unescapeChar(c) { return ESCAPES[c] ?? c; }
 
 function tokenize(source) {
   const src = stripDefines(source);
@@ -97,7 +109,7 @@ function tokenize(source) {
       let start = ++i;
       let out = "";
       while (i < n && src[i] !== '"') {
-        if (src[i] === "\\" && i + 1 < n) { out += src[i + 1]; i += 2; }
+        if (src[i] === "\\" && i + 1 < n) { out += unescapeChar(src[i + 1]); i += 2; }
         else { out += src[i]; i++; }
       }
       i++;
@@ -108,7 +120,7 @@ function tokenize(source) {
     if (c === "'") {
       let start = ++i;
       let ch = src[i];
-      if (ch === "\\") { ch = src[i + 1]; i += 2; } else { i++; }
+      if (ch === "\\") { ch = unescapeChar(src[i + 1]); i += 2; } else { i++; }
       i++; // closing quote
       tokens.push({ type: "CHAR", value: ch, line });
       continue;
@@ -178,8 +190,12 @@ class Parser {
     const globals = [];
     const functions = {};
     while (!this.check("EOF")) {
-      if (this.check("KEYWORD", "void")) {
+      if (this.isFunctionDeclStart()) {
         const fn = this.parseFunctionDecl();
+        if (!fn.body) continue; // a prototype like "int add(int a, int b);" - the real definition comes later
+        if (functions[fn.name]) {
+          throw new SimError(`The function '${fn.name}' is defined twice - give each function its own name`, fn.line);
+        }
         functions[fn.name] = fn;
       } else {
         globals.push(this.parseVarDeclStatement());
@@ -191,7 +207,23 @@ class Parser {
   isTypeKeyword() {
     const t = this.peek();
     if (t.type !== "KEYWORD") return false;
-    return ["int", "float", "double", "bool", "boolean", "char", "long", "byte", "unsigned", "String", "const"].includes(t.value);
+    return TYPE_KEYWORDS.has(t.value);
+  }
+
+  // "int add(" / "unsigned long elapsed(" / "void blink(" at the top level is
+  // a function; "int ledPin = 13;" is a variable. Both start with a type and
+  // a name, so we peek past them (without consuming anything) and check for
+  // the "(" that only a function has. Only built-in type keywords count here:
+  // "LiquidCrystal lcd(12, 11, ...)" also has a "(" but is an object
+  // declaration with constructor arguments, not a function.
+  isFunctionDeclStart() {
+    let i = this.pos;
+    while (this.tokens[i].type === "KEYWORD" && ["const", "unsigned"].includes(this.tokens[i].value)) i++;
+    const typeTok = this.tokens[i];
+    if (typeTok.type !== "KEYWORD" || !(typeTok.value === "void" || TYPE_KEYWORDS.has(typeTok.value))) return false;
+    const nameTok = this.tokens[i + 1];
+    const parenTok = this.tokens[i + 2];
+    return nameTok.type === "IDENT" && parenTok.type === "OP" && parenTok.value === "(";
   }
 
   // Two identifiers in a row ("Servo myServo", "LiquidCrystal lcd") can only be
@@ -209,13 +241,61 @@ class Parser {
     return this.isTypeKeyword() || this.isObjectDeclStart();
   }
 
+  // Consumes a type such as "int", "const byte", "unsigned long", "String" or
+  // "Servo" and returns its base name. "unsigned" is dropped - the simulator
+  // doesn't model integer sizes/overflow, so "unsigned long" behaves as "long".
+  parseTypeName() {
+    let isConst = false;
+    if (this.match("KEYWORD", "const")) isConst = true;
+    if (this.check("KEYWORD", "unsigned")) {
+      this.advance();
+      // a bare "unsigned x" means "unsigned int x"
+      if (!this.isTypeKeyword()) return { typeName: "int", isConst };
+    }
+    const t = this.advance();
+    if (t.type !== "KEYWORD" && t.type !== "IDENT") {
+      throw new SimError(`Expected a type like int or float but found '${t.value ?? t.type}'`, t.line);
+    }
+    return { typeName: t.value, isConst };
+  }
+
   parseFunctionDecl() {
-    this.expect("KEYWORD", "void");
+    const line = this.peek().line;
+    const { typeName: returnType } = this.parseTypeName();
     const name = this.expect("IDENT", undefined, "function name").value;
     this.expect("OP", "(");
+    const params = [];
+    if (this.check("KEYWORD", "void") && this.tokens[this.pos + 1].value === ")") {
+      this.advance(); // "int readSensor(void)" - old C style for "no parameters"
+    } else if (!this.check("OP", ")")) {
+      params.push(this.parseParam());
+      while (this.match("OP", ",")) params.push(this.parseParam());
+    }
     this.expect("OP", ")");
+    if (this.match("OP", ";")) return { type: "FuncDecl", name, returnType, params, body: null, line };
     const body = this.parseBlock();
-    return { type: "FuncDecl", name, body };
+    return { type: "FuncDecl", name, returnType, params, body, line };
+  }
+
+  // One parameter: "int pin", "float values[]", "int grid[][3]". In a
+  // prototype the name is optional ("int add(int, int);").
+  parseParam() {
+    const line = this.peek().line;
+    const { typeName } = this.parseTypeName();
+    if (this.check("OP", "&") || this.check("OP", "*")) {
+      throw new SimError(
+        `Reference/pointer parameters ('${this.peek().value}') aren't supported in this simulator yet - pass the value and return the result instead`,
+        line
+      );
+    }
+    const nameTok = this.match("IDENT");
+    let isArray = false;
+    while (this.match("OP", "[")) {
+      isArray = true;
+      if (!this.check("OP", "]")) this.parseExpr(); // a size in a parameter is allowed but ignored, like real C++
+      this.expect("OP", "]");
+    }
+    return { name: nameTok ? nameTok.value : null, typeName, isArray, line };
   }
 
   parseVarDeclStatement() {
@@ -225,27 +305,32 @@ class Parser {
   }
 
   parseVarDecl() {
-    let isConst = false;
-    if (this.match("KEYWORD", "const")) isConst = true;
-    if (this.check("KEYWORD", "unsigned")) this.advance(); // skip "unsigned", keep next type word
+    const line = this.peek().line;
     // consume the type keyword/name (int/float/bool/String/Servo/LiquidCrystal/...)
-    const typeName = this.advance().value;
+    const { typeName, isConst } = this.parseTypeName();
 
     // A single "type" can declare several variables at once, comma-separated -
     // e.g. int trigPin = 6, echoPin = 5; - a very common real Arduino pattern.
     const declarators = [this.parseDeclarator()];
     while (this.match("OP", ",")) declarators.push(this.parseDeclarator());
 
-    return { type: "VarDecl", typeName, isConst, declarators, line: this.peek().line };
+    return { type: "VarDecl", typeName, isConst, declarators, line };
   }
 
-  // One name (and optional initializer / constructor args) within a
-  // declaration - "trigPin = 6" is one declarator, "echoPin = 5" is another,
-  // both sharing the "int" type from parseVarDecl.
+  // One name (and optional array size, initializer or constructor args)
+  // within a declaration - "trigPin = 6" is one declarator, "echoPin = 5" is
+  // another, both sharing the "int" type from parseVarDecl. Arrays look like
+  // "pins[3] = {2, 3, 4}", "readings[10]", "grid[2][3]" or msg[] = "hi".
   parseDeclarator() {
-    const name = this.expect("IDENT", undefined, "variable name").value;
+    const nameTok = this.expect("IDENT", undefined, "variable name");
+    const name = nameTok.value;
+    const dims = [];
+    while (this.match("OP", "[")) {
+      dims.push(this.check("OP", "]") ? null : this.parseExpr());
+      this.expect("OP", "]");
+    }
     let init = null;
-    if (this.match("OP", "(")) {
+    if (!dims.length && this.match("OP", "(")) {
       // Constructor-style declaration, e.g. LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
       // We don't need the actual pin numbers for the simulation (the display
       // isn't wired pin-by-pin), but PARSING them means real Arduino code
@@ -256,9 +341,22 @@ class Parser {
       }
       this.expect("OP", ")");
     } else if (this.match("OP", "=")) {
-      init = this.parseExpr();
+      init = this.check("OP", "{") ? this.parseInitList() : this.parseExpr();
     }
-    return { name, init };
+    return { name, dims, init, line: nameTok.line };
+  }
+
+  // "{1, 2, 3}" or, for 2D arrays, "{{1, 2}, {3, 4}}". A trailing comma
+  // before the closing brace is allowed, as in real C++.
+  parseInitList() {
+    const line = this.expect("OP", "{").line;
+    const items = [];
+    while (!this.check("OP", "}")) {
+      items.push(this.check("OP", "{") ? this.parseInitList() : this.parseExpr());
+      if (!this.match("OP", ",")) break;
+    }
+    this.expect("OP", "}");
+    return { type: "InitList", items, line };
   }
 
   parseBlock() {
@@ -288,9 +386,9 @@ class Parser {
     }
     if (this.check("KEYWORD", "return")) {
       const line = this.advance().line;
-      if (!this.check("OP", ";")) this.parseExpr();
+      const value = this.check("OP", ";") ? null : this.parseExpr();
       this.expect("OP", ";");
-      return { type: "Return", line };
+      return { type: "Return", value, line };
     }
     if (this.isVarDeclStart()) {
       return this.parseVarDeclStatement();
@@ -444,13 +542,33 @@ class Parser {
       return expr;
     }
 
-    if (t.type === "IDENT") {
+    // sizeof(int) takes a TYPE, which isn't an expression, so it needs its
+    // own case. sizeof(myArray) - the usual way to count an array's
+    // elements, as sizeof(myArray) / sizeof(myArray[0]) - is handled here too.
+    if (t.type === "IDENT" && t.value === "sizeof" && this.tokens[this.pos + 1].value === "(") {
+      this.advance();
+      this.expect("OP", "(");
+      let node;
+      if (this.isTypeKeyword()) node = { type: "SizeofType", typeName: this.parseTypeName().typeName, line: t.line };
+      else node = { type: "Sizeof", expr: this.parseExpr(), line: t.line };
+      this.expect("OP", ")");
+      return node;
+    }
+
+    // String(42) / String(3.14159, 2) - converting a value to text.
+    const isStringConversion = this.check("KEYWORD", "String") && this.tokens[this.pos + 1].value === "(";
+
+    if (t.type === "IDENT" || isStringConversion) {
       this.advance();
       let node = { type: "Ident", name: t.value, line: t.line };
       for (;;) {
         if (this.match("OP", ".")) {
           const prop = this.expect("IDENT", undefined, "member name").value;
-          node = { type: "Member", object: node, property: prop };
+          node = { type: "Member", object: node, property: prop, line: t.line };
+        } else if (this.match("OP", "[")) {
+          const index = this.parseExpr();
+          this.expect("OP", "]");
+          node = { type: "Index", object: node, index, line: t.line };
         } else if (this.check("OP", "(")) {
           this.advance();
           const args = [];
@@ -493,8 +611,31 @@ const CONSTANTS = {
 
 class BreakSignal {}
 class ContinueSignal {}
+// Thrown by a `return` statement and caught by the function call that's
+// returning - the same trick as break/continue above, since a return can
+// happen arbitrarily deep inside nested loops and ifs.
+class ReturnSignal {
+  constructor(value) { this.value = value; }
+}
+
+const MAX_CALL_DEPTH = 200;       // a real Uno runs out of its 2KB of RAM long before this
+const MAX_ARRAY_ELEMENTS = 10000; // stops a typo like int a[100000] from freezing the tab
+const SERIAL_POLL_MS = 10;        // how often a waiting Serial.parseInt()/readString() checks for new input
+
+// Bytes per value on an Arduino Uno, for sizeof(). "int" is 2 bytes there
+// (not 4 like on a PC), which is why sizeof(myIntArray) is 2x the length.
+const TYPE_SIZES = {
+  char: 1, byte: 1, bool: 1, boolean: 1, int: 2, long: 4, float: 4, double: 4, String: 6,
+};
 
 function truthy(v) { return v !== 0 && v !== false && v !== "" && v != null; }
+
+// There's no separate "char" type at runtime: a char is a 1-letter JS
+// string ('A' is "A"). But in C++ a char is also a small number - 'A' is 65 -
+// so code like `c - '0'` or `Serial.read() == 'y'` mixes the two. isChar()
+// and charCode() let the operators below convert when that happens.
+function isChar(v) { return typeof v === "string" && v.length === 1; }
+function charCode(v) { return isChar(v) ? v.charCodeAt(0) : v; }
 
 // Shared by BOTH places a variable can be declared without an initializer -
 // globals (Interpreter.run) and locals (execStmt's VarDecl case). Keeping
@@ -505,7 +646,33 @@ function truthy(v) { return v !== 0 && v !== false && v !== "" && v != null; }
 function defaultValueForType(typeName) {
   if (typeName === "Servo") return { __kind: "Servo", pin: null, angle: 90 };
   if (typeName === "LiquidCrystal") return { __kind: "LiquidCrystal" };
+  if (typeName === "String") return "";
   return 0;
+}
+
+// Applied whenever a value is stored into a variable, parameter or array
+// slot of a known type. Right now that only matters for char: storing a
+// number (like what Serial.read() returns) into a char turns it into that
+// letter, so `char c = Serial.read(); Serial.print(c);` prints "y", not 121.
+function coerceForType(typeName, value) {
+  if (typeName === "char" && typeof value === "number") return String.fromCharCode(value);
+  if (typeName === "String" && typeof value === "number") return String(value);
+  return value;
+}
+
+// Variables live in plain objects (one per scope, chained by prototype). A
+// variable's declared type is stored alongside it under this prefixed key,
+// which can never clash with a real identifier.
+const TYPE_KEY = "\0type:";
+function declare(scope, name, typeName, value) {
+  scope[name] = value;
+  scope[TYPE_KEY + name] = typeName;
+}
+
+function formatNumberAsString(value, decimals) {
+  if (typeof value !== "number") return `${value}`;
+  if (decimals !== undefined) return value.toFixed(decimals);
+  return Number.isInteger(value) ? `${value}` : value.toFixed(2); // Arduino's String(float) shows 2 decimals
 }
 
 class Interpreter {
@@ -514,23 +681,104 @@ class Interpreter {
     this.api = api; // { pinMode, digitalWrite, digitalRead, analogRead, analogWrite, millisNow, print }
     this.globals = Object.create(null);
     for (const [k, v] of Object.entries(CONSTANTS)) this.globals[k] = v;
+    this.callDepth = 0;
+    this.loopCount = 0;
+    // Text typed into the Serial Monitor that the sketch hasn't read yet -
+    // the equivalent of the Arduino's 64-byte serial receive buffer.
+    this.serialIn = "";
+    this.serialTimeoutMs = 1000; // Arduino's default for parseInt()/readString()
+  }
+
+  sendSerial(text) {
+    this.serialIn += text;
   }
 
   *run() {
     for (const decl of this.ast.globals) {
-      for (const d of decl.declarators) {
-        this.globals[d.name] = d.init
-          ? yield* this.evalExpr(d.init, this.globals)
-          : defaultValueForType(decl.typeName);
-      }
+      for (const d of decl.declarators) yield* this.declareVar(decl.typeName, d, this.globals);
     }
-    if (this.ast.functions.setup) yield* this.execBlock(this.ast.functions.setup.body, this.globals);
+    if (this.ast.functions.setup) yield* this.callUserFunction(this.ast.functions.setup, [], 0);
     if (!this.ast.functions.loop) return;
     for (;;) {
-      yield* this.execBlock(this.ast.functions.loop.body, this.globals);
+      yield* this.callUserFunction(this.ast.functions.loop, [], 0);
+      this.loopCount++;
       yield { type: "tick" };
     }
   }
+
+  // ---------- declarations ----------
+
+  *declareVar(typeName, d, scope) {
+    let value;
+    if (d.dims.length) {
+      const sizes = [];
+      for (const size of d.dims) sizes.push(size ? this.toIndex(yield* this.evalExpr(size, scope), d.line) : null);
+      let init = null;
+      if (d.init) init = d.init.type === "InitList" ? yield* this.evalInitList(d.init, scope) : yield* this.evalExpr(d.init, scope);
+      value = this.buildArray(typeName, sizes, init, d.line);
+    } else {
+      if (d.init && d.init.type === "InitList") {
+        throw new SimError(`'${d.name}' isn't an array, so it can't be set with { braces } - did you forget the [ ]?`, d.line);
+      }
+      value = d.init ? yield* this.evalExpr(d.init, scope) : defaultValueForType(typeName);
+      value = coerceForType(typeName, value);
+    }
+    declare(scope, d.name, typeName, value);
+  }
+
+  *evalInitList(list, scope) {
+    const out = [];
+    for (const item of list.items) {
+      out.push(item.type === "InitList" ? yield* this.evalInitList(item, scope) : yield* this.evalExpr(item, scope));
+    }
+    return out;
+  }
+
+  // Arrays are plain JS arrays (nested ones for 2D), tagged with their
+  // element type so stores into them are coerced and sizeof() knows the
+  // element size. A char array set from a string literal - char msg[] = "hi" -
+  // stays a JS string, so it can be printed whole like in real Arduino code.
+  buildArray(typeName, sizes, init, line) {
+    if (typeName === "char" && sizes.length === 1 && typeof init === "string") return init;
+    if (init !== null && !Array.isArray(init)) {
+      throw new SimError(`An array has to be set with a list in braces, like {1, 2, 3}`, line);
+    }
+    let total = 1;
+    const build = (level, initPart) => {
+      const size = sizes[level] ?? (initPart ? initPart.length : null);
+      if (size === null) throw new SimError(`This array needs a size - put a number in the [ ] or give it a {list} of starting values`, line);
+      if (size < 0) throw new SimError(`An array can't have a negative size`, line);
+      if (initPart && initPart.length > size) {
+        throw new SimError(`Too many starting values - the array only has room for ${size}`, line);
+      }
+      total *= size;
+      if (total > MAX_ARRAY_ELEMENTS) throw new SimError(`That array is too big for this simulator (over ${MAX_ARRAY_ELEMENTS} elements)`, line);
+      const arr = [];
+      const isLast = level === sizes.length - 1;
+      for (let i = 0; i < size; i++) {
+        const part = initPart ? initPart[i] : undefined;
+        if (isLast) {
+          if (Array.isArray(part)) throw new SimError(`Too many levels of { braces } for this array`, line);
+          arr.push(part === undefined ? defaultValueForType(typeName) : coerceForType(typeName, part));
+        } else {
+          if (part !== undefined && !Array.isArray(part)) throw new SimError(`Each row of a 2D array needs its own { braces }`, line);
+          arr.push(build(level + 1, part));
+        }
+      }
+      arr.elemType = typeName;
+      return arr;
+    };
+    return build(0, init);
+  }
+
+  toIndex(v, line) {
+    if (isChar(v)) return v.charCodeAt(0);
+    if (typeof v === "boolean") return v ? 1 : 0;
+    if (typeof v !== "number" || Number.isNaN(v)) throw new SimError(`An array index has to be a number`, line);
+    return Math.trunc(v);
+  }
+
+  // ---------- statements ----------
 
   *execBlock(block, scope) {
     const local = Object.create(scope);
@@ -546,9 +794,7 @@ class Interpreter {
         yield* this.execBlock(stmt, scope);
         return;
       case "VarDecl": {
-        for (const d of stmt.declarators) {
-          scope[d.name] = d.init ? yield* this.evalExpr(d.init, scope) : defaultValueForType(stmt.typeName);
-        }
+        for (const d of stmt.declarators) yield* this.declareVar(stmt.typeName, d, scope);
         return;
       }
       case "ExprStmt":
@@ -587,11 +833,60 @@ class Interpreter {
       }
       case "Break": throw new BreakSignal();
       case "Continue": throw new ContinueSignal();
-      case "Return": return;
+      case "Return":
+        throw new ReturnSignal(stmt.value ? yield* this.evalExpr(stmt.value, scope) : undefined);
       default:
         throw new SimError(`Cannot execute statement of type ${stmt.type}`, stmt.line);
     }
   }
+
+  // ---------- user-defined functions ----------
+
+  // Each call gets a fresh scope whose parent is the GLOBAL scope - not the
+  // caller's - so a function sees its own parameters/locals plus globals,
+  // but never the local variables of whoever called it (same as C++). That
+  // fresh scope per call is also what makes recursion work.
+  *callUserFunction(fn, args, line) {
+    if (args.length !== fn.params.length) {
+      throw new SimError(
+        `${fn.name}() needs ${fn.params.length} argument${fn.params.length === 1 ? "" : "s"} but was given ${args.length}`,
+        line
+      );
+    }
+    if (this.callDepth >= MAX_CALL_DEPTH) {
+      throw new SimError(`Too many function calls inside each other (over ${MAX_CALL_DEPTH}) - does ${fn.name}() keep calling itself without stopping?`, line);
+    }
+    const scope = Object.create(this.globals);
+    fn.params.forEach((p, i) => {
+      // Arrays are passed by reference, exactly like real C++: the function
+      // gets the SAME array, so changes it makes are visible to the caller.
+      if (p.isArray && !Array.isArray(args[i]) && typeof args[i] !== "string") {
+        throw new SimError(`${fn.name}() expects an array for '${p.name}'`, line);
+      }
+      declare(scope, p.name, p.typeName, p.isArray ? args[i] : coerceForType(p.typeName, args[i]));
+    });
+
+    this.callDepth++;
+    try {
+      yield* this.execBlock(fn.body, scope);
+    } catch (e) {
+      if (e instanceof ReturnSignal) {
+        if (fn.returnType === "void" || e.value === undefined) return undefined;
+        return coerceForType(fn.returnType, e.value);
+      }
+      if (e instanceof BreakSignal || e instanceof ContinueSignal) {
+        throw new SimError(`'${e instanceof BreakSignal ? "break" : "continue"}' can only be used inside a loop (in ${fn.name}())`, fn.line);
+      }
+      throw e;
+    } finally {
+      this.callDepth--;
+    }
+    // Falling off the end of a non-void function without a return: real C++
+    // returns garbage here. 0 is the friendliest stand-in.
+    return fn.returnType === "void" ? undefined : coerceForType(fn.returnType, 0);
+  }
+
+  // ---------- expressions ----------
 
   findScope(name, scope) {
     let s = scope;
@@ -600,6 +895,70 @@ class Interpreter {
       s = Object.getPrototypeOf(s);
     }
     return null;
+  }
+
+  // Resolves something that can be assigned to - a variable (x) or an array
+  // element (readings[i], grid[r][c]) - into a get/set pair. Assignment and
+  // ++/-- both go through this, so the array/index part is evaluated once.
+  *resolveRef(target, scope) {
+    if (target.type === "Ident") {
+      const s = this.findScope(target.name, scope);
+      if (!s) throw new SimError(`'${target.name}' was not declared before use`, target.line);
+      const type = s[TYPE_KEY + target.name];
+      return {
+        type,
+        get: () => s[target.name],
+        set: (v) => {
+          if (Array.isArray(s[target.name])) {
+            throw new SimError(`You can't assign to a whole array at once - set its elements one at a time, like ${target.name}[0] = ...`, target.line);
+          }
+          s[target.name] = coerceForType(type, v);
+        },
+      };
+    }
+    if (target.type === "Index") {
+      const container = yield* this.evalExpr(target.object, scope);
+      const i = this.toIndex(yield* this.evalExpr(target.index, scope), target.line);
+      if (typeof container === "string") {
+        // A char array stored as a JS string - strings can't be changed in
+        // place, so write back a rebuilt copy through the parent reference.
+        this.checkBounds(container.length + 1, i, target);
+        const assignable = target.object.type === "Ident" || target.object.type === "Index";
+        const parent = assignable ? yield* this.resolveRef(target.object, scope) : null;
+        return {
+          type: "char",
+          get: () => (parent ? parent.get() : container)[i] ?? "\0",
+          set: (v) => {
+            if (!parent) throw new SimError("Left side of assignment must be a variable or an array element", target.line);
+            const s = parent.get();
+            parent.set(s.slice(0, i) + coerceForType("char", v) + s.slice(i + 1));
+          },
+        };
+      }
+      if (!Array.isArray(container)) throw new SimError(`${describe(target.object)} is not an array, so it can't be used with [ ]`, target.line);
+      this.checkBounds(container.length, i, target);
+      return {
+        type: container.elemType,
+        get: () => container[i],
+        set: (v) => {
+          if (Array.isArray(container[i])) throw new SimError(`You can't assign to a whole row of a 2D array at once`, target.line);
+          container[i] = coerceForType(container.elemType, v);
+        },
+      };
+    }
+    throw new SimError("Left side of assignment must be a variable or an array element", target.line);
+  }
+
+  // Reading past the end of an array is "undefined behavior" in real C++ -
+  // it silently reads/corrupts other memory, one of the most confusing bugs
+  // a beginner can hit. Here it's a clear error instead.
+  checkBounds(length, i, node) {
+    if (i < 0 || i >= length) {
+      throw new SimError(
+        `Index ${i} is outside the array ${describe(node.object)} (valid indexes are 0 to ${length - 1})`,
+        node.line
+      );
+    }
   }
 
   *evalExpr(node, scope) {
@@ -612,20 +971,37 @@ class Interpreter {
         }
         return s[node.name];
       }
+      case "Index": {
+        const ref = yield* this.resolveRef(node, scope);
+        return ref.get();
+      }
       case "Assign": {
+        const ref = yield* this.resolveRef(node.target, scope);
         const value = yield* this.evalExpr(node.value, scope);
-        return this.assignTo(node.target, node.op, value, scope);
+        if (node.op === "=") {
+          ref.set(value);
+        } else {
+          // c += 1 on a char means "next letter", so do the math on its number
+          let cur = ref.get();
+          if (ref.type === "char") cur = charCode(cur);
+          if (node.op === "+=") ref.set(cur + value);
+          else if (node.op === "-=") ref.set(cur - charCode(value));
+          else if (node.op === "*=") ref.set(cur * value);
+          else if (node.op === "/=") ref.set(cur / value);
+        }
+        return ref.get();
       }
       case "Update": {
-        const oldVal = yield* this.evalExpr(node.expr, scope);
-        const newVal = node.op === "++" ? oldVal + 1 : oldVal - 1;
-        this.assignTo(node.expr, "=", newVal, scope);
-        return node.prefix ? newVal : oldVal;
+        const ref = yield* this.resolveRef(node.expr, scope);
+        const oldVal = ref.get();
+        const num = charCode(oldVal);
+        ref.set(node.op === "++" ? num + 1 : num - 1);
+        return node.prefix ? ref.get() : oldVal;
       }
       case "Unary": {
         const v = yield* this.evalExpr(node.expr, scope);
         if (node.op === "!") return !truthy(v);
-        if (node.op === "-") return -v;
+        if (node.op === "-") return -charCode(v);
         return v;
       }
       case "Binary": {
@@ -639,8 +1015,19 @@ class Interpreter {
           if (truthy(l)) return true;
           return truthy(yield* this.evalExpr(node.right, scope));
         }
-        const l = yield* this.evalExpr(node.left, scope);
-        const r = yield* this.evalExpr(node.right, scope);
+        let l = yield* this.evalExpr(node.left, scope);
+        let r = yield* this.evalExpr(node.right, scope);
+        if (["-", "*", "/", "%"].includes(node.op)) {
+          // pure arithmetic: a char always means its number ('7' - '0' is 7)
+          l = charCode(l);
+          r = charCode(r);
+        } else if ((typeof l === "number") !== (typeof r === "number")) {
+          // a number mixed with a char: Serial.read() == 'y', or 'a' + 1.
+          // ("+" between a number and a longer String still joins text:
+          // "Count: " + n - charCode() only converts single letters.)
+          l = charCode(l);
+          r = charCode(r);
+        }
         switch (node.op) {
           case "+": return l + r;
           case "-": return l - r;
@@ -656,34 +1043,72 @@ class Interpreter {
           default: throw new SimError(`Unknown operator ${node.op}`);
         }
       }
+      case "SizeofType":
+        return TYPE_SIZES[node.typeName] ?? 2;
+      case "Sizeof":
+        return yield* this.evalSizeof(node.expr, scope);
       case "Member": {
         // Only "Serial.xxx" is supported - treat it as a namespaced builtin name.
         if (node.object.type === "Ident") return `${node.object.name}.${node.property}`;
         throw new SimError(`Unsupported member access`, node.line);
       }
       case "Call": {
-        // A call like myServo.write(90) or lcd.print("hi") is a METHOD call on
-        // a user variable, not a fixed namespace like Serial.println - it has
-        // to be resolved by looking up what object the variable actually
-        // holds, which only makes sense here (not in resolveCalleeName, which
-        // has no access to real values, only names).
-        if (node.callee.type === "Member" && node.callee.object.type === "Ident") {
-          const objScope = this.findScope(node.callee.object.name, scope);
-          const objValue = objScope && objScope[node.callee.object.name];
-          if (objValue && typeof objValue === "object" && objValue.__kind) {
-            const args = [];
-            for (const a of node.args) args.push(yield* this.evalExpr(a, scope));
-            return this.callObjectMethod(objValue, node.callee.property, args, node.line);
+        const args = [];
+        const evalArgs = function* (self) {
+          for (const a of node.args) args.push(yield* self.evalExpr(a, scope));
+        };
+
+        // Your own functions come first, so a sketch can define a helper
+        // with any name it likes.
+        if (node.callee.type === "Ident" && this.ast.functions[node.callee.name]) {
+          yield* evalArgs(this);
+          return yield* this.callUserFunction(this.ast.functions[node.callee.name], args, node.line);
+        }
+
+        // A call like myServo.write(90), lcd.print("hi") or name.length() is
+        // a METHOD call on a value the sketch holds, not a fixed namespace
+        // like Serial.println - it has to be resolved by looking at what
+        // that value actually is, which only makes sense here (not in
+        // resolveCalleeName, which has no access to real values, only names).
+        if (node.callee.type === "Member") {
+          const obj = node.callee.object;
+          const isNamespace = obj.type === "Ident" && !this.findScope(obj.name, scope);
+          if (!isNamespace) {
+            const value = yield* this.evalExpr(obj, scope);
+            yield* evalArgs(this);
+            if (value && typeof value === "object" && value.__kind) {
+              return this.callObjectMethod(value, node.callee.property, args, node.line);
+            }
+            if (typeof value === "string") {
+              return yield* this.callStringMethod(obj, value, node.callee.property, args, scope, node.line);
+            }
+            throw new SimError(`${describe(obj)} has no method '${node.callee.property}'`, node.line);
           }
         }
         const name = yield* this.resolveCalleeName(node.callee, scope);
-        const args = [];
-        for (const a of node.args) args.push(yield* this.evalExpr(a, scope));
+        yield* evalArgs(this);
         return yield* this.callBuiltin(name, args, node.line);
       }
       default:
         throw new SimError(`Cannot evaluate expression of type ${node.type}`, node.line);
     }
+  }
+
+  *evalSizeof(expr, scope) {
+    let value;
+    let typeName;
+    if (expr.type === "Ident") {
+      value = yield* this.evalExpr(expr, scope);
+      const s = this.findScope(expr.name, scope);
+      typeName = s && s[TYPE_KEY + expr.name];
+    } else if (expr.type === "Index") {
+      const container = yield* this.evalExpr(expr.object, scope);
+      value = yield* this.evalExpr(expr, scope);
+      typeName = typeof container === "string" ? "char" : container.elemType;
+    } else {
+      value = yield* this.evalExpr(expr, scope);
+    }
+    return sizeofValue(value, typeName);
   }
 
   *resolveCalleeName(callee, scope) {
@@ -692,17 +1117,39 @@ class Interpreter {
     throw new SimError("Unsupported function call");
   }
 
-  assignTo(target, op, value, scope) {
-    if (target.type !== "Ident") throw new SimError("Left side of assignment must be a variable");
-    const s = this.findScope(target.name, scope);
-    if (!s) throw new SimError(`'${target.name}' was not declared before use`, target.line);
-    if (op === "=") s[target.name] = value;
-    else if (op === "+=") s[target.name] += value;
-    else if (op === "-=") s[target.name] -= value;
-    else if (op === "*=") s[target.name] *= value;
-    else if (op === "/=") s[target.name] /= value;
-    return s[target.name];
+  // ---------- Serial input ----------
+
+  // Waits (in simulated time, without freezing the page) until the Serial
+  // Monitor has sent something, or the timeout passes. Returns whether
+  // there's data. This is how parseInt()/readString() behave on a real board:
+  // they block for up to 1 second waiting for the user to type.
+  *waitForSerial() {
+    let waited = 0;
+    while (!this.serialIn.length && waited < this.serialTimeoutMs) {
+      yield { type: "delay", ms: SERIAL_POLL_MS };
+      waited += SERIAL_POLL_MS;
+    }
+    return this.serialIn.length > 0;
   }
+
+  // Serial.parseInt()/parseFloat(): skip anything that isn't part of a
+  // number, then read the number. Returns 0 if nothing arrives in time.
+  *serialParseNumber(allowDecimal) {
+    for (;;) {
+      const m = this.serialIn.match(/^[^0-9.-]*/);
+      this.serialIn = this.serialIn.slice(m[0].length);
+      if (this.serialIn.length) break;
+      if (!(yield* this.waitForSerial())) return 0;
+    }
+    const m = this.serialIn.match(allowDecimal ? /^-?[0-9]*\.?[0-9]*/ : /^-?[0-9]*/);
+    let text = m[0];
+    // a lone "-" or "." with no digits isn't a number - drop it and move on
+    this.serialIn = this.serialIn.slice(Math.max(text.length, 1));
+    const value = allowDecimal ? parseFloat(text) : parseInt(text, 10);
+    return Number.isNaN(value) ? 0 : value;
+  }
+
+  // ---------- built-in functions ----------
 
   *callBuiltin(name, args, line) {
     const api = this.api;
@@ -726,8 +1173,39 @@ class Interpreter {
       case "tone": api.tone && api.tone(args[0], args[1], args[2]); return;
       case "noTone": api.noTone && api.noTone(args[0]); return;
       case "Serial.begin": return;
+      case "Serial.end": return;
+      case "Serial.flush": return;
       case "Serial.println": api.print(`${args[0] ?? ""}\n`); return;
       case "Serial.print": api.print(`${args[0] ?? ""}`); return;
+      case "Serial.write": api.print(typeof args[0] === "number" ? String.fromCharCode(args[0]) : `${args[0] ?? ""}`); return;
+      case "Serial.available": return this.serialIn.length;
+      case "Serial.read": {
+        // Returns the next character as a NUMBER (its ASCII code), or -1 if
+        // nothing is waiting - exactly like the real Serial.read().
+        if (!this.serialIn.length) return -1;
+        const code = this.serialIn.charCodeAt(0);
+        this.serialIn = this.serialIn.slice(1);
+        return code;
+      }
+      case "Serial.peek": return this.serialIn.length ? this.serialIn.charCodeAt(0) : -1;
+      case "Serial.parseInt": return yield* this.serialParseNumber(false);
+      case "Serial.parseFloat": return yield* this.serialParseNumber(true);
+      case "Serial.readString": {
+        if (!(yield* this.waitForSerial())) return "";
+        const text = this.serialIn;
+        this.serialIn = "";
+        return text;
+      }
+      case "Serial.readStringUntil": {
+        if (!(yield* this.waitForSerial())) return "";
+        const stop = isChar(args[0]) ? args[0] : String.fromCharCode(args[0]);
+        const at = this.serialIn.indexOf(stop);
+        const text = at === -1 ? this.serialIn : this.serialIn.slice(0, at);
+        this.serialIn = at === -1 ? "" : this.serialIn.slice(at + 1);
+        return text;
+      }
+      case "Serial.setTimeout": this.serialTimeoutMs = args[0]; return;
+      case "String": return formatNumberAsString(args[0] ?? "", args[1]);
       case "abs": return Math.abs(args[0]);
       case "min": return Math.min(args[0], args[1]);
       case "max": return Math.max(args[0], args[1]);
@@ -742,6 +1220,34 @@ class Interpreter {
           : Math.floor(Math.random() * args[0]);
       default:
         throw new SimError(`'${name}' is not a supported function in this simulator yet`, line);
+    }
+  }
+
+  // Methods on String values - mostly needed for text read from the Serial
+  // Monitor (input.trim(), input.toInt(), input.equals("on"), ...). trim(),
+  // toUpperCase() and toLowerCase() change the String IN PLACE in Arduino
+  // (they don't return a new one), so those write back through a reference.
+  *callStringMethod(objNode, str, method, args, scope, line) {
+    switch (method) {
+      case "length": return str.length;
+      case "toInt": { const v = parseInt(str, 10); return Number.isNaN(v) ? 0 : v; }
+      case "toFloat": { const v = parseFloat(str); return Number.isNaN(v) ? 0 : v; }
+      case "equals": return str === `${args[0]}`;
+      case "equalsIgnoreCase": return str.toLowerCase() === `${args[0]}`.toLowerCase();
+      case "indexOf": return str.indexOf(`${args[0]}`, args[1] ?? 0);
+      case "substring": return str.substring(args[0], args[1] ?? str.length);
+      case "charAt": return str[args[0]] ?? "\0";
+      case "startsWith": return str.startsWith(`${args[0]}`);
+      case "endsWith": return str.endsWith(`${args[0]}`);
+      case "trim":
+      case "toUpperCase":
+      case "toLowerCase": {
+        const ref = yield* this.resolveRef(objNode, scope);
+        const updated = method === "trim" ? str.trim() : method === "toUpperCase" ? str.toUpperCase() : str.toLowerCase();
+        ref.set(updated);
+        return;
+      }
+      default: throw new SimError(`String has no method '${method}'`, line);
     }
   }
 
@@ -781,6 +1287,21 @@ class Interpreter {
   }
 }
 
+function sizeofValue(value, typeName) {
+  if (Array.isArray(value)) return value.length * sizeofValue(value[0] ?? 0, value.elemType);
+  if (typeName === "char" && typeof value === "string" && value.length !== 1) return value.length + 1; // + the hidden '\0' at the end
+  return TYPE_SIZES[typeName] ?? 2;
+}
+
+// A readable name for an expression in error messages: "readings", "grid[1]".
+function describe(node) {
+  if (node.type === "Ident") return `'${node.name}'`;
+  if (node.type === "Index") return `${describe(node.object)}[...]`;
+  return "that value";
+}
+
+export { Interpreter };
+
 // ---------- Runner / scheduler ----------
 // Drives the generator produced by Interpreter.run(). Handles: real-time
 // pacing for delay(), a periodic "yield to the browser" so a tight loop with
@@ -797,11 +1318,11 @@ export function startProgram(source, api, { onError, onStopped, onOutput } = {})
     ast = parse(source);
   } catch (e) {
     onError && onError(e instanceof SimError ? e.message : String(e));
-    return { stop() {} };
+    return { stop() {}, sendSerial() {} };
   }
   if (!ast.functions.setup || !ast.functions.loop) {
     onError && onError("Every sketch needs both a setup() and a loop() function.");
-    return { stop() {} };
+    return { stop() {}, sendSerial() {} };
   }
 
   let stopped = false;
@@ -835,7 +1356,11 @@ export function startProgram(source, api, { onError, onStopped, onOutput } = {})
       result = gen.next(resumeValue);
     } catch (e) {
       stopped = true;
-      onError && onError(e instanceof SimError ? e.message : String(e));
+      let message = e instanceof SimError ? e.message : String(e);
+      // Very deep recursion can hit the browser's own stack limit before
+      // MAX_CALL_DEPTH does - report that the same friendly way.
+      if (e instanceof RangeError) message = "Too many function calls inside each other - does a function keep calling itself without stopping?";
+      onError && onError(message);
       return;
     }
 
@@ -868,6 +1393,11 @@ export function startProgram(source, api, { onError, onStopped, onOutput } = {})
   return {
     stop() {
       stopped = true;
+    },
+    // Text typed into the Serial Monitor - the sketch reads it with
+    // Serial.available()/read()/parseInt()/readString().
+    sendSerial(text) {
+      if (!stopped) interpreter.sendSerial(text);
     },
   };
 }
