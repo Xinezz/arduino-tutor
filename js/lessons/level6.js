@@ -1,6 +1,8 @@
 // Level 6: Sensors - ultrasonic, IR/obstacle, LDR revisited, temperature,
 // and turning raw sensor data into decisions.
 
+import { A0, expectFollows, expectOutputPin, schedule } from "./checks.js";
+
 export const level6Lessons = [
   {
     id: "l6-1",
@@ -94,6 +96,15 @@ export const level6Lessons = [
       id: "c17",
       title: "Automatic Night Light",
       difficulty: "medium",
+      check: {
+        durationMs: 3000,
+        inputs: { analog: schedule(A0, [[0, 900], [1000, 50], [2000, 900]]) },
+        verify: (run) => expectOutputPin(run, 13) || expectFollows(run, 13, [
+          [900, false, "it was bright"],
+          [1900, true, "it was dark"],
+          [2900, false, "it was bright again"],
+        ]),
+      },
       prompt:
         "Wire an LDR to A0 and an LED to pin 13. Turn the LED on automatically when it gets dark, and off " +
         "automatically when it's bright - a real automatic night light.",
@@ -161,6 +172,16 @@ export const level6Lessons = [
       id: "c16",
       title: "Obstacle Alert System",
       difficulty: "medium",
+      check: {
+        durationMs: 3000,
+        // active-LOW: the sensor reads LOW while an obstacle is in front of it
+        inputs: { digital: schedule(4, [[0, 1], [1000, 0], [2000, 1]]) },
+        verify: (run) => expectOutputPin(run, 13) || expectFollows(run, 13, [
+          [900, false, "nothing was in front of the sensor"],
+          [1900, true, "an obstacle was in front of the sensor"],
+          [2900, false, "the obstacle moved away"],
+        ]),
+      },
       prompt:
         "Wire an IR obstacle sensor to pin 4 and an LED to pin 13. Light the LED whenever the sensor " +
         "detects an obstacle, and keep it off otherwise.",

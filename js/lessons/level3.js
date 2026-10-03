@@ -1,5 +1,7 @@
 // Level 3: Analog Input.
 
+import { A0, expectRepeatingLine, lastNumberBefore, schedule } from "./checks.js";
+
 export const level3Lessons = [
   {
     id: "l3-1",
@@ -63,6 +65,20 @@ export const level3Lessons = [
       id: "c7",
       title: "Read a Potentiometer and Print Its Value",
       difficulty: "easy",
+      check: {
+        durationMs: 2000,
+        inputs: { analog: schedule(A0, [[0, 300], [1000, 700]]) },
+        verify: (run) => {
+          const isNumber = (text) => text !== "" && !Number.isNaN(Number(text));
+          const problem = expectRepeatingLine(run, isNumber, 100, "The potentiometer reading");
+          if (problem) return problem;
+          for (const [t, expected] of [[950, 300], [1950, 700]]) {
+            const printed = lastNumberBefore(run, t);
+            if (printed !== expected) return `The potentiometer was at ${expected}, but the Serial Monitor showed ${printed}.`;
+          }
+          return null;
+        },
+      },
       prompt:
         "Wire a potentiometer's wiper to A0. Write a sketch that continuously reads its value and prints " +
         "it to the Serial Monitor, about 10 times per second.",
@@ -107,6 +123,22 @@ export const level3Lessons = [
       id: "c9",
       title: "Map a Sensor Reading to a Friendly Range",
       difficulty: "medium",
+      check: {
+        durationMs: 2100,
+        inputs: { analog: schedule(A0, [[0, 0], [700, 512], [1400, 1023]]) },
+        verify: (run) => {
+          const isNumber = (text) => text !== "" && !Number.isNaN(Number(text));
+          const problem = expectRepeatingLine(run, isNumber, 100, "The percentage");
+          if (problem) return problem;
+          for (const [t, raw, percent] of [[650, 0, 0], [1350, 512, 50], [2050, 1023, 100]]) {
+            const printed = lastNumberBefore(run, t);
+            if (printed === null || Math.abs(printed - percent) > 1) {
+              return `With the raw reading at ${raw}, the Serial Monitor showed ${printed} - it should be about ${percent}.`;
+            }
+          }
+          return null;
+        },
+      },
       prompt:
         "Read a potentiometer on A0 and print its value as a percentage (0-100) instead of the raw 0-1023 " +
         "reading, updating about 10 times per second.",

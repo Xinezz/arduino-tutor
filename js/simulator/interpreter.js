@@ -508,7 +508,7 @@ function defaultValueForType(typeName) {
   return 0;
 }
 
-class Interpreter {
+export class Interpreter {
   constructor(ast, api) {
     this.ast = ast;
     this.api = api; // { pinMode, digitalWrite, digitalRead, analogRead, analogWrite, millisNow, print }

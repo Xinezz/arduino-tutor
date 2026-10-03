@@ -6,9 +6,14 @@
 // attached to that too: each tier is priced (escalating, so thinking it through
 // stays cheaper than skipping ahead), reported to app.js via onSpend rather than
 // touching progress/credits directly here - this module only renders and reports.
+//
+// Challenges with a `check` (see checks.js) are graded automatically: "Check
+// My Code" runs whatever is in the editor (via getCode) and only reports
+// completion on a pass. Challenges without one keep the self-marked button.
 
 import { typewriterText } from "../utils/typewriter.js";
 import { HINT_COSTS, SOLUTION_COST } from "../progress/progress.js";
+import { runCheck } from "./checks.js";
 
 const DIFFICULTY_LABELS = {
   easy: { text: "🟢 Easy", cls: "difficulty-easy" },
@@ -17,7 +22,7 @@ const DIFFICULTY_LABELS = {
   boss: { text: "💀 Boss Challenge", cls: "difficulty-boss" },
 };
 
-export function renderChallenge(container, challenge, { onComplete, onSpend }) {
+export function renderChallenge(container, challenge, { onComplete, onSpend, getCode }) {
   container.innerHTML = "";
   if (!challenge) return;
 
@@ -57,12 +62,18 @@ export function renderChallenge(container, challenge, { onComplete, onSpend }) {
   solutionBtn.className = "btn btn-hint";
   const doneBtn = document.createElement("button");
   doneBtn.className = "btn btn-primary";
-  doneBtn.textContent = "Mark as Solved";
+  const autoCheck = Boolean(challenge.check && getCode);
+  doneBtn.textContent = autoCheck ? "Check My Code" : "Mark as Solved";
 
   controls.appendChild(hintBtn);
   controls.appendChild(solutionBtn);
   controls.appendChild(doneBtn);
   card.appendChild(controls);
+
+  const checkResult = document.createElement("div");
+  checkResult.className = "check-result";
+  checkResult.hidden = true;
+  card.appendChild(checkResult);
 
   const revealArea = document.createElement("div");
   card.appendChild(revealArea);
@@ -121,10 +132,42 @@ export function renderChallenge(container, challenge, { onComplete, onSpend }) {
     solutionBtn.disabled = true;
   });
 
+  let solved = false;
+
+  function showCheckResult({ pass, message }) {
+    checkResult.hidden = false;
+    checkResult.classList.toggle("pass", pass);
+    checkResult.classList.toggle("fail", !pass);
+    checkResult.textContent = pass ? `✓ Passed! ${message}` : `✗ Not yet: ${message}`;
+  }
+
   doneBtn.addEventListener("click", () => {
-    onComplete(challenge.id);
-    doneBtn.textContent = "✓ Solved";
+    if (!autoCheck) {
+      onComplete(challenge.id);
+      doneBtn.textContent = "✓ Solved";
+      doneBtn.disabled = true;
+      return;
+    }
+
     doneBtn.disabled = true;
+    doneBtn.textContent = "Checking...";
+    // Let the button repaint before the (synchronous) headless run starts.
+    setTimeout(() => {
+      let result;
+      try {
+        result = runCheck(challenge.check, getCode());
+      } catch (err) {
+        console.error(err);
+        result = { pass: false, message: "Something went wrong while checking - try running your code first." };
+      }
+      showCheckResult(result);
+      if (result.pass && !solved) {
+        solved = true;
+        onComplete(challenge.id);
+      }
+      doneBtn.disabled = false;
+      doneBtn.textContent = solved ? "✓ Solved · Check Again" : "Check My Code";
+    }, 30);
   });
 
   updateHintButton();
