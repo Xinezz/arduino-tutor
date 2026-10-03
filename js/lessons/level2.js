@@ -1,5 +1,7 @@
 // Level 2: Digital Input and Output.
 
+import { STARTING_CIRCUITS } from "./circuits.js";
+
 export const level2Lessons = [
   {
     id: "l2-1",
@@ -81,6 +83,7 @@ export const level2Lessons = [
       id: "c3",
       title: "Blink an LED",
       difficulty: "medium",
+      circuit: STARTING_CIRCUITS.ledOnPin13,
       prompt:
         "Write a sketch that blinks an LED on pin 13 - on for half a second, off for half a second, " +
         "repeating forever. Assume the LED and resistor are already wired correctly.\n\n" +
@@ -187,9 +190,11 @@ export const level2Lessons = [
       id: "c4",
       title: "Control an LED with a Button",
       difficulty: "medium",
+      circuit: STARTING_CIRCUITS.buttonAndLed,
       prompt:
         "Make an LED on pin 13 turn on while a button on pin 7 is held down, and turn off when it's " +
-        "released. Use INPUT_PULLUP for the button (remember what that does to the HIGH/LOW logic).\n\n" +
+        "released. Use INPUT_PULLUP for the button (remember what that does to the HIGH/LOW logic). The " +
+        "LED and button are already wired up on the board below.\n\n" +
         "Before coding: what information does the Arduino need to know before it can decide whether the " +
         "LED should be on, and which function gives it that information?",
       hints: [

@@ -245,6 +245,8 @@ function checkLevelUp(xpBefore, milestonesBefore) {
   return null;
 }
 
+let circuitLoadedForLessonId = null;
+
 function openLesson(lessonId) {
   const lesson = findLesson(lessonId);
   if (!lesson) return;
@@ -289,6 +291,16 @@ function openLesson(lessonId) {
   // in progress keeps running in the background either way (editor.js/board.js
   // are shared singletons, not recreated per lesson) - it's just not shown
   // while you're reading a lesson that doesn't need it.
+  // A challenge can ship a starting circuit (challenge.circuit) so the
+  // learner opens it already wired and can go straight to the code. Only
+  // loaded when ARRIVING at a lesson, not when openLesson() re-renders the
+  // same one (e.g. after "Mark Lesson as Done"), so it never wipes wiring
+  // the learner has changed in the meantime.
+  if (challenge?.circuit && lessonId !== circuitLoadedForLessonId) {
+    lessonsPanel.loadCircuit(challenge.circuit);
+  }
+  circuitLoadedForLessonId = lessonId;
+
   editorSectionEl.hidden = !challenge;
   simulatorSectionEl.hidden = !challenge;
   if (challenge) editor.refresh(); // CodeMirror needs this after being unhidden to size itself correctly
