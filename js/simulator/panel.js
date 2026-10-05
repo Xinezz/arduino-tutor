@@ -152,5 +152,15 @@ export function createSimulatorPanel({
     onStatus?.("Editor reset to template.");
   });
 
-  return { editor, board, stopRun };
+  // Swaps the board over to a predefined circuit (a lesson's starting
+  // wiring). Any run in progress is stopped first - its pins would
+  // otherwise keep driving components that no longer exist.
+  function loadCircuit(circuit) {
+    if (!board) return;
+    stopRun();
+    board.reset();
+    board.loadCircuit(circuit);
+  }
+
+  return { editor, board, stopRun, loadCircuit };
 }

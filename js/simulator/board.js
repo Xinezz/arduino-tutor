@@ -481,16 +481,53 @@ export function createBoard(svgEl) {
     const x = 90 + (index % 6) * 110;
     const y = TRAY_TOP + Math.floor(index / 6) * 130;
     const comp = { id, kind, x, y };
-
     if (kind === "led") comp.color = LED_COLORS[(nextComponentNum[kind] - 1) % LED_COLORS.length];
-    if (kind === "resistor") comp.ohms = RESISTOR_VALUES[0].ohms;
-    if (kind === "potentiometer") comp.rawValue = 512;
-    if (kind === "ldr") comp.lightPct = 50;
-    if (kind === "tempsensor") comp.tempC = 22;
-    if (kind === "ultrasonic") comp.distanceCm = 50;
-    if (kind === "servo") comp.currentAngle = 90;
+    applyComponentDefaults(comp);
 
     components.push(comp);
+    render();
+  }
+
+  // Fills in whatever kind-specific state a component needs but wasn't
+  // given - shared by addComponent() and loadCircuit(), so a lesson's
+  // starting circuit only has to spell out the fields it cares about.
+  function applyComponentDefaults(comp) {
+    const kind = comp.kind;
+    if (kind === "led") comp.color ??= LED_COLORS[0];
+    if (kind === "resistor") comp.ohms ??= RESISTOR_VALUES[0].ohms;
+    if (kind === "potentiometer") comp.rawValue ??= 512;
+    if (kind === "ldr") comp.lightPct ??= 50;
+    if (kind === "tempsensor") comp.tempC ??= 22;
+    if (kind === "ultrasonic") comp.distanceCm ??= 50;
+    if (kind === "servo") comp.currentAngle ??= 90;
+  }
+
+  // Replaces whatever is on the board with a predefined circuit - how a
+  // lesson's challenge opens already wired up. Shape:
+  //   { components: [{ id: "led-1", kind: "led", x, y, ...optional fields }],
+  //     wires: [{ from: "pin-13", to: "led-1-a", color?: "#..." }] }
+  // Ids follow the same "<kind>-<n>" scheme addComponent() uses, and
+  // nextComponentNum is bumped past them so anything the learner adds on
+  // top gets a fresh id instead of colliding with a preloaded one.
+  function loadCircuit(circuit) {
+    components = (circuit?.components || []).map((c) => {
+      const comp = { ...c };
+      applyComponentDefaults(comp);
+      return comp;
+    });
+    nextComponentNum = {};
+    for (const comp of components) {
+      const m = comp.id.match(/-(\d+)$/);
+      const n = m ? Number(m[1]) : 0;
+      nextComponentNum[comp.kind] = Math.max(nextComponentNum[comp.kind] || 0, n);
+    }
+    pending = null;
+    pressed = new Set();
+    irBlocked = new Set();
+    signalColorCursor = 0;
+    wires = (circuit?.wires || []).map((w) => ({
+      from: w.from, to: w.to, color: w.color || autoColor(w.from, w.to),
+    }));
     render();
   }
 
@@ -1186,7 +1223,7 @@ export function createBoard(svgEl) {
   return {
     pinMode, digitalWrite, digitalRead, analogRead, analogWrite, pulseIn, tone, noTone, servoWrite,
     lcdBegin, lcdPrint, lcdSetCursor, lcdClear,
-    addComponent, removeComponent, clearWiring, reset, setRunning, setWireColor,
+    addComponent, removeComponent, clearWiring, loadCircuit, reset, setRunning, setWireColor,
     getWirePalette: () => WIRE_PALETTE,
   };
 }

@@ -3,6 +3,8 @@
 // file from becoming a huge wall of content as the course grows - data.js
 // just imports both and glues them into one list.
 
+import { STARTING_CIRCUITS } from "./circuits.js";
+
 export const level1Lessons = [
   {
     id: "l1-1",
@@ -157,6 +159,7 @@ export const level1Lessons = [
       id: "c2",
       title: "Use a Variable Instead of a Hardcoded Number",
       difficulty: "easy",
+      circuit: STARTING_CIRCUITS.ledOnPin13,
       prompt:
         "You're given code that hardcodes pin 13 three separate times. Rewrite it so the pin number is " +
         "stored in a single variable called ledPin, and every reference to the pin uses that variable " +
