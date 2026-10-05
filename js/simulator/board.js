@@ -124,6 +124,9 @@ const WIRE_PALETTE = [
   { name: "White", value: "#e4e6ec" },
 ];
 const SIGNAL_ROTATION = ["#f5c542", "#4fc3f7", "#57d38c", "#ff9f4a", "#b48ce8", "#e4e6ec"];
+// The site's pixel fonts (loaded by index.html), for text drawn on the board.
+const PIXEL_FONT = "'Press Start 2P', monospace";
+const TERMINAL_FONT = "VT323, monospace";
 const LED_COLORS = ["#ff5a4e", "#ffe066", "#57d38c", "#4fc3f7", "#ffffff"];
 
 // The resistor values a beginner actually reaches for, each with its REAL
@@ -688,32 +691,60 @@ export function createBoard(svgEl) {
     // rail is now a REAL functional connector (see GND_HOLES/FIVEV_HOLES),
     // drawn by render() right after this runs, so drawing plain dots here
     // first would just be immediately covered up.
-    svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y - 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y - 6, stroke: "#d9453c", "stroke-width": 2 }));
-    svgEl.appendChild(svgEl_("line", { x1: BREADBOARD_X + 22, y1: y + 6, x2: BREADBOARD_X + BREADBOARD_W - 22, y2: y + 6, stroke: "#3f6fd9", "stroke-width": 2 }));
-    const plusLabel = svgEl_("text", { x: BREADBOARD_X + 10, y: y - 2, fill: "#d9453c", "font-size": 13, "font-weight": "bold" });
+    // Pixel theme: the rail stripes are blocky dashes (rects, not lines) and
+    // the +/- marks use the pixel font, to match the pixel-art LEDs.
+    for (let x = BREADBOARD_X + 22; x < BREADBOARD_X + BREADBOARD_W - 22; x += 12) {
+      const w = Math.min(8, BREADBOARD_X + BREADBOARD_W - 22 - x);
+      svgEl.appendChild(svgEl_("rect", { x, y: y - 8, width: w, height: 3, fill: "#d9453c", "shape-rendering": "crispEdges" }));
+      svgEl.appendChild(svgEl_("rect", { x, y: y + 5, width: w, height: 3, fill: "#3f6fd9", "shape-rendering": "crispEdges" }));
+    }
+    const plusLabel = svgEl_("text", { x: BREADBOARD_X + 7, y: y - 2, fill: "#d9453c", "font-size": 10, "font-family": PIXEL_FONT });
     plusLabel.textContent = "+";
     svgEl.appendChild(plusLabel);
-    const minusLabel = svgEl_("text", { x: BREADBOARD_X + 10, y: y + 12, fill: "#3f6fd9", "font-size": 13, "font-weight": "bold" });
+    const minusLabel = svgEl_("text", { x: BREADBOARD_X + 7, y: y + 12, fill: "#3f6fd9", "font-size": 10, "font-family": PIXEL_FONT });
     minusLabel.textContent = "−";
     svgEl.appendChild(minusLabel);
   }
 
-  function drawBreadboard() {
-    svgEl.appendChild(svgEl_("rect", {
-      x: BREADBOARD_X, y: BREADBOARD_Y, width: BREADBOARD_W, height: BREADBOARD_H,
-      rx: 6, fill: "#efe7d0", stroke: "#b0a688", "stroke-width": 2,
+  // A pixel-art panel: flat fill, a 4px light bevel on the top/left, a 4px
+  // shadow on the bottom/right, and a dark outline with stepped (notched)
+  // corners instead of rounded ones.
+  function drawPixelPanel(x, y, w, h) {
+    const u = 4;
+    const px = (rx, ry, rw, rh, fill) => svgEl.appendChild(svgEl_("rect", {
+      x: rx, y: ry, width: rw, height: rh, fill, "shape-rendering": "crispEdges",
     }));
+    px(x + u, y + u, w - 2 * u, h - 2 * u, "#efe7d0"); // body
+    px(x + u, y + u, w - 2 * u, u, "#fbf6e6"); // top bevel
+    px(x + u, y + u, u, h - 2 * u, "#fbf6e6"); // left bevel
+    px(x + u, y + h - 2 * u, w - 2 * u, u, "#d4c8a4"); // bottom shadow
+    px(x + w - 2 * u, y + u, u, h - 2 * u, "#d4c8a4"); // right shadow
+    const edge = "#8a7f60";
+    px(x + u, y, w - 2 * u, u, edge);
+    px(x + u, y + h - u, w - 2 * u, u, edge);
+    px(x, y + u, u, h - 2 * u, edge);
+    px(x + w - u, y + u, u, h - 2 * u, edge);
+    // the stepped corners: one outline pixel just inside each corner
+    for (const [cx, cy] of [[x + u, y + u], [x + w - 2 * u, y + u], [x + u, y + h - 2 * u], [x + w - 2 * u, y + h - 2 * u]]) px(cx, cy, u, u, edge);
+  }
+
+  function drawBreadboard() {
+    drawPixelPanel(BREADBOARD_X, BREADBOARD_Y, BREADBOARD_W, BREADBOARD_H);
 
     drawRail(RAIL_TOP_Y);
     // Note: no decorative hole-grid pattern drawn here - every position in
     // the main grid is now a REAL functional connector (GRID_HOLES), drawn
     // by render() right after this runs, exactly like the rails above.
     const midY = (GRID_TOP_ROWS_Y[GRID_TOP_ROWS_Y.length - 1] + GRID_BOTTOM_ROWS_Y[0]) / 2;
-    svgEl.appendChild(svgEl_("line", {
-      x1: BREADBOARD_X + 14, y1: midY, x2: BREADBOARD_X + BREADBOARD_W - 14, y2: midY,
-      stroke: "#cabf9e", "stroke-width": 8,
+    svgEl.appendChild(svgEl_("rect", {
+      x: BREADBOARD_X + 12, y: midY - 5, width: BREADBOARD_W - 24, height: 10,
+      fill: "#cabf9e", "shape-rendering": "crispEdges",
     }));
-    const trenchLabel = svgEl_("text", { x: BREADBOARD_X + BREADBOARD_W / 2, y: midY + 3, fill: "#9c9074", "font-size": 8, "text-anchor": "middle", "font-family": "monospace" });
+    svgEl.appendChild(svgEl_("rect", {
+      x: BREADBOARD_X + 12, y: midY + 3, width: BREADBOARD_W - 24, height: 2,
+      fill: "#b3a785", "shape-rendering": "crispEdges",
+    }));
+    const trenchLabel = svgEl_("text", { x: BREADBOARD_X + BREADBOARD_W / 2, y: midY + 3, fill: "#857a5e", "font-size": 11, "text-anchor": "middle", "font-family": TERMINAL_FONT });
     trenchLabel.textContent = "center trench - each column only connects on ONE side of this line";
     svgEl.appendChild(trenchLabel);
     drawRail(RAIL_BOTTOM_Y);
@@ -815,7 +846,7 @@ export function createBoard(svgEl) {
       const isRailHole = id.includes("rail");
       const r = isRailHole ? 2.4 : 7;
       const pad = isRailHole ? 3 : 8;
-      drawConnector(id, p.x, p.y, topLayer ? "" : p.label || "", color, topLayer, r, pad);
+      drawConnector(id, p.x, p.y, topLayer ? "" : p.label || "", color, topLayer, r, pad, isRailHole);
     }
   }
 
@@ -825,22 +856,28 @@ export function createBoard(svgEl) {
   // holes only 18px apart horizontally and 14px apart vertically.
   function drawGridHoles(topLayer) {
     for (const [id, p] of Object.entries(GRID_HOLES)) {
-      drawConnector(id, p.x, p.y, "", "#8a8064", topLayer, 2.2, 2.5);
+      drawConnector(id, p.x, p.y, "", "#8a8064", topLayer, 2.2, 2.5, true);
     }
   }
 
-  function drawConnector(id, x, y, text, color, topLayer, radius, hitPad) {
+  // square: draw the hole as a crisp pixel square (breadboard holes) rather
+  // than a round connector (the Arduino's own header pins).
+  function drawConnector(id, x, y, text, color, topLayer, radius, hitPad, square) {
     const r = radius || 7;
     const pad = hitPad ?? 8; // smaller for densely-packed holes (breadboard rails) so neighboring hit zones don't overlap
     const isPending = pending === id;
     const hitArea = svgEl_("circle", { cx: x, cy: y, r: r + pad, fill: "transparent", class: "sim-connector-hit" });
     hitArea.addEventListener("click", () => handleConnectorClick(id));
     svgEl.appendChild(hitArea);
-    const circle = svgEl_("circle", {
-      cx: x, cy: y, r, fill: isPending ? "#fff" : color,
+    const look = {
+      fill: isPending ? "#fff" : color,
       stroke: isPending ? "#fff" : "#0d2338", "stroke-width": isPending ? 2 : 1,
       class: "sim-connector", style: "pointer-events:none",
-    });
+    };
+    const side = Math.round(r * 2);
+    const circle = square
+      ? svgEl_("rect", { x: Math.round(x - side / 2), y: Math.round(y - side / 2), width: side, height: side, "shape-rendering": "crispEdges", ...look })
+      : svgEl_("circle", { cx: x, cy: y, r, ...look });
     svgEl.appendChild(circle);
     if (text && !topLayer) {
       const t = svgEl_("text", { x, y: y - 14, fill: "#9aa0b4", "font-size": 10, "text-anchor": "middle", "font-family": "monospace" });
