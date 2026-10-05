@@ -224,6 +224,10 @@ h1, h2, h3 {
   flex-direction: column;
   flex: 1;
   min-height: 0; /* lets .main-panel's own overflow-y:auto still work correctly inside a flex column */
+  /* Plain black behind the lessons and the rest of the app, covering the
+     rainbow body background - that image is only for the main menu, since
+     it's tiring on the eyes during a long study session. */
+  background: #000;
 }
 
 /* Same reasoning as #app-shell above: :not([hidden]) so this rule's own
