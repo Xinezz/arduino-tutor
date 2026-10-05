@@ -1,5 +1,50 @@
 // Level 2: Digital Input and Output.
 
+import { expectBlink, expectFollows, expectOutputPin, schedule } from "./checks.js";
+
+// c5's check: walk the run as a sequence of "which lights were on" stretches,
+// ignoring the instant between one digitalWrite and the next.
+function verifyTrafficLight(run) {
+  const names = { 8: "red", 9: "yellow", 10: "green" };
+  const expectedMs = { green: 3000, yellow: 1000, red: 3000 };
+  const next = { green: "yellow", yellow: "red", red: "green" };
+  for (const pin of [8, 9, 10]) {
+    const problem = expectOutputPin(run, pin);
+    if (problem) return problem;
+  }
+
+  const changes = [...new Set(run.events.filter((e) => e.kind === "digitalWrite" && names[e.pin]).map((e) => e.t))];
+  const stretches = [];
+  changes.forEach((t, i) => {
+    const end = changes[i + 1] ?? run.durationMs;
+    if (end - t < 20) return;
+    const lit = [8, 9, 10].filter((pin) => run.levelAt(pin, t) > 0).map((pin) => names[pin]);
+    const state = lit.join(" and ") || "none";
+    const last = stretches[stretches.length - 1];
+    if (last && last.state === state) last.end = end;
+    else stretches.push({ state, start: t, end, lit });
+  });
+
+  if (stretches.length === 0) return "None of the lights on pins 8, 9 or 10 ever turned on.";
+  for (const s of stretches) {
+    if (s.lit.length > 1) return `The ${s.state} lights were on at the same time - only one should ever be lit.`;
+    if (s.lit.length === 0) return "There was a stretch where every light was off - one light should always be on.";
+  }
+  if (stretches[0].state !== "green") return `The cycle started on ${stretches[0].state} - it should start on green.`;
+  const complete = stretches.slice(0, -1); // the run ends partway through the last one
+  if (complete.length < 4) return "The lights didn't keep cycling - green, yellow, red should repeat forever.";
+  for (let i = 0; i < complete.length; i++) {
+    const s = complete[i];
+    const length = s.end - s.start;
+    if (Math.abs(length - expectedMs[s.state]) > expectedMs[s.state] * 0.1) {
+      return `${s.state[0].toUpperCase() + s.state.slice(1)} stayed on for about ${Math.round(length)}ms - it should be ${expectedMs[s.state]}ms.`;
+    }
+    const following = stretches[i + 1];
+    if (following.state !== next[s.state]) return `After ${s.state} came ${following.state} - it should be ${next[s.state]}.`;
+  }
+  return null;
+}
+
 export const level2Lessons = [
   {
     id: "l2-1",
@@ -81,6 +126,10 @@ export const level2Lessons = [
       id: "c3",
       title: "Blink an LED",
       difficulty: "medium",
+      check: {
+        durationMs: 4000,
+        verify: (run) => expectOutputPin(run, 13) || expectBlink(run, 13, 500, 500),
+      },
       prompt:
         "Write a sketch that blinks an LED on pin 13 - on for half a second, off for half a second, " +
         "repeating forever. Assume the LED and resistor are already wired correctly.\n\n" +
@@ -187,6 +236,20 @@ export const level2Lessons = [
       id: "c4",
       title: "Control an LED with a Button",
       difficulty: "medium",
+      check: {
+        durationMs: 4000,
+        // INPUT_PULLUP: released reads HIGH (1), held down reads LOW (0)
+        inputs: { digital: schedule(7, [[0, 1], [1000, 0], [2000, 1], [3000, 0]]) },
+        verify: (run) => {
+          if (run.modeOf(7) !== "INPUT_PULLUP") return "Set the button pin up with pinMode(7, INPUT_PULLUP).";
+          return expectOutputPin(run, 13) || expectFollows(run, 13, [
+            [900, false, "the button was released"],
+            [1900, true, "the button was held down"],
+            [2900, false, "the button was released again"],
+            [3900, true, "the button was held down again"],
+          ]);
+        },
+      },
       prompt:
         "Make an LED on pin 13 turn on while a button on pin 7 is held down, and turn off when it's " +
         "released. Use INPUT_PULLUP for the button (remember what that does to the HIGH/LOW logic).\n\n" +
@@ -231,6 +294,10 @@ export const level2Lessons = [
       id: "c5",
       title: "Build a Traffic Light",
       difficulty: "hard",
+      check: {
+        durationMs: 16000,
+        verify: verifyTrafficLight,
+      },
       prompt:
         "Wire three LEDs to pins 8 (red), 9 (yellow), and 10 (green). Write a sketch that cycles: green " +
         "for 3 seconds -> yellow for 1 second -> red for 3 seconds -> repeat. Only one LED should be lit " +
@@ -278,6 +345,19 @@ export const level2Lessons = [
       id: "c6",
       title: "Count Button Presses",
       difficulty: "hard",
+      check: {
+        durationMs: 4000,
+        // three separate presses (LOW while held), each held for a few hundred ms
+        inputs: { digital: schedule(7, [[0, 1], [500, 0], [800, 1], [1500, 0], [1700, 1], [2500, 0], [3200, 1]]) },
+        verify: (run) => {
+          if (run.modeOf(7) !== "INPUT_PULLUP") return "Set the button pin up with pinMode(7, INPUT_PULLUP).";
+          const counts = run.lines().map((l) => parseFloat(l.text)).filter((n) => !Number.isNaN(n));
+          if (counts.length === 0) return "The button was pressed 3 times, but no count was printed to the Serial Monitor.";
+          if (counts.length > 3) return `The button was pressed 3 times, but ${counts.length} counts were printed - each press should only count once.`;
+          if (counts.join(",") !== "1,2,3") return `After 3 presses the Serial Monitor showed ${counts.join(", ")} - it should show 1, 2, 3.`;
+          return null;
+        },
+      },
       prompt:
         "Wire a button to pin 7 using INPUT_PULLUP. Each time it's pressed, increase a counter by 1 and " +
         "print the new count to the Serial Monitor - but make sure each physical press only counts once, " +

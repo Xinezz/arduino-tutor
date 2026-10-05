@@ -3,6 +3,8 @@
 // file from becoming a huge wall of content as the course grows - data.js
 // just imports both and glues them into one list.
 
+import { expectBlink, expectOutputPin, expectRepeatingLine } from "./checks.js";
+
 export const level1Lessons = [
   {
     id: "l1-1",
@@ -157,6 +159,17 @@ export const level1Lessons = [
       id: "c2",
       title: "Use a Variable Instead of a Hardcoded Number",
       difficulty: "easy",
+      check: {
+        durationMs: 4000,
+        verify: (run) => {
+          const code = run.source.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+          if (!/\bledPin\s*=\s*13\b/.test(code)) return "Store the pin number in a variable first: int ledPin = 13;";
+          if ((code.match(/\b13\b/g) || []).length > 1) {
+            return "The number 13 still appears more than once - after declaring ledPin, every other use should say ledPin.";
+          }
+          return expectOutputPin(run, 13) || expectBlink(run, 13, 500, 500);
+        },
+      },
       prompt:
         "You're given code that hardcodes pin 13 three separate times. Rewrite it so the pin number is " +
         "stored in a single variable called ledPin, and every reference to the pin uses that variable " +
@@ -228,6 +241,10 @@ export const level1Lessons = [
       id: "c1",
       title: "Print a Repeating Message",
       difficulty: "easy",
+      check: {
+        durationMs: 5000,
+        verify: (run) => expectRepeatingLine(run, (text) => /hello arduino/i.test(text), 1000, '"Hello Arduino"'),
+      },
       prompt:
         "Write a sketch that continuously prints \"Hello Arduino\" to the Serial Monitor, once per " +
         "second. Use what you learned about setup(), loop(), Serial.begin(), Serial.println() and delay().",

@@ -264,6 +264,7 @@ function openLesson(lessonId) {
 
   const challenge = getChallengeForLesson(lesson);
   renderChallenge(challengeSectionEl, challenge, {
+    getCode: () => editor.getValue(),
     onComplete: (challengeId) => {
       const xpBefore = progress.xp;
       const milestonesBefore = progress.milestonesAwarded.length;
@@ -274,7 +275,7 @@ function openLesson(lessonId) {
       renderMentorBox(mentorBoxEl, levelUp
         ? { text: getLevelUpLine(levelUp.level, levelUp.isMilestone, levelUp.bonus), tag: "Level Up!" }
         : { text: getChallengeCompleteLine(), tag: "Nice work" });
-      statusTextEl.textContent = `Challenge "${challenge.title}" marked as solved. +${CREDIT_REWARDS.challenge} credits!`;
+      statusTextEl.textContent = `Challenge "${challenge.title}" ${challenge.check ? "passed" : "marked as solved"}. +${CREDIT_REWARDS.challenge} credits!`;
     },
     onSpend: (cost, label) => {
       progress = spendCredits(progress, cost);

@@ -1,6 +1,8 @@
 // Level 4: PWM and Outputs - analogWrite, LED fading, buzzers, RGB LEDs,
 // servo motors, and a conceptual look at DC motors.
 
+import { A0, schedule } from "./checks.js";
+
 export const level4Lessons = [
   {
     id: "l4-1",
@@ -27,6 +29,20 @@ export const level4Lessons = [
       id: "c10",
       title: "Control LED Brightness with a Potentiometer",
       difficulty: "medium",
+      check: {
+        durationMs: 1500,
+        inputs: { analog: schedule(A0, [[0, 0], [500, 512], [1000, 1023]]) },
+        verify: (run) => {
+          if (run.analogWrites(9).length === 0) return "Pin 9 never got an analogWrite() - that's what sets an LED's brightness.";
+          for (const [t, raw, brightness] of [[450, 0, 0], [950, 512, 128], [1450, 1023, 255]]) {
+            const level = run.levelAt(9, t);
+            if (Math.abs(level - brightness) > 3) {
+              return `With the knob reading ${raw}, pin 9's brightness was ${level} - it should be about ${brightness}.`;
+            }
+          }
+          return null;
+        },
+      },
       prompt:
         "Wire a potentiometer's wiper to A0, and an LED to pin 9. Make the LED's brightness follow the " +
         "potentiometer in real time - turning the knob should smoothly dim or brighten the LED.",
@@ -74,6 +90,25 @@ export const level4Lessons = [
       id: "c11",
       title: "Fade an LED In and Out",
       difficulty: "medium",
+      check: {
+        durationMs: 8000,
+        verify: (run) => {
+          const values = run.analogWrites(9).map((w) => w.value);
+          if (values.length === 0) return "Pin 9 never got an analogWrite() - that's what sets an LED's brightness.";
+          if (new Set(values).size < 20) return "The brightness only took a few different values - a fade should step through lots of them.";
+          for (let i = 1; i < values.length; i++) {
+            if (Math.abs(values[i] - values[i - 1]) > 64) {
+              return `The brightness jumped straight from ${values[i - 1]} to ${values[i]} - it should fade smoothly, not snap back.`;
+            }
+          }
+          const top = values.findIndex((v) => v >= 250);
+          if (top === -1) return "The brightness never got near full (255).";
+          const bottom = values.findIndex((v, i) => i > top && v <= 5);
+          if (bottom === -1) return "The LED faded in but never faded back out to 0.";
+          if (!values.some((v, i) => i > bottom && v >= 250)) return "The LED faded in and out once, but it should keep repeating.";
+          return null;
+        },
+      },
       prompt:
         "Wire an LED to pin 9. Make its brightness smoothly rise from 0 to 255, then smoothly fall back " +
         "to 0, repeating forever - a genuine fade in/out, not a snap-back sawtooth.",
