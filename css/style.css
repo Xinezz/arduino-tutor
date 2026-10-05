@@ -35,11 +35,12 @@
 
 * { box-sizing: border-box; }
 
-/* A faint circuit-trace tile (thin right-angle wires + via-dots), plus two
-   soft color glows anchored near the top corners - a nod to the subject
-   matter (this is a circuit simulator) instead of a plain flat dark page.
-   Kept very low-opacity so it reads as ambient texture, not decoration you
-   consciously notice or that competes with actual lesson content. */
+/* Rainbow pixel-grid backdrop (assets/background.jpg) behind the whole app,
+   pinned with background-attachment: fixed so it stays put while panels
+   scroll over it. The linear-gradient on top is a dark scrim: it tones the
+   image down enough that the solid panels (lessons, editor, board) still
+   read as the foreground, while the colors stay clearly visible in the gaps
+   between them. background-color is the fallback while the image loads. */
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -49,10 +50,11 @@ body {
   flex-direction: column;
   background-color: var(--bg);
   background-image:
-    radial-gradient(1100px 550px at 12% -10%, rgba(79, 195, 247, 0.09), transparent 60%),
-    radial-gradient(900px 480px at 100% 0%, rgba(87, 211, 140, 0.06), transparent 55%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%234fc3f7' stroke-width='1' opacity='0.075'%3E%3Cpath d='M0 24 H44 V64 H88'/%3E%3Cpath d='M120 96 H88 V64'/%3E%3Ccircle cx='44' cy='64' r='2.5' fill='%234fc3f7'/%3E%3Ccircle cx='88' cy='64' r='2.5' fill='%234fc3f7'/%3E%3C/g%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat, repeat;
+    linear-gradient(rgba(8, 10, 18, 0.55), rgba(8, 10, 18, 0.55)),
+    url("../assets/background.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   background-attachment: fixed;
 }
 
@@ -1444,7 +1446,11 @@ h1, h2, h3 {
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .project-card:hover { border-color: var(--accent-dim); transform: translateY(-4px); box-shadow: var(--shadow-card-hover); }
-.project-card.locked { cursor: default; opacity: 0.55; }
+/* Dim the card's contents, not the card itself - opacity on the card would
+   also fade its panel background and let the page background image show
+   through behind the text. */
+.project-card.locked { cursor: default; }
+.project-card.locked > * { opacity: 0.55; }
 .project-card.locked:hover { transform: none; border-color: var(--border); box-shadow: var(--shadow-card); }
 
 .project-card-icon { font-size: 1.8rem; margin-bottom: 8px; }
@@ -1569,9 +1575,12 @@ h1, h2, h3 {
   background: var(--panel);
 }
 .rank-step:last-child { border-bottom: none; }
-.rank-step.achieved { background: rgba(87, 211, 140, 0.06); }
-.rank-step.current { background: rgba(79, 195, 247, 0.1); }
-.rank-step.locked { opacity: 0.45; }
+/* Tints are layered over the solid panel color (not a bare rgba background)
+   and locked rows dim their contents rather than the row, for the same
+   reason as .project-card.locked: keep the page background image out. */
+.rank-step.achieved { background: linear-gradient(rgba(87, 211, 140, 0.06), rgba(87, 211, 140, 0.06)) var(--panel); }
+.rank-step.current { background: linear-gradient(rgba(79, 195, 247, 0.1), rgba(79, 195, 247, 0.1)) var(--panel); }
+.rank-step.locked > * { opacity: 0.45; }
 
 .rank-step-badge {
   width: 32px; height: 32px;
@@ -1655,4 +1664,30 @@ h1, h2, h3 {
   color: var(--text-dim);
   font-size: 0.9rem;
   padding: 12px 0;
+}
+
+/* ---------- Readability over the background image ----------
+   These blocks used to sit straight on the plain dark page, so their labels
+   and intro text had no panel of their own. Over the rainbow background they
+   need one, or the text gets lost in the colors. */
+.projects-intro,
+.dashboard-header,
+.editor-section,
+.simulator-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-card);
+}
+.projects-intro h1,
+.dashboard-header h1 { margin-top: 0; }
+.projects-intro p:last-child,
+.dashboard-header p:last-child { margin-bottom: 0; }
+
+.dashboard-section-title {
+  display: inline-block;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
 }
