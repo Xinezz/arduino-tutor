@@ -897,25 +897,116 @@ export function createBoard(svgEl) {
     }
   }
 
+  // Pixel-art LED, drawn from the same 10x12 grid as the reference sprite
+  // (a dome with a highlight, a flange, then the leads). Each letter is one
+  // PIXEL_LED_SIZE square, shaded from the LED's own color so every color
+  // gets the same look:
+  //   o rim, r body, c core (darker center), h/H highlight,
+  //   f/F flange, "." empty.
+  const PIXEL_LED_MAP = [
+    "...orro...",
+    "..orrrro..",
+    ".orrrrhro.",
+    ".orrccrHo.",
+    ".orccccHo.",
+    ".orccccro.",
+    ".orrccrro.",
+    ".oorrrroo.",
+    ".oorrrroo.",
+    "ffffffffff",
+    "fFFFFFFFFf",
+    "..ffffff..",
+  ];
+  const PIXEL_LED_SIZE = 4;
+  // The sprite's top edge, relative to the component's y, chosen so the base
+  // ends 12px above the lead holes (LEAD_OFFSETS y = 38), leaving room for
+  // the pixel leads to step out to their holes.
+  const PIXEL_LED_TOP = -22;
+  // How much each shade mixes toward white (+) or black (-).
+  const PIXEL_LED_SHADES = { o: 0.22, r: 0, c: -0.18, h: 0.6, H: 0.85, f: -0.12, F: 0.15 };
+
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function shadeRgb([r, g, b], amount) {
+    const target = amount >= 0 ? 255 : 0;
+    const t = Math.abs(amount);
+    return [r, g, b].map((v) => Math.round(v + (target - v) * t));
+  }
+
+  // rgb is the LED's color at full brightness; level (0..1) is how lit it
+  // is. An unlit LED still shows its colored plastic, just dark.
+  function drawPixelLedBody(g, comp, rgb, level, legXs) {
+    const lit = shadeRgb(rgb, 0);
+    const off = shadeRgb(rgb, -0.68);
+    const shown = lit.map((v, i) => Math.round(off[i] + (v - off[i]) * level));
+    const u = PIXEL_LED_SIZE;
+    const left = comp.x - (PIXEL_LED_MAP[0].length * u) / 2;
+    const top = comp.y + PIXEL_LED_TOP;
+
+    const sprite = svgEl_("g", {
+      "shape-rendering": "crispEdges",
+      style: level > 0 ? `filter:drop-shadow(0 0 ${3 + level * 9}px rgb(${lit.join(",")}))` : "",
+    });
+    PIXEL_LED_MAP.forEach((row, ry) => {
+      [...row].forEach((ch, rx) => {
+        if (ch === ".") return;
+        // the highlight stays bright-ish even when unlit, like light catching plastic
+        const base = ch === "h" || ch === "H" ? shadeRgb(shown, 0.15) : shown;
+        sprite.appendChild(svgEl_("rect", {
+          x: left + rx * u, y: top + ry * u, width: u, height: u,
+          fill: `rgb(${shadeRgb(base, PIXEL_LED_SHADES[ch]).join(",")})`,
+        }));
+      });
+    });
+    // one transparent box over the whole sprite, so drag and double-click
+    // work anywhere on it rather than only on whichever pixel was hit
+    const hit = svgEl_("rect", {
+      x: left, y: top, width: PIXEL_LED_MAP[0].length * u, height: PIXEL_LED_MAP.length * u,
+      fill: "transparent",
+    });
+    sprite.appendChild(hit);
+    g.appendChild(sprite);
+    drawPixelLeads(g, comp, legXs, top + PIXEL_LED_MAP.length * u);
+    return hit;
+  }
+
+  // Each lead leaves the base at legXs[i] (relative to comp.x), steps out
+  // sideways to its LEAD_OFFSETS hole, then drops into it - striped light
+  // and dark gray like the sprite's metal legs.
+  function drawPixelLeads(g, comp, legXs, baseY) {
+    const u = PIXEL_LED_SIZE;
+    const offsets = Object.values(LEAD_OFFSETS[comp.kind] || {});
+    const leads = svgEl_("g", { "shape-rendering": "crispEdges", style: "pointer-events:none" });
+    const px = (cx, y, i) => leads.appendChild(svgEl_("rect", {
+      x: cx - u / 2, y, width: u, height: u, fill: i % 2 ? "#9a9a9a" : "#d6d6d6",
+    }));
+    offsets.forEach(([dx, dy], li) => {
+      const from = comp.x + legXs[li], to = comp.x + dx;
+      let i = 0;
+      px(from, baseY, i++);
+      const step = Math.sign(to - from);
+      for (let x = from; step !== 0 && Math.abs(to - x) > 0; x += step * Math.min(u, Math.abs(to - x))) {
+        px(x, baseY + u, i++);
+      }
+      for (let y = baseY + u; y < comp.y + dy; y += u) px(to, y, i++);
+    });
+    g.appendChild(leads);
+  }
+
   function drawLed(led) {
     const pin = ledConnectedPin(led);
     const isLit = pin !== null && pinModes[pin] !== undefined && pinOutputs[pin] > 0;
-    const brightness = pin !== null ? (pinOutputs[pin] ?? 0) / 255 : 0;
-    const onColor = led.color || "#ffe066";
+    const brightness = isLit ? pinOutputs[pin] / 255 : 0;
     const g = wireGroup(led);
 
-    const bulb = svgEl_("circle", {
-      cx: led.x, cy: led.y + 18, r: 18,
-      fill: isLit ? onColor : "#241f16",
-      stroke: isLit ? onColor : "#5a4a2a", "stroke-width": 2,
-      style: isLit ? `filter:drop-shadow(0 0 ${4 + brightness * 10}px ${onColor});opacity:${0.35 + brightness * 0.65}` : "",
-    });
-    bulb.addEventListener("mousedown", (e) => startDrag(led, e));
-    bulb.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleLedColor(led); });
-    g.appendChild(bulb);
-    drawLeads(g, led);
+    const hit = drawPixelLedBody(g, led, hexToRgb(led.color || "#ffe066"), isLit ? 0.35 + brightness * 0.65 : 0, [-6, 6]);
+    hit.addEventListener("mousedown", (e) => startDrag(led, e));
+    hit.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleLedColor(led); });
     g.appendChild(componentLabel(led.x, led.y + 74, pin !== null ? `LED (pin ${pin})` : "LED (unwired)"));
-    g.appendChild(removeGlyph(led.x + 24, led.y - 4, () => removeComponent(led.id)));
+    g.appendChild(removeGlyph(led.x + 28, led.y - 14, () => removeComponent(led.id)));
     svgEl.appendChild(g);
   }
 
@@ -983,21 +1074,17 @@ export function createBoard(svgEl) {
     const gVal = commonOk && gPin !== null ? (pinOutputs[gPin] ?? 0) : 0;
     const bVal = commonOk && bPin !== null ? (pinOutputs[bPin] ?? 0) : 0;
     const isLit = rVal > 0 || gVal > 0 || bVal > 0;
-    const mixedColor = `rgb(${rVal},${gVal},${bVal})`;
 
     const g = wireGroup(comp);
-    const bulb = svgEl_("circle", {
-      cx: comp.x, cy: comp.y + 18, r: 18,
-      fill: isLit ? mixedColor : "#2a2a2e",
-      stroke: isLit ? mixedColor : "#555", "stroke-width": 2,
-      style: isLit ? `filter:drop-shadow(0 0 10px ${mixedColor})` : "",
-    });
-    bulb.addEventListener("mousedown", (e) => startDrag(comp, e));
-    g.appendChild(bulb);
-    drawLeads(g, comp);
+    // Lit: the mixed color scaled up to full strength, with how bright the
+    // strongest channel is as the level. Unlit: frosted white plastic.
+    const peak = Math.max(rVal, gVal, bVal);
+    const rgb = isLit ? [rVal, gVal, bVal].map((v) => Math.round((v / peak) * 255)) : [230, 232, 240];
+    const hit = drawPixelLedBody(g, comp, rgb, isLit ? 0.35 + (peak / 255) * 0.65 : 0, [-10, -2, 2, 10]);
+    hit.addEventListener("mousedown", (e) => startDrag(comp, e));
     const wiredCount = [rPin, gPin, bPin].filter((p) => p !== null).length;
     g.appendChild(componentLabel(comp.x, comp.y + 74, wiredCount === 3 ? "RGB LED (R,G,B wired)" : `RGB LED (${wiredCount}/3 wired)`));
-    g.appendChild(removeGlyph(comp.x + 32, comp.y - 4, () => removeComponent(comp.id)));
+    g.appendChild(removeGlyph(comp.x + 32, comp.y - 14, () => removeComponent(comp.id)));
     svgEl.appendChild(g);
   }
 
