@@ -754,3 +754,11 @@ html.no-splash .splash-screen { display: none; }
   .rank-step-name { font-size: 0.75rem; }
   .rank-step-tag { margin-left: 46px; }
 }
+
+/* ---------- Readability on the rainbow menu backdrop ----------
+   The menu's loose text (the welcome heading, its subtitle, the button
+   captions) sits straight on the colorful background image, so it gets a hard
+   dark outline - the same trick the title screen's logo uses. */
+.menu-hero-heading { text-shadow: 3px 3px 0 #000; }
+.menu-hero-sub { color: var(--text); text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+.menu-action-label { color: var(--text); text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
