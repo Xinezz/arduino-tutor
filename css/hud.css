@@ -367,3 +367,38 @@
   .statusbar { padding: 4px 10px; }
   .status-hint { display: none; }
 }
+
+/* ---------- Quest tags + reward chips ---------- */
+.quest-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 16px; }
+.quest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-family: var(--font-pixel);
+  font-size: 0.48rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+}
+.quest-chip .px { flex-shrink: 0; }
+.quest-reward { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 55%, var(--border)); }
+.quest-reward.is-done { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, var(--border)); }
+.quest-boss { color: var(--red); border-color: var(--red); }
+
+.reward-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 4px 8px;
+  font-family: var(--font-pixel);
+  font-size: 0.48rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--yellow);
+  background: var(--code-bg);
+  border: 2px solid color-mix(in srgb, var(--yellow) 55%, var(--border));
+}
+.challenge-title-row, .quiz-title-row { flex-wrap: wrap; }

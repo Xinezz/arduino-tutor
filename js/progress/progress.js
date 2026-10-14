@@ -67,6 +67,8 @@ function defaultStats() {
     bossesDefeated: 0,
     noHintSolves: 0,    // challenges solved without revealing a single hint or solution
     samClicks: 0,       // easter egg
+    mapVisits: 0,       // first-visit trophies for the World Map...
+    shopVisits: 0,      // ...and the Parts Shop
     konami: false,      // easter egg
     maxCredits: STARTING_CREDITS,
     wentNegative: false,
@@ -186,19 +188,25 @@ function normalize(saved) {
 }
 
 export function loadProgress() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return defaultProgress();
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultProgress();
     return normalize(JSON.parse(raw));
   } catch {
-    // If the saved data is somehow corrupted, don't crash the app -
-    // just start fresh instead.
+    // If the saved data is corrupted - or the browser won't let us read
+    // storage at all (some private windows) - don't crash the app, just
+    // start fresh instead.
     return defaultProgress();
   }
 }
 
 export function saveProgress(progress) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch {
+    // Storage full or blocked: the session still works, it just won't be
+    // remembered next time.
+  }
 }
 
 // Spending is unguarded on purpose - it's allowed to go negative. A hint

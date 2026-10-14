@@ -7,6 +7,8 @@ import { lessons } from "./data.js";
 import { typewriterText } from "../utils/typewriter.js";
 import { levelName, levelTitle, levelIcon } from "./levels.js";
 import { icon } from "../game/sprites.js";
+import { CREDIT_REWARDS } from "../progress/progress.js";
+import { getQuizForLesson } from "../quiz/data.js";
 
 export function renderSidebar(container, progress, onSelect) {
   container.innerHTML = "";
@@ -114,6 +116,30 @@ export function findLesson(lessonId) {
   return lessons.find((l) => l.id === lessonId);
 }
 
+// The little row of tags under a lesson's title that makes it read like a game
+// quest: which quest number it is, what finishing it pays, and what else is
+// waiting inside (a challenge, a quiz, a boss).
+function buildQuestMeta(lesson, isCompleted) {
+  const row = document.createElement("div");
+  row.className = "quest-meta";
+  const number = lessons.findIndex((l) => l.id === lesson.id) + 1;
+  const chips = [];
+  chips.push(`<span class="quest-chip">${icon("scroll", 1)}QUEST ${number}/${lessons.length}</span>`);
+  chips.push(
+    isCompleted
+      ? `<span class="quest-chip quest-reward is-done">${icon("check", 1)}CLEARED</span>`
+      : `<span class="quest-chip quest-reward">REWARD ${icon("star", 1)}+${CREDIT_REWARDS.lesson} XP ${icon("coin", 1)}+${CREDIT_REWARDS.lesson}</span>`
+  );
+  if (lesson.challenge?.difficulty === "boss") {
+    chips.push(`<span class="quest-chip quest-boss">${icon("skull", 1)}BOSS</span>`);
+  } else if (lesson.challenge) {
+    chips.push(`<span class="quest-chip">${icon("bolt", 1)}CHALLENGE</span>`);
+  }
+  if (getQuizForLesson(lesson.id)) chips.push(`<span class="quest-chip">${icon("puzzle", 1)}QUIZ</span>`);
+  row.innerHTML = chips.join("");
+  return row;
+}
+
 export function renderLesson(container, lesson, isCompleted, isFlagged) {
   container.innerHTML = "";
 
@@ -142,6 +168,7 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   const heading = document.createElement("h1");
   heading.textContent = lesson.title;
   container.appendChild(heading);
+  container.appendChild(buildQuestMeta(lesson, isCompleted));
 
   for (const block of lesson.body) {
     container.appendChild(renderBlock(block));

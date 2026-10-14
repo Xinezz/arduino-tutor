@@ -67,8 +67,19 @@ function sliderFor(key, { sample } = {}) {
   return wrap;
 }
 
-export function openSettings({ getSaveCode, previewImport, applyImport, resetAll, onHelp }) {
+export function openSettings(options) {
+  const { getSaveCode, previewImport, applyImport, resetAll, onHelp } = options;
   const body = el("div", "settings-body");
+
+  // The modal system shows one window at a time, so a confirmation can't sit
+  // on top of this one: close Options, ask, and bring Options back if the
+  // answer was no.
+  async function askThenAct(question, onYes) {
+    handle.close();
+    const yes = await confirmDialog(question);
+    if (yes) onYes();
+    else openSettings(options);
+  }
 
   // ---- sound ----
   body.appendChild(el("div", "set-heading", "SOUND"));
@@ -133,12 +144,14 @@ export function openSettings({ getSaveCode, previewImport, applyImport, resetAll
       playSfx("error");
       return;
     }
-    const yes = await confirmDialog({
-      title: "LOAD THIS SAVE?",
-      body: `This will replace your current progress with: ${preview.summary}. The page will reload.`,
-      confirmLabel: "Load It",
-    });
-    if (yes) applyImport(text);
+    askThenAct(
+      {
+        title: "LOAD THIS SAVE?",
+        body: `This will replace your current progress with: ${preview.summary}. The page will reload.`,
+        confirmLabel: "Load It",
+      },
+      () => applyImport(text)
+    );
   });
 
   // ---- danger zone ----
@@ -146,14 +159,16 @@ export function openSettings({ getSaveCode, previewImport, applyImport, resetAll
   const resetBtn = el("button", "btn btn-danger", "Erase All Progress");
   resetBtn.type = "button";
   body.appendChild(row("Start over", "Deletes your lessons, credits, trophies and purchases for good", resetBtn));
-  resetBtn.addEventListener("click", async () => {
-    const yes = await confirmDialog({
-      title: "ERASE EVERYTHING?",
-      body: "This permanently deletes ALL of your progress on this device - lessons, credits, XP, trophies and everything you bought. It can't be undone (unless you saved a code).",
-      confirmLabel: "Erase It All",
-      danger: true,
-    });
-    if (yes) resetAll();
+  resetBtn.addEventListener("click", () => {
+    askThenAct(
+      {
+        title: "ERASE EVERYTHING?",
+        body: "This permanently deletes ALL of your progress on this device - lessons, credits, XP, trophies and everything you bought. It can't be undone (unless you saved a code).",
+        confirmLabel: "Erase It All",
+        danger: true,
+      },
+      () => resetAll()
+    );
   });
 
   const handle = openModal({
@@ -176,7 +191,7 @@ const SHORTCUTS = [
   ["M", "Mute or unmute sound"],
   ["S", "Open Options"],
   ["?", "Show this cheat sheet"],
-  ["Esc", "Close a window"],
+  ["Esc", "Pause menu (Options) - or close a window"],
 ];
 
 export function openHelp() {

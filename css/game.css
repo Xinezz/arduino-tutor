@@ -274,3 +274,9 @@ html.crt-on #crt-overlay {
   .toast.show { transform: translateY(0); }
   .toast.hide { transform: translateY(160%); }
 }
+
+/* ---------- Konami code: a few seconds of colour-cycling ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  html.konami-mode { animation: hue-cycle 4s linear; }
+  @keyframes hue-cycle { to { filter: hue-rotate(360deg); } }
+}

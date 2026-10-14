@@ -16,12 +16,19 @@ import { computeCurrentRankIndex, RANKS } from "../progress/ranks.js";
 import { evaluateAchievements } from "./achievements.js";
 import { completedMissionIds, getDailyBoard, pendingRewardCount } from "./missions.js";
 import { playSfx } from "./audio.js";
-import { floatText, bump } from "./fx.js";
+import { floatText, bump, banner } from "./fx.js";
 import { icon } from "./sprites.js";
 import { showToast } from "./toast.js";
 import { levelUpFanfare, openChest, openPromotion, achievementToast, missionToast } from "./cinematics.js";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// The big stamp that slams onto the screen when a piece of work is finished.
+const CLEAR_BANNER = {
+  lesson: "QUEST CLEAR!",
+  challenge: "CHALLENGE CLEAR!",
+  stage: "STAGE CLEAR!",
+};
 
 const FANFARE = {
   lesson: "lessonComplete",
@@ -86,7 +93,7 @@ export function createRewardFlow({ getProgress, hud }) {
     return fresh;
   }
 
-  function settle(before, { kind = "lesson", at = null } = {}) {
+  function settle(before, { kind = "lesson", at = null, label = "", skipBanner = false } = {}) {
     const p = getProgress();
     const gained = p.xp - before.xp;
     const after = snapshot();
@@ -111,21 +118,26 @@ export function createRewardFlow({ getProgress, hud }) {
     hud.update(p);
     hud.setProfileBadge(pendingRewardCount(p));
 
-    present(result, { kind, at }).catch((err) => console.error("reward presentation failed", err));
+    present(result, { kind, at, label, skipBanner }).catch((err) => console.error("reward presentation failed", err));
     return result;
   }
 
-  async function present(result, { kind, at }) {
+  async function present(result, { kind, at, label, skipBanner }) {
     const point = at ?? hud.els.coins;
+    let stamped = false;
 
     if (result.gained > 0) {
       playSfx(FANFARE[kind] ?? "correct");
       floatText(point, `+${result.gained} XP`, { kind: "xp", dx: -54 });
       floatText(point, `${icon("coin", 2)} +${result.gained}`, { kind: "coin", dx: 54 });
+      if (CLEAR_BANNER[kind] && !skipBanner) {
+        banner(CLEAR_BANNER[kind], { kind: "green", sub: label, duration: 1500 });
+        stamped = true;
+      }
     }
 
     if (result.levelUp) {
-      await wait(650);
+      await wait(stamped ? 1700 : 650); // let the clear stamp finish before the level-up one
       levelUpFanfare(result.levelUp);
       bump(hud.els.level);
       if (result.levelUp.isMilestone) {

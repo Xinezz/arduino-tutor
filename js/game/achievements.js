@@ -14,6 +14,7 @@ import { projects } from "../projects/data.js";
 import { computeCurrentRankIndex, RANKS } from "../progress/ranks.js";
 import { getLevelInfo } from "../progress/progress.js";
 import { levelTitle } from "../lessons/levels.js";
+import { THEMES } from "./shop.js";
 
 const bossChallengeIds = lessons
   .filter((l) => l.challenge?.difficulty === "boss")
@@ -49,6 +50,8 @@ export function buildContext(progress) {
     projectsFinished,
     levelsCleared,
     level: getLevelInfo(progress.xp).level,
+    ownedThemes: progress.inventory.filter((i) => i.startsWith("theme:")).length,
+    ownedAvatars: progress.inventory.filter((i) => i.startsWith("avatar:")).length,
     streak: progress.streak || 0,
     rankIndex: computeCurrentRankIndex(progress),
     hour: new Date().getHours(),
@@ -115,6 +118,11 @@ export const ACHIEVEMENTS = [
   counter("coins-500", "Tycoon", "Hold 500 credits at once", "gem", 50, (c) => c.stats.maxCredits, 500),
   counter("buy-1", "Treat Yourself", "Buy something from the shop", "bag", 10, (c) => c.stats.purchases, 1),
   counter("buy-5", "Regular Customer", "Buy 5 things from the shop", "bag", 30, (c) => c.stats.purchases, 5),
+  counter("decorator-2", "Interior Decorator", "Own 2 themes", "palette", 15, (c) => c.ownedThemes, 2),
+  counter("collector", "Collector", "Own every theme", "gem", 60, (c) => c.ownedThemes, THEMES.length),
+  counter("wardrobe", "Wardrobe", "Own 5 avatars", "person", 25, (c) => c.ownedAvatars, 5),
+  counter("map-1", "Cartographer", "Open the World Map", "map", 5, (c) => c.stats.mapVisits ?? 0, 1),
+  counter("shop-1", "Window Shopper", "Step into the Parts Shop", "bag", 5, (c) => c.stats.shopVisits ?? 0, 1),
   flag("hint-1", "Asked for Help", "Use a hint. No shame in it!", "bulb", 3, (c) => c.stats.hintsUsed + c.stats.solutionsViewed >= 1),
   flag("red-ink", "In the Red", "Dip below zero credits", "cross", 5, (c) => c.stats.wentNegative),
 

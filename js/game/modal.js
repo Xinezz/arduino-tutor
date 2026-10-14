@@ -88,6 +88,25 @@ function show(handle) {
     if (e.key === "Escape" && dismissable) {
       e.preventDefault();
       handle.close(null);
+      return;
+    }
+    // Focus trap: Tab / Shift+Tab cycle through the window's own controls
+    // instead of wandering off into the page behind it.
+    if (e.key === "Tab") {
+      const focusable = [...box.querySelectorAll("button, [href], input, textarea, select, [tabindex]:not([tabindex='-1'])")].filter((n) => !n.disabled && n.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!box.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   };
   document.addEventListener("keydown", handle.onKey);

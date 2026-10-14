@@ -213,6 +213,13 @@ export function getPokeLine(count) {
 
 // ---- rendering ----
 
+// app.js registers one handler here (to count pokes for the secret trophy) so
+// every dialogue box counts them, whichever screen rendered it.
+let globalPokeHandler = null;
+export function setPokeHandler(fn) {
+  globalPokeHandler = fn;
+}
+
 // Draws an NPC's dialogue box: living portrait, nameplate (+ optional small
 // tag like "Quest Briefing"), and the line itself typed out
 // character-by-character with a voice blip and a moving mouth. Returns
@@ -316,7 +323,7 @@ function renderNpcBox(container, { text, tag, mood = "idle", npc = SAM, onPoke, 
     clearTimeout(reactTimer);
     reactTimer = setTimeout(() => { busy = false; if (!talking) show("idle"); }, 650);
     say(getPokeLine(pokes));
-    onPoke?.(pokes);
+    (onPoke ?? globalPokeHandler)?.(pokes);
   });
 
   container._npcCleanup = () => {

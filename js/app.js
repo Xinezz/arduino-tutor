@@ -64,6 +64,7 @@ import {
   getDebtLine,
   getPurchaseLine,
   getBrokeLine,
+  setPokeHandler,
 } from "./npc/mentor.js";
 import { renderMenuScreen } from "./menu/menu.js";
 import { createSimulatorPanel } from "./simulator/panel.js";
@@ -184,6 +185,13 @@ function handlePoke() {
   progress = incrementStat(progress, "samClicks");
   if (progress.stats.samClicks >= 10) rewards.checkAchievements();
 }
+setPokeHandler(handlePoke);
+
+// A program hit an error: a buzz, and the Serial Monitor shudders.
+function runFailed(consoleId) {
+  playSfx("error");
+  shake(document.getElementById(consoleId));
+}
 
 function handleRun() {
   const before = rewards.snapshot();
@@ -209,7 +217,7 @@ const lessonsPanel = createSimulatorPanel({
   wirePaletteEl: document.getElementById("wire-palette"),
   onStatus: setStatus,
   onRun: handleRun,
-  onRunError: () => playSfx("error"),
+  onRunError: () => runFailed("sim-console"),
 });
 const editor = lessonsPanel.editor;
 
@@ -227,7 +235,7 @@ const practicePanel = createSimulatorPanel({
   wirePaletteEl: document.getElementById("practice-wire-palette"),
   onStatus: setStatus,
   onRun: handleRun,
-  onRunError: () => playSfx("error"),
+  onRunError: () => runFailed("practice-sim-console"),
 });
 
 // Desktop-only sidebar collapse (separate from the mobile drawer above) -
@@ -241,13 +249,15 @@ function setSidebarCollapsed(collapsed) {
   const label = collapsed ? "Show lesson list" : "Collapse lesson list";
   sidebarCollapseBtn.title = label;
   sidebarCollapseBtn.setAttribute("aria-label", label);
-  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* storage blocked - the preference just won't persist */ }
   editor.refresh(); // the editor's container width just changed, so CodeMirror needs to re-measure
 }
 sidebarCollapseBtn.addEventListener("click", () => {
   setSidebarCollapsed(!layoutEl.classList.contains("sidebar-collapsed"));
 });
-setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+let sidebarWasCollapsed = false;
+try { sidebarWasCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1"; } catch { /* storage blocked */ }
+setSidebarCollapsed(sidebarWasCollapsed);
 
 // =========================================================================
 // Music: one tune per mood
@@ -260,6 +270,14 @@ function updateMusic() {
 // =========================================================================
 // Views
 // =========================================================================
+
+// Counts a visit to a screen (for the "explorer" trophies) - only the first
+// one matters, so after that this does nothing at all.
+function noteVisit(stat) {
+  if (progress.stats[stat]) return;
+  progress = incrementStat(progress, stat);
+  rewards.checkAchievements();
+}
 
 function switchView(viewName) {
   if (currentView === "shop" && viewName !== "shop") endThemePreview();
@@ -277,9 +295,11 @@ function switchView(viewName) {
   } else if (viewName === "projects") {
     renderProjectsView();
   } else if (viewName === "map") {
+    noteVisit("mapVisits");
     renderMapView();
     focusCurrentNode(mapPanelEl);
   } else if (viewName === "shop") {
+    noteVisit("shopVisits");
     shopLine = null; // a fresh greeting each visit
     renderShopView();
   } else if (viewName === "dashboard") {
@@ -301,7 +321,7 @@ function renderProjectsView() {
       onStageComplete: (projectId, stageId, { at } = {}) => {
         const before = rewards.snapshot();
         progress = markProjectStageDone(progress, projectId, stageId);
-        const result = rewards.settle(before, { kind: "stage", at });
+        const result = rewards.settle(before, { kind: "stage", at, label: project.title });
         // Projects has no mentor box on screen (that stays scoped to Lessons/
         // Dashboard), so a level-up here rides along on the status line instead.
         setStatus(
@@ -487,7 +507,8 @@ function openLesson(lessonId) {
       const before = rewards.snapshot();
       progress = markChallengeCompleted(progress, challengeId);
       if (isBoss && firstTime) progress = incrementStat(progress, "bossesDefeated");
-      const result = rewards.settle(before, { kind: "challenge", at });
+      const result = rewards.settle(before, { kind: "challenge", at, label: challenge.title, skipBanner: isBoss }); // a boss has its own victory banner
+      if (currentLessonId !== lessonId) return; // you've moved on to another lesson mid-fight
       if (isBoss) {
         bossActive = false;
         updateMusic();
@@ -577,7 +598,7 @@ function openLesson(lessonId) {
     // lesson-intro mentor line, which would instantly overwrite these if set
     // beforehand - set them AFTER instead so the completion reaction is
     // actually what's left on screen.
-    const result = rewards.settle(before, { kind: "lesson", at });
+    const result = rewards.settle(before, { kind: "lesson", at, label: lesson.title });
     setStatus(
       alreadyDone
         ? `"${lesson.title}" marked as done.`
@@ -677,6 +698,10 @@ installKonami(() => {
   playSfx("konami");
   banner("+30 LIVES!", { kind: "good", sub: "Old school. Respect.", duration: 2400 });
   confetti({ count: 110 });
+  if (getSettings().fx) {
+    document.documentElement.classList.add("konami-mode");
+    setTimeout(() => document.documentElement.classList.remove("konami-mode"), 4200);
+  }
   if (!progress.stats.konami) {
     progress = setStat(progress, "konami", true);
     rewards.checkAchievements({ delay: 1600 });

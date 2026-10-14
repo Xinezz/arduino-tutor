@@ -5,6 +5,7 @@
 import { typewriterText } from "../utils/typewriter.js";
 import { icon } from "../game/sprites.js";
 import { playSfx } from "../game/audio.js";
+import { CREDIT_REWARDS } from "../progress/progress.js";
 
 function shuffledDistinctFrom(original) {
   const arr = [...original];
@@ -33,6 +34,11 @@ function renderQuizHeader(card, quiz, spriteName) {
   title.textContent = quiz.title;
   titleRow.appendChild(badge);
   titleRow.appendChild(title);
+  const reward = document.createElement("span");
+  reward.className = "reward-chip";
+  reward.innerHTML = `${icon("star", 1)}+${CREDIT_REWARDS.quiz} ${icon("coin", 1)}+${CREDIT_REWARDS.quiz}`;
+  reward.title = "Reward for solving this quiz (first time only)";
+  titleRow.appendChild(reward);
   card.appendChild(titleRow);
 
   const prompt = document.createElement("p");

@@ -14,7 +14,7 @@
 // victory banner.
 
 import { typewriterText } from "../utils/typewriter.js";
-import { HINT_COSTS, SOLUTION_COST } from "../progress/progress.js";
+import { HINT_COSTS, SOLUTION_COST, CREDIT_REWARDS } from "../progress/progress.js";
 import { icon } from "../game/sprites.js";
 import { playSfx, duckMusic } from "../game/audio.js";
 import { getSettings } from "../game/settings.js";
@@ -92,6 +92,13 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
 
   titleRow.appendChild(badge);
   titleRow.appendChild(title);
+  if (!alreadySolved) {
+    const reward = document.createElement("span");
+    reward.className = "reward-chip";
+    reward.innerHTML = `${icon("star", 1)}+${CREDIT_REWARDS.challenge} ${icon("coin", 1)}+${CREDIT_REWARDS.challenge}`;
+    reward.title = "Reward for solving this challenge";
+    titleRow.appendChild(reward);
+  }
   card.appendChild(titleRow);
 
   const prompt = document.createElement("p");
