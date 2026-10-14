@@ -169,7 +169,7 @@ export const level4Lessons = [
     ],
     challenge: {
       id: "c14",
-      title: "💀 RGB Mood Light",
+      title: "RGB Mood Light",
       difficulty: "boss",
       prompt:
         "Wire an RGB LED to pins 9 (red), 10 (green), and 11 (blue). Build a \"mood light\" that smoothly " +

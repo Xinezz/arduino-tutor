@@ -199,7 +199,7 @@ export const level6Lessons = [
     ],
     challenge: {
       id: "c18",
-      title: "💀 Smart Parking Sensor",
+      title: "Smart Parking Sensor",
       difficulty: "boss",
       prompt:
         "Wire an ultrasonic sensor (trig=6, echo=5), an LED (pin 13), and a buzzer (pin 8). Build a " +

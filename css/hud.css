@@ -1,0 +1,390 @@
+/* ==========================================================================
+   The game chrome: the top bar + HUD, the tab bar, the quest-log sidebar, the
+   NPC dialogue boxes, and a global pass that makes every panel, button and
+   badge feel like part of one pixel game UI. Loaded after style.css (and
+   game.css), so where rules tie on specificity this file wins.
+   ========================================================================== */
+
+/* ---------- Global feel ---------- */
+:root {
+  /* Hard-edged shadows everywhere: every panel that used the soft card shadow
+     now gets a solid offset one, with no blur at all. */
+  --shadow-card: 4px 4px 0 var(--pixel-shadow-color);
+  --shadow-card-hover: 6px 6px 0 var(--pixel-shadow-color);
+  /* The faint circuit-trace wallpaper, as a mask so it can take the theme's
+     accent color (an image used as a background can't). */
+  --bg-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23000' stroke-width='1'%3E%3Cpath d='M0 24 H44 V64 H88'/%3E%3Cpath d='M120 96 H88 V64'/%3E%3Ccircle cx='44' cy='64' r='2.5' fill='%23000'/%3E%3Ccircle cx='88' cy='64' r='2.5' fill='%23000'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+body {
+  background-image:
+    radial-gradient(1100px 550px at 12% -10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, color-mix(in srgb, var(--green) 6%, transparent), transparent 55%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--accent);
+  opacity: 0.08;
+  -webkit-mask-image: var(--bg-tile);
+  mask-image: var(--bg-tile);
+}
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+.menu-name-input:focus-visible { outline: none; }
+
+/* Every panel gets the chunky 3px frame. */
+.lesson-content, .challenge-card, .quiz-card, .project-card, .project-stage-card, .stat-tile,
+.menu-card, .menu-stat-card, .menu-next-card, .menu-missions-card, .menu-header, .practice-intro,
+.mentor-box, .xp-bar-wrap, .rank-ladder, .menu-illustration {
+  border-width: 3px;
+}
+.mentor-box { border-color: var(--accent-dim); }
+
+/* ...and pixel corners on everything that used to be softly rounded. */
+.hint-box, .solution-box, .note-box, .quiz-result, .quiz-option, .quiz-match-item,
+.quiz-line-item, .quiz-move-btn, .weak-topic-row, .component-picker, .lesson-content code,
+.menu-illustration-label, .quiz-blank, .menu-bar {
+  border-radius: 0;
+}
+
+/* The classic beveled look on filled buttons: a light top edge, a dark
+   bottom edge, plus the hard drop shadow. */
+.btn-primary, .btn-complete {
+  box-shadow:
+    3px 3px 0 var(--pixel-shadow-color),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+    inset 0 3px 0 rgba(255, 255, 255, 0.22);
+}
+.btn-primary:hover:not(:disabled), .btn-complete:hover:not(:disabled) {
+  filter: brightness(1.12);
+  box-shadow:
+    3px 3px 0 var(--pixel-shadow-color),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+    inset 0 3px 0 rgba(255, 255, 255, 0.22);
+}
+.btn-secondary { border-width: 2px; }
+.btn-hint { border-width: 2px; }
+.btn-danger { border-width: 2px; }
+.btn-danger:not(:disabled) { animation: none; }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 18%, transparent); }
+.btn:disabled { filter: grayscale(0.4); }
+.btn .px { vertical-align: -0.3em; margin-right: 2px; }
+
+.arrow-ico { display: inline-flex; vertical-align: middle; }
+.arrow-ico.flip svg { transform: scaleX(-1); }
+.stop-ico { display: inline-block; width: 10px; height: 10px; background: currentColor; vertical-align: -1px; margin-right: 3px; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 3px solid var(--border);
+  box-shadow: 0 4px 0 var(--pixel-shadow-color);
+}
+.topbar-left { flex-shrink: 0; }
+.sidebar-toggle .sb-label { margin-left: 4px; }
+.brand-text { white-space: nowrap; }
+
+/* ---------- Tab bar ---------- */
+.view-tabs {
+  gap: 6px;
+  padding: 4px;
+  border: 3px solid var(--border);
+  background: var(--code-bg);
+  flex: 0 1 auto;
+}
+.view-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  font-size: 0.55rem;
+  border: 2px solid transparent;
+  transition: color 0.1s steps(2), background 0.1s steps(2);
+}
+.view-tab:hover { background: var(--panel-alt); }
+.view-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: color-mix(in srgb, var(--accent) 60%, #fff);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25), inset 0 3px 0 rgba(255, 255, 255, 0.25);
+}
+.tab-ico { display: inline-flex; }
+.tab-ico .px { vertical-align: 0; }
+.view-tab:not(.active) .tab-ico { opacity: 0.8; }
+
+.tab-badge {
+  position: absolute;
+  top: -9px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-pixel);
+  font-size: 0.42rem;
+  line-height: 1;
+  color: #fff;
+  background: var(--red);
+  border: 2px solid var(--pixel-shadow-color);
+  animation: badge-bounce 1.2s steps(2) infinite;
+}
+@keyframes badge-bounce { 50% { transform: translateY(-2px); } }
+
+/* Not enough room for six labelled tabs on a mid-size window - show just the
+   icons, plus the label of whichever screen you're on. */
+@media (max-width: 1279px) {
+  .view-tab:not(.active) .tab-label { display: none; }
+  .view-tab:not(.active) { padding: 7px 9px; }
+}
+
+/* ---------- HUD ---------- */
+.hud { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.hud-avatar {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--panel-alt);
+  border: 3px solid var(--accent);
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+}
+.hud-avatar .px { display: block; }
+.hud-avatar:hover { border-color: var(--yellow); }
+.hud-avatar:active { transform: translate(3px, 3px); box-shadow: none; }
+
+.hud-level { display: flex; flex-direction: column; gap: 5px; min-width: 88px; }
+.hud-lv {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--font-pixel);
+  line-height: 1;
+}
+.hud-lv-label { font-size: 0.5rem; color: var(--accent); }
+.hud-lv-num { font-size: 0.9rem; color: var(--text); text-shadow: 2px 2px 0 var(--pixel-shadow-color); }
+.hud-xp-track {
+  display: block;
+  height: 10px;
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+  overflow: hidden;
+}
+.hud-xp-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 6px, color-mix(in srgb, var(--accent) 68%, #000) 6px 8px);
+  transition: width 0.6s steps(12);
+}
+
+.hud-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font-family: var(--font-pixel);
+  font-size: 0.62rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0 var(--pixel-shadow-color);
+  white-space: nowrap;
+}
+.hud-ico { display: inline-flex; }
+.hud-coins { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 55%, var(--border)); min-width: 74px; }
+.hud-coins.is-debt { color: var(--red); border-color: color-mix(in srgb, var(--red) 60%, var(--border)); }
+.hud-streak { color: var(--text-dim); }
+.hud-streak.is-hot { color: #ff9a3c; border-color: color-mix(in srgb, #ff9a3c 55%, var(--border)); }
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: var(--panel-alt);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0 var(--pixel-shadow-color);
+}
+.icon-btn:hover { border-color: var(--accent); }
+.icon-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.icon-btn[aria-pressed="true"] { border-color: var(--red); }
+
+/* ---------- Sidebar: the Quest Log ---------- */
+.sidebar { border-right: 3px solid var(--border); }
+.sidebar::before { height: 4px; }
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 8px;
+}
+.sidebar-count { margin-left: auto; font-size: 0.55rem; color: var(--text-dim); }
+.sidebar-progress {
+  height: 10px;
+  margin: 0 16px 6px;
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+  overflow: hidden;
+}
+.sidebar-progress-fill {
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--green) 0 6px, color-mix(in srgb, var(--green) 68%, #000) 6px 8px);
+  transition: width 0.6s steps(12);
+}
+
+.sidebar-level { align-items: flex-start; gap: 8px; margin-top: 10px; }
+.sidebar-level::before { display: none; }
+.sidebar-level-ico { display: inline-flex; flex-shrink: 0; margin-top: 1px; color: var(--accent); }
+.sidebar-level-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-level-eyebrow { font-size: 0.45rem; color: var(--text-dim); }
+.sidebar-level-name { font-size: 0.62rem; line-height: 1.45; color: var(--text); }
+.sidebar-level-count { margin-left: auto; padding-left: 6px; font-size: 0.5rem; color: var(--text-dim); flex-shrink: 0; margin-top: 2px; }
+.sidebar-level.is-cleared .sidebar-level-eyebrow, .sidebar-level.is-cleared .sidebar-level-count { color: var(--green); }
+
+.lesson-link { border-left-width: 4px; padding: 8px 14px 8px 12px; transition: none; }
+.lesson-link.active {
+  border-left-color: var(--yellow);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt));
+  box-shadow: none;
+}
+.lesson-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 0;
+  border: 2px solid var(--text-dim);
+  color: var(--on-green);
+  transition: none;
+}
+.lesson-link.done .lesson-check { background: var(--green); border-color: var(--green); box-shadow: none; }
+.lesson-link.done .lesson-check::after { content: none; }
+.lesson-check .px { display: block; }
+.lesson-link-title { flex: 1; min-width: 0; }
+.lesson-boss-icon, .lesson-flag-icon { display: inline-flex; flex-shrink: 0; }
+.lesson-boss-icon { margin-left: auto; }
+.lesson-boss-icon + .lesson-flag-icon { margin-left: 4px; }
+
+.sidebar-collapse-btn { border-right-width: 3px; }
+
+/* ---------- Lesson + shared content polish ---------- */
+.lesson-eyebrow { display: flex; align-items: center; gap: 8px; }
+.lesson-eyebrow .px { color: var(--accent); }
+.flag-btn { display: inline-flex; align-items: center; gap: 6px; border-width: 2px; font-family: var(--font-pixel); font-size: 0.55rem; line-height: 1.5; }
+.flag-btn.flagged { border-color: var(--yellow); }
+.note-box { border-left-width: 4px; }
+.hint-box, .solution-box { border-left-width: 4px; }
+
+.difficulty-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-width: 2px; font-size: 0.55rem; }
+.quiz-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-width: 2px; font-family: var(--font-pixel); font-size: 0.55rem; line-height: 1.5; }
+
+.CodeMirror { border-width: 3px; }
+.sim-svg, .sim-console { border-width: 3px; }
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  border-top: 3px solid var(--border);
+  font-family: var(--font-terminal);
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+.status-prompt { display: inline-flex; color: var(--green); }
+#status-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.status-hint { font-family: var(--font-pixel); font-size: 0.45rem; color: var(--text-dim); white-space: nowrap; }
+
+/* ---------- NPC dialogue boxes ---------- */
+.mentor-box { align-items: center; gap: 16px; padding: 14px 18px; }
+
+.mentor-portrait {
+  width: 70px; /* 64px of sprite + the 3px border: keeps pixels a whole 4px each */
+  height: 70px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--panel-alt);
+  border: 3px solid var(--accent);
+  box-shadow: 3px 3px 0 var(--pixel-shadow-color);
+  filter: none;
+  cursor: var(--cursor-hand, pointer);
+  transition: transform 0.08s steps(2);
+}
+.mentor-portrait:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pixel-shadow-color); }
+.mentor-portrait svg { width: 64px; height: 64px; display: block; }
+.mentor-portrait.npc-volt { border-color: var(--yellow); }
+
+.mentor-bubble { position: relative; padding-right: 20px; }
+.mentor-bubble::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  height: 8px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  animation: dialogue-arrow 0.9s steps(2) infinite;
+}
+@keyframes dialogue-arrow { 50% { transform: translateY(3px); } }
+
+.mentor-name { font-size: 0.62rem; }
+.mentor-tag { font-size: 0.5rem; border-radius: 0; border-width: 2px; padding: 2px 8px; }
+.mentor-text { font-size: 1rem; line-height: 1.55; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mentor-bubble::after, .tab-badge { animation: none; }
+}
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 768px) {
+  .topbar { padding: 6px 10px; gap: 6px; row-gap: 6px; }
+  .brand-text { display: none; }
+  .sidebar-toggle .sb-label { display: none; }
+  .hud { margin-left: auto; gap: 6px; }
+  .hud-avatar, #hud-mute, .hud-streak { display: none; }
+  .hud-level { min-width: 66px; }
+  .hud-chip { padding: 5px 8px; font-size: 0.55rem; min-width: 0; }
+  .hud-coins { min-width: 0; }
+
+  .view-tabs { order: 3; width: 100%; gap: 3px; padding: 3px; justify-content: stretch; }
+  .view-tab { flex: 1 1 0; justify-content: center; padding: 7px 4px; font-size: 0.42rem; gap: 5px; }
+  .view-tab:not(.active) { padding: 7px 4px; }
+  .view-tab.active { flex: 2.4 1 0; }
+  .tab-badge { top: -10px; right: -3px; }
+
+  .mentor-box { padding: 10px 12px; gap: 10px; }
+  .mentor-portrait { width: 54px; height: 54px; }
+  .mentor-portrait svg { width: 48px; height: 48px; }
+  .mentor-text { font-size: 0.92rem; }
+
+  /* The drawer and its backdrop sit inside .layout (which starts right below the
+     top bar), so they line up no matter how tall the two-row top bar turns out. */
+  .sidebar { position: absolute; top: 0; bottom: 0; }
+  .sidebar-backdrop.open { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  .lesson-top-row { flex-wrap: wrap; gap: 8px; }
+  .lesson-eyebrow { font-size: 0.6rem; }
+  .flag-btn { margin-left: auto; }
+  .lesson-content h1 { font-size: 1.1rem; line-height: 1.55; }
+  .statusbar { padding: 4px 10px; }
+  .status-hint { display: none; }
+}

@@ -1,8 +1,10 @@
-// Renders the Dashboard view: the progression ladder, headline stats, and a
-// "topics to review" list built from quiz attempts the learner hasn't
-// gotten right yet. This is read-only - all it does is summarize state that
-// progress.js already tracks, the same way a real dashboard sits on top of
-// a database rather than owning its own data.
+// Renders the Profile (formerly "Dashboard") view: your player card, today's
+// missions, the progression ladder, headline stats, the trophy room, and a
+// "topics to review" list built from quiz attempts the learner hasn't gotten
+// right yet. It only summarizes state that progress.js already tracks, the
+// same way a real dashboard sits on top of a database rather than owning its
+// own data - anything that CHANGES state (claiming a mission reward) is
+// reported out through a callback for app.js to handle.
 
 import { lessons } from "../lessons/data.js";
 import { projects } from "../projects/data.js";
@@ -11,6 +13,8 @@ import { getProjectProgress, getLevelInfo, LEVEL_MILESTONES } from "../progress/
 import { renderMentorBox, getDashboardGreeting } from "../npc/mentor.js";
 import { animateCount } from "../utils/animateCount.js";
 import { RANKS, computeCurrentRankIndex } from "../progress/ranks.js";
+import { icon } from "../game/sprites.js";
+import { buildPlayerCard, buildMissionsPanel, buildTrophyRoom } from "../game/profileCards.js";
 
 function countChallenges() {
   let total = 0;
@@ -35,39 +39,32 @@ function findLessonIdForQuizId(quizId) {
   return null;
 }
 
-export function renderDashboard(container, progress, { onReviewTopic } = {}) {
+// refresh: this is a re-render of a screen that's already showing (after
+// claiming a reward) - skip the count-ups and Sam's typing so nothing replays.
+export function renderDashboard(container, progress, { onReviewTopic, onClaimMission, onClaimChest, onChangeAvatar, onPoke, refresh = false } = {}) {
   container.innerHTML = "";
+  const animate = !refresh;
 
   const mentorBox = el("div", "mentor-box hud-frame");
   container.appendChild(mentorBox);
-  renderMentorBox(mentorBox, { text: getDashboardGreeting(progress), tag: "Check-in" });
+  renderMentorBox(mentorBox, { text: getDashboardGreeting(progress), tag: "Check-in", onPoke, instant: refresh });
 
-  const header = el("div", "dashboard-header");
-  header.appendChild(el("h1", null, "Your Progress"));
-  header.appendChild(el("p", null, "Your record as a junior tech at CircuitWorks Robotics - what you've learned, practiced, and built so far."));
-  container.appendChild(header);
-
-  // ---- XP bar ----
-  // Deliberately separate from the Credits stat tile below: credits are a
-  // spendable balance (see spendCredits in progress.js), XP only goes up, so
-  // this bar always reflects total progress even after a hint spends credits
+  // ---- player card ----
+  // XP is deliberately separate from the credits shown beside it: credits are
+  // a spendable balance (see spendCredits in progress.js), XP only goes up, so
+  // the bar always reflects total progress even after a hint spends credits
   // down into the red.
-  const { level, xpIntoLevel, xpForLevel, pct } = getLevelInfo(progress.xp);
-  const xpBar = el("div", "xp-bar-wrap hud-frame");
-  const xpHeader = el("div", "xp-bar-header");
-  xpHeader.appendChild(el("span", "xp-level", `Level ${level}`));
-  xpHeader.appendChild(el("span", "xp-numbers", `${xpIntoLevel} / ${xpForLevel} XP`));
-  xpBar.appendChild(xpHeader);
-  const xpTrack = el("div", "xp-bar-track");
-  const xpFill = el("div", "xp-bar-fill");
-  xpFill.style.width = `${pct}%`;
-  xpTrack.appendChild(xpFill);
-  xpBar.appendChild(xpTrack);
+  container.appendChild(buildPlayerCard(progress, { onChangeAvatar, animate }));
+  const { level } = getLevelInfo(progress.xp);
   const nextMilestone = Object.keys(LEVEL_MILESTONES).map(Number).find((lvl) => lvl > level);
   if (nextMilestone) {
-    xpBar.appendChild(el("div", "xp-bar-note", `Next bonus at Level ${nextMilestone}: +${LEVEL_MILESTONES[nextMilestone]} credits`));
+    const note = el("div", "xp-bar-note", `Next bonus at Level ${nextMilestone}: +${LEVEL_MILESTONES[nextMilestone]} credits`);
+    note.prepend(Object.assign(el("span", "note-ico"), { innerHTML: icon("chest", 1) }));
+    container.appendChild(note);
   }
-  container.appendChild(xpBar);
+
+  // ---- today's missions ----
+  container.appendChild(buildMissionsPanel(progress, { onClaim: onClaimMission, onClaimChest }));
 
   // ---- stat tiles ----
   const totalLessons = lessons.length;
@@ -83,15 +80,14 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   );
   const projectStagesTotal = projects.reduce((sum, p) => sum + p.stages.length, 0);
 
+  container.appendChild(el("div", "dashboard-section-title", "Career Stats"));
   const statGrid = el("div", "stat-grid");
-  statGrid.appendChild(statTile(doneLessons, ` / ${totalLessons}`, "Lessons Complete"));
-  statGrid.appendChild(statTile(doneChallenges, ` / ${totalChallenges}`, "Challenges Solved"));
-  statGrid.appendChild(statTile(solvedQuizzes, ` / ${totalQuizzes}`, "Quizzes Solved"));
-  statGrid.appendChild(statTile(projectStagesDone, ` / ${projectStagesTotal}`, "Project Stages Built"));
-  statGrid.appendChild(statTile(progress.streak || 0, " 🔥", "Day Streak"));
-  const creditsTile = statTile(progress.credits, "", "⚡ Credits");
-  if (progress.credits < 0) creditsTile.querySelector(".stat-tile-value").classList.add("credits-debt");
-  statGrid.appendChild(creditsTile);
+  statGrid.appendChild(statTile(doneLessons, ` / ${totalLessons}`, "Lessons Complete", "book", animate));
+  statGrid.appendChild(statTile(doneChallenges, ` / ${totalChallenges}`, "Challenges Solved", "bolt", animate));
+  statGrid.appendChild(statTile(solvedQuizzes, ` / ${totalQuizzes}`, "Quizzes Solved", "puzzle", animate));
+  statGrid.appendChild(statTile(projectStagesDone, ` / ${projectStagesTotal}`, "Project Stages Built", "chip", animate));
+  statGrid.appendChild(statTile(progress.stats?.bossesDefeated ?? 0, "", "Bosses Defeated", "skull", animate));
+  statGrid.appendChild(statTile(progress.stats?.runs ?? 0, "", "Programs Run", "play", animate));
   container.appendChild(statGrid);
 
   // ---- rank ladder ----
@@ -104,8 +100,10 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
     else if (i === currentRankIndex) step.classList.add("current");
     else step.classList.add("locked");
 
-    const badgeText = i < currentRankIndex ? "✓" : i === currentRankIndex ? String(i + 1) : "🔒";
-    const badge = el("div", "rank-step-badge", badgeText);
+    const badge = el("div", "rank-step-badge");
+    if (i < currentRankIndex) badge.innerHTML = icon("check", 2);
+    else if (i === currentRankIndex) badge.textContent = String(i + 1);
+    else badge.innerHTML = icon("lock", 2);
     step.appendChild(badge);
 
     const textWrap = document.createElement("div");
@@ -134,6 +132,9 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
     container.appendChild(note);
   }
 
+  // ---- trophy room ----
+  container.appendChild(buildTrophyRoom(progress, { animate }));
+
   // ---- flagged lessons ----
   // Reuses the exact weak-topic-list markup/classes below - both sections
   // are the same shape ("a list of things to jump back into"), just sourced
@@ -160,7 +161,7 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
       if (onReviewTopic) {
         const reviewBtn = document.createElement("button");
         reviewBtn.className = "btn btn-hint weak-topic-review-btn";
-        reviewBtn.textContent = "Review →";
+        reviewBtn.textContent = "Review";
         reviewBtn.addEventListener("click", () => onReviewTopic(lesson.id));
         right.appendChild(reviewBtn);
       }
@@ -197,7 +198,7 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
       if (lessonId && onReviewTopic) {
         const reviewBtn = document.createElement("button");
         reviewBtn.className = "btn btn-hint weak-topic-review-btn";
-        reviewBtn.textContent = "Review →";
+        reviewBtn.textContent = "Review";
         reviewBtn.addEventListener("click", () => onReviewTopic(lessonId));
         right.appendChild(reviewBtn);
       }
@@ -209,11 +210,17 @@ export function renderDashboard(container, progress, { onReviewTopic } = {}) {
   }
 }
 
-function statTile(toValue, suffix, label) {
+function statTile(toValue, suffix, label, spriteName, animate = true) {
   const tile = el("div", "stat-tile");
+  if (spriteName) {
+    const ico = el("div", "stat-tile-icon");
+    ico.innerHTML = icon(spriteName, 3);
+    tile.appendChild(ico);
+  }
   const valueEl = el("div", "stat-tile-value", "0" + suffix);
   tile.appendChild(valueEl);
   tile.appendChild(el("div", "stat-tile-label", label));
-  animateCount(valueEl, toValue, suffix);
+  if (animate) animateCount(valueEl, toValue, suffix);
+  else valueEl.textContent = toValue + suffix;
   return tile;
 }

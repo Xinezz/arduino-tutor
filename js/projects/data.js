@@ -11,7 +11,7 @@
 export const projects = [
   {
     id: "reaction-timer",
-    icon: "⚡",
+    sprite: "bolt", // a name from js/game/spriteData.js
     title: "Reaction Timer Game",
     description:
       "An LED blinks while you wait, then lights up solid at a random moment - click the button as fast " +
@@ -82,7 +82,7 @@ export const projects = [
 
   {
     id: "security-alarm",
-    icon: "🔒",
+    sprite: "shield",
     title: "Security Alarm System",
     description:
       "Arm the system with one button, watch a status LED confirm it's armed, then trip a second " +

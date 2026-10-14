@@ -7,6 +7,8 @@
 import { projects } from "./data.js";
 import { getProjectProgress } from "../progress/progress.js";
 import { typewriterText } from "../utils/typewriter.js";
+import { icon } from "../game/sprites.js";
+import { centerOf } from "../game/fx.js";
 
 export function renderProjectList(container, progress, { onSelectProject }) {
   container.innerHTML = "";
@@ -27,10 +29,10 @@ export function renderProjectList(container, progress, { onSelectProject }) {
     const card = document.createElement("div");
     card.className = "project-card hud-frame" + (isUnlocked ? "" : " locked");
 
-    const icon = document.createElement("div");
-    icon.className = "project-card-icon";
-    icon.textContent = project.icon;
-    card.appendChild(icon);
+    const iconEl = document.createElement("div");
+    iconEl.className = "project-card-icon";
+    iconEl.innerHTML = icon(isUnlocked ? project.sprite || "chip" : "lock", 5);
+    card.appendChild(iconEl);
 
     const h3 = document.createElement("h3");
     h3.textContent = project.title;
@@ -61,7 +63,8 @@ export function renderProjectList(container, progress, { onSelectProject }) {
     } else {
       const lockNote = document.createElement("div");
       lockNote.className = "project-lock-note";
-      lockNote.textContent = "🔒 " + project.requiredLabel;
+      lockNote.innerHTML = icon("lock", 1);
+      lockNote.appendChild(document.createTextNode(" " + project.requiredLabel));
       card.appendChild(lockNote);
     }
 
@@ -79,12 +82,13 @@ export function renderProjectDetail(container, project, progress, { onBack, onSt
   header.className = "project-detail-header";
   const backBtn = document.createElement("button");
   backBtn.className = "btn btn-secondary";
-  backBtn.textContent = "← All Projects";
+  backBtn.innerHTML = `<span class="arrow-ico flip">${icon("play", 1)}</span> All Projects`;
   backBtn.addEventListener("click", onBack);
   header.appendChild(backBtn);
 
   const h1 = document.createElement("h1");
-  h1.textContent = `${project.icon} ${project.title}`;
+  h1.innerHTML = icon(project.sprite || "chip", 3);
+  h1.appendChild(document.createTextNode(" " + project.title));
   header.appendChild(h1);
 
   const desc = document.createElement("p");
@@ -95,7 +99,7 @@ export function renderProjectDetail(container, project, progress, { onBack, onSt
   const openEditorBtn = document.createElement("button");
   openEditorBtn.className = "btn btn-primary";
   openEditorBtn.style.marginTop = "10px";
-  openEditorBtn.textContent = "Open Practice Editor & Circuit Board →";
+  openEditorBtn.innerHTML = `Open Practice Editor & Circuit Board <span class="arrow-ico">${icon("play", 1)}</span>`;
   openEditorBtn.addEventListener("click", onOpenEditor);
   header.appendChild(openEditorBtn);
 
@@ -106,7 +110,8 @@ export function renderProjectDetail(container, project, progress, { onBack, onSt
   project.stages.forEach((stage, i) => {
     const dot = document.createElement("div");
     dot.className = "project-stage-dot" + (done.has(stage.id) ? " done" : "");
-    dot.textContent = done.has(stage.id) ? "✓" : String(i + 1);
+    if (done.has(stage.id)) dot.innerHTML = icon("check", 1);
+    else dot.textContent = String(i + 1);
     dot.title = stage.title;
     tracker.appendChild(dot);
   });
@@ -122,7 +127,8 @@ function renderStageCard(project, stage, isDone, onStageComplete) {
   card.className = "project-stage-card hud-frame" + (isDone ? " done" : "");
 
   const h3 = document.createElement("h3");
-  h3.textContent = stage.title + (isDone ? " ✓" : "");
+  h3.textContent = stage.title;
+  if (isDone) h3.insertAdjacentHTML("beforeend", ` ${icon("check", 2)}`);
   card.appendChild(h3);
 
   const goal = document.createElement("p");
@@ -142,7 +148,9 @@ function renderStageCard(project, stage, isDone, onStageComplete) {
 
   const doneBtn = document.createElement("button");
   doneBtn.className = "btn btn-primary";
-  doneBtn.textContent = isDone ? "✓ Stage Complete" : "Mark Stage Complete";
+  doneBtn.dataset.sfx = "none";
+  if (isDone) doneBtn.innerHTML = `${icon("check", 2)} Stage Complete`;
+  else doneBtn.innerHTML = `${icon("check", 2)} Mark Stage Complete`;
   doneBtn.disabled = isDone;
 
   controls.appendChild(hintBtn);
@@ -173,11 +181,11 @@ function renderStageCard(project, stage, isDone, onStageComplete) {
   });
 
   doneBtn.addEventListener("click", () => {
-    onStageComplete(project.id, stage.id);
-    doneBtn.textContent = "✓ Stage Complete";
+    const at = centerOf(doneBtn); // grab the position before the re-render replaces this button
+    onStageComplete(project.id, stage.id, { at });
+    doneBtn.innerHTML = `${icon("check", 2)} Stage Complete`;
     doneBtn.disabled = true;
     card.classList.add("done");
-    h3.textContent = stage.title + " ✓";
   });
 
   return card;

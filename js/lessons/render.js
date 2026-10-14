@@ -5,30 +5,36 @@
 
 import { lessons } from "./data.js";
 import { typewriterText } from "../utils/typewriter.js";
-
-const LEVEL_NAMES = {
-  1: "Level 1 · Arduino Basics",
-  2: "Level 2 · Digital I/O",
-  3: "Level 3 · Analog Input",
-  4: "Level 4 · PWM & Outputs",
-  6: "Level 6 · Sensors",
-};
+import { levelName, levelTitle, levelIcon } from "./levels.js";
+import { icon } from "../game/sprites.js";
 
 export function renderSidebar(container, progress, onSelect) {
   container.innerHTML = "";
 
+  const done = new Set(progress.viewedLessons);
   const questLogHeading = document.createElement("div");
   questLogHeading.className = "sidebar-heading";
-  questLogHeading.textContent = "📋 Quest Log";
+  questLogHeading.innerHTML = `${icon("scroll", 2)}<span>Quest Log</span><span class="sidebar-count">${done.size}/${lessons.length}</span>`;
   container.appendChild(questLogHeading);
+
+  const overall = document.createElement("div");
+  overall.className = "sidebar-progress";
+  const overallFill = document.createElement("div");
+  overallFill.className = "sidebar-progress-fill";
+  overallFill.style.width = `${lessons.length ? (done.size / lessons.length) * 100 : 0}%`;
+  overall.appendChild(overallFill);
+  container.appendChild(overall);
 
   let currentLevel = null;
   for (const lesson of lessons) {
     if (lesson.level !== currentLevel) {
       currentLevel = lesson.level;
+      const inLevel = lessons.filter((l) => l.level === currentLevel);
+      const doneInLevel = inLevel.filter((l) => done.has(l.id)).length;
       const heading = document.createElement("div");
-      heading.className = "sidebar-level";
-      heading.textContent = LEVEL_NAMES[currentLevel] || `Level ${currentLevel}`;
+      heading.className = "sidebar-level" + (doneInLevel === inLevel.length ? " is-cleared" : "");
+      heading.innerHTML = `<span class="sidebar-level-ico">${icon(levelIcon(currentLevel), 2)}</span><span class="sidebar-level-text"><span class="sidebar-level-eyebrow">LEVEL ${currentLevel}</span><span class="sidebar-level-name"></span></span><span class="sidebar-level-count">${doneInLevel}/${inLevel.length}</span>`;
+      heading.querySelector(".sidebar-level-name").textContent = levelTitle(currentLevel);
       container.appendChild(heading);
     }
 
@@ -38,11 +44,22 @@ export function renderSidebar(container, progress, onSelect) {
 
     const check = document.createElement("span");
     check.className = "lesson-check";
+    if (done.has(lesson.id)) check.innerHTML = icon("check", 1);
     const label = document.createElement("span");
+    label.className = "lesson-link-title";
     label.textContent = lesson.title;
 
     link.appendChild(check);
     link.appendChild(label);
+
+    // A little skull on boss lessons, so you can see what's coming at a glance.
+    if (lesson.challenge?.difficulty === "boss") {
+      const skull = document.createElement("span");
+      skull.className = "lesson-boss-icon";
+      skull.title = "Boss challenge";
+      skull.innerHTML = icon("skull", 1);
+      link.appendChild(skull);
+    }
 
     // A flagged lesson (see the "Flag for Review" button on the lesson page
     // itself) gets a small marker here too, so scanning the Quest Log is
@@ -51,7 +68,7 @@ export function renderSidebar(container, progress, onSelect) {
     if (progress.flaggedLessons?.includes(lesson.id)) {
       const flagIcon = document.createElement("span");
       flagIcon.className = "lesson-flag-icon";
-      flagIcon.textContent = "🚩";
+      flagIcon.innerHTML = icon("flag", 1);
       flagIcon.title = "Flagged for review";
       link.appendChild(flagIcon);
     }
@@ -86,6 +103,13 @@ function renderBlock(block) {
   return el;
 }
 
+// Paints the Flag-for-Review button for a given state. Exported so app.js can
+// flip it in place when it's clicked, without re-rendering the whole lesson.
+export function setFlagButton(btn, flagged) {
+  btn.classList.toggle("flagged", flagged);
+  btn.innerHTML = `${icon("flag", 2)} ${flagged ? "Flagged" : "Flag for Review"}`;
+}
+
 export function findLesson(lessonId) {
   return lessons.find((l) => l.id === lessonId);
 }
@@ -98,7 +122,8 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
 
   const eyebrow = document.createElement("div");
   eyebrow.className = "lesson-eyebrow";
-  eyebrow.textContent = `Level ${lesson.level}`;
+  eyebrow.innerHTML = `${icon(levelIcon(lesson.level), 2)}<span></span>`;
+  eyebrow.querySelector("span").textContent = levelName(lesson.level);
   topRow.appendChild(eyebrow);
 
   // A quick way to bookmark "I struggled here" the moment it happens, rather
@@ -107,8 +132,9 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   // actually clicked.
   const flagBtn = document.createElement("button");
   flagBtn.dataset.action = "toggle-flag";
-  flagBtn.className = "flag-btn" + (isFlagged ? " flagged" : "");
-  flagBtn.textContent = isFlagged ? "🚩 Flagged" : "🏳️ Flag for Review";
+  flagBtn.className = "flag-btn";
+  flagBtn.dataset.sfx = "none";
+  setFlagButton(flagBtn, isFlagged);
   topRow.appendChild(flagBtn);
 
   container.appendChild(topRow);
@@ -130,7 +156,7 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
 
   const prev = document.createElement("button");
   prev.className = "btn btn-secondary";
-  prev.textContent = "← Previous";
+  prev.innerHTML = `<span class="arrow-ico flip">${icon("play", 1)}</span> Previous`;
   prev.disabled = index <= 0;
   prev.dataset.action = "prev";
 
@@ -141,16 +167,17 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   complete.dataset.action = "complete";
   if (isCompleted) {
     complete.className = "btn btn-secondary";
-    complete.textContent = "✓ Completed";
+    complete.innerHTML = `${icon("check", 2)} Completed`;
     complete.disabled = true;
   } else {
     complete.className = "btn btn-complete";
-    complete.textContent = "Mark Lesson as Done";
+    complete.dataset.sfx = "none";
+    complete.innerHTML = `${icon("check", 2)} Mark Lesson as Done`;
   }
 
   const next = document.createElement("button");
   next.className = "btn btn-primary";
-  next.textContent = "Next →";
+  next.innerHTML = `Next <span class="arrow-ico">${icon("play", 1)}</span>`;
   next.disabled = index >= lessons.length - 1;
   next.dataset.action = "next";
 

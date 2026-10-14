@@ -1,0 +1,276 @@
+/* ==========================================================================
+   Game layer styles: sprites/icons, effects, toasts, modals, CRT overlay,
+   the HUD, settings, and everything else added on top of the base pixel
+   theme in style.css. Loaded AFTER style.css, so where a rule here and one
+   there tie on specificity, this file wins.
+   ========================================================================== */
+
+/* A global safety net: any element given the hidden attribute stays hidden
+   even if some component rule gives it an explicit display value (an ID
+   selector with display:flex outranks the browser's [hidden] default - that
+   exact bug bit the menu screens earlier). */
+[hidden] { display: none !important; }
+
+/* ---------- Pixel sprites / inline icons ---------- */
+.px {
+  image-rendering: pixelated;
+  display: inline-block;
+  vertical-align: -0.25em;
+  flex-shrink: 0;
+}
+.ico {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  vertical-align: middle;
+}
+
+/* ---------- Custom pixel cursors ----------
+   The sprite-generated url() values are injected as --cursor-arrow /
+   --cursor-hand on <html> by game/cursors setup in app.js; if that ever fails
+   the var() fallbacks leave the normal system cursors in place. */
+html { cursor: var(--cursor-arrow, auto); }
+a, button, select, summary, label[for], [role="button"],
+.btn, .view-tab, .lesson-link, .map-node, .menu-circle-btn, .flag-btn,
+.quiz-option, .toast, .shop-card, .icon-btn, .hud-chip-btn {
+  cursor: var(--cursor-hand, pointer);
+}
+button:disabled, .btn:disabled { cursor: var(--cursor-arrow, not-allowed); }
+input[type="text"], input[type="number"], textarea, .CodeMirror, .CodeMirror-lines { cursor: text; }
+input[type="range"] { cursor: var(--cursor-hand, pointer); }
+
+/* ---------- CRT overlay ----------
+   Scanlines plus a soft vignette over everything, including modals. Kept
+   deliberately faint: it's atmosphere, and lesson text still has to be
+   perfectly readable underneath it. Toggled from Settings. */
+#crt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: none;
+  display: none;
+}
+html.crt-on #crt-overlay {
+  display: block;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.13) 3px),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.3) 100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.crt-on #crt-overlay { animation: crt-flicker 7s steps(1) infinite; }
+  @keyframes crt-flicker {
+    0%, 100% { opacity: 1; }
+    42% { opacity: 1; }
+    43% { opacity: 0.93; }
+    44% { opacity: 1; }
+    77% { opacity: 0.95; }
+    78% { opacity: 1; }
+  }
+}
+
+/* ---------- Effects layer ---------- */
+#fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+  overflow: hidden;
+}
+.fx-float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-pixel);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  will-change: transform, opacity;
+}
+.fx-float-xp { color: var(--accent); }
+.fx-float-coin { color: var(--yellow); }
+.fx-float-spend { color: var(--red); }
+.fx-float-good { color: var(--green); }
+.fx-particle { position: absolute; will-change: transform, opacity; }
+.fx-particle svg { display: block; }
+.fx-flash { position: absolute; inset: 0; }
+
+.fx-banner {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  text-align: center;
+  font-family: var(--font-pixel);
+  white-space: nowrap;
+  max-width: 96vw;
+}
+.fx-banner-main {
+  font-size: clamp(0.95rem, 4.4vw, 2.3rem);
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  color: var(--yellow);
+  text-shadow:
+    3px 0 0 #000, -3px 0 0 #000, 0 3px 0 #000, 0 -3px 0 #000,
+    3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000,
+    0 6px 0 #000;
+}
+.fx-banner-sub {
+  margin-top: 10px;
+  font-size: clamp(0.5rem, 2.2vw, 0.8rem);
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+}
+.fx-banner-level .fx-banner-main { color: var(--accent); }
+.fx-banner-boss .fx-banner-main { color: var(--red); }
+.fx-banner-green .fx-banner-main { color: var(--green); }
+
+.fx-shake { animation: fx-shake 0.45s steps(1) both; }
+@keyframes fx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-7px, 3px); }
+  20% { transform: translate(6px, -4px); }
+  30% { transform: translate(-5px, -2px); }
+  40% { transform: translate(5px, 4px); }
+  50% { transform: translate(-4px, 2px); }
+  60% { transform: translate(3px, -3px); }
+  70% { transform: translate(-2px, 2px); }
+  80% { transform: translate(2px, -1px); }
+  90% { transform: translate(-1px, 1px); }
+}
+.fx-bump { animation: fx-bump 0.45s steps(6) both; }
+@keyframes fx-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.28); }
+  60% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+
+.fx-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  pointer-events: all;
+}
+.fx-wipe i {
+  background: var(--pixel-shadow-color);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+  opacity: 0;
+  transition: opacity 0.14s steps(2) var(--d, 0ms);
+}
+.fx-wipe.in i { opacity: 1; }
+.fx-wipe.out i { opacity: 0; }
+
+/* ---------- Toasts ---------- */
+#toast-root {
+  position: fixed;
+  top: 66px;
+  right: 14px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(350px, calc(100vw - 28px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  background: var(--panel);
+  border: 3px solid var(--toast-accent, var(--accent));
+  box-shadow: 4px 4px 0 var(--pixel-shadow-color);
+  transform: translateX(125%);
+  transition: transform 0.3s steps(6);
+}
+.toast.show { transform: translateX(0); }
+.toast.hide { transform: translateX(125%); }
+.toast-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--panel-alt);
+  border: 2px solid var(--border);
+}
+.toast-body { min-width: 0; }
+.toast-title {
+  font-family: var(--font-pixel);
+  font-size: 0.52rem;
+  line-height: 1.6;
+  color: var(--toast-accent, var(--accent));
+  margin-bottom: 3px;
+}
+.toast-text { font-size: 0.82rem; line-height: 1.35; color: var(--text); overflow-wrap: anywhere; }
+.toast-achievement { --toast-accent: var(--yellow); }
+.toast-mission { --toast-accent: var(--green); }
+.toast-info { --toast-accent: var(--accent); }
+.toast-warn { --toast-accent: var(--red); }
+
+/* ---------- Modals ---------- */
+#modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(2, 4, 10, 0.74);
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity 0.18s steps(4);
+}
+.modal-backdrop.open { opacity: 1; }
+.modal-backdrop.closing { opacity: 0; }
+.modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: var(--panel);
+  border: 3px solid var(--accent);
+  box-shadow: 6px 6px 0 var(--pixel-shadow-color);
+  padding: 22px 22px 20px;
+  transform: scale(0.88);
+  transition: transform 0.22s steps(5);
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-title {
+  font-family: var(--font-pixel);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+.modal-body { line-height: 1.5; }
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.modal-wide { width: min(720px, 100%); }
+.modal-center { text-align: center; }
+.modal-center .modal-actions { justify-content: center; }
+
+@media (max-width: 768px) {
+  #toast-root {
+    top: auto;
+    bottom: 38px;
+    left: 14px;
+    right: 14px;
+    width: auto;
+    flex-direction: column-reverse;
+  }
+  .toast { transform: translateY(160%); }
+  .toast.show { transform: translateY(0); }
+  .toast.hide { transform: translateY(160%); }
+}

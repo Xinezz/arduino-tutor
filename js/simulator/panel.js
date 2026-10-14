@@ -23,6 +23,8 @@ export function createSimulatorPanel({
   consoleEl,
   wirePaletteEl,
   onStatus, // optional: (message) => void, for reporting into the shared status bar
+  onRun, // optional: () => void, called each time a program is started (feeds daily missions / trophies)
+  onRunError, // optional: (message) => void, called when a running program hits an error
 }) {
   const editor = createEditor(codeEditorEl);
   let activeRun = null;
@@ -90,6 +92,7 @@ export function createSimulatorPanel({
     consoleWrite(`--- Run started ---\n`, "sim-status");
     runBtn.disabled = true;
     stopBtn.disabled = false;
+    onRun?.();
 
     activeRun = startProgram(editor.getValue(), {
       pinMode: board.pinMode,
@@ -109,6 +112,7 @@ export function createSimulatorPanel({
       onOutput: (text) => consoleWrite(text),
       onError: (message) => {
         consoleWrite(`Error: ${message}\n`, "sim-error");
+        onRunError?.(message);
         runBtn.disabled = false;
         stopBtn.disabled = true;
         activeRun = null;

@@ -10,12 +10,23 @@
 // and fixed the same way for both the board's render loop and the
 // dashboard's stat counters - a typing effect that silently stalls in a
 // background tab would be a worse experience than no effect at all.
+//
+// Options: maxDurationMs / minCharMs tune the speed, onChar(count, char) fires
+// after each character appears (Sam's voice blips hook in here), and onDone()
+// fires once the full text is showing. Returns { cancel, finish }: cancel()
+// stops the effect where it is (so a stale line can't keep talking after the
+// next one starts), finish() jumps straight to the full text.
 export function typewriterText(el, text, opts = {}) {
   el.classList.add("typewriter");
 
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const finishNow = () => {
     el.textContent = text;
-    return;
+    opts.onDone?.();
+  };
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    finishNow();
+    return { cancel() {}, finish() {} };
   }
 
   // Longer solutions type faster per character, not slower overall - the
@@ -27,10 +38,32 @@ export function typewriterText(el, text, opts = {}) {
 
   el.textContent = "";
   let i = 0;
+  let timer = null;
+  let stopped = false;
+
   function tick() {
+    if (stopped) return;
     i++;
     el.textContent = text.slice(0, i);
-    if (i < text.length) setTimeout(tick, charMs);
+    opts.onChar?.(i, text[i - 1]);
+    if (i < text.length) {
+      timer = setTimeout(tick, charMs);
+    } else {
+      opts.onDone?.();
+    }
   }
   tick();
+
+  return {
+    cancel() {
+      stopped = true;
+      clearTimeout(timer);
+    },
+    finish() {
+      if (stopped || i >= text.length) return;
+      stopped = true;
+      clearTimeout(timer);
+      finishNow();
+    },
+  };
 }

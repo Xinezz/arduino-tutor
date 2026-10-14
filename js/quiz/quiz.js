@@ -3,6 +3,8 @@
 // record it in progress (for the dashboard's weak-topics list).
 
 import { typewriterText } from "../utils/typewriter.js";
+import { icon } from "../game/sprites.js";
+import { playSfx } from "../game/audio.js";
 
 function shuffledDistinctFrom(original) {
   const arr = [...original];
@@ -18,12 +20,15 @@ function shuffledDistinctFrom(original) {
 // Every quiz card starts with the same badge + title + prompt - shared here
 // so the five render functions below only need to build the part that's
 // actually different about their game.
-function renderQuizHeader(card, quiz, emoji) {
+function renderQuizHeader(card, quiz, spriteName) {
   const titleRow = document.createElement("div");
   titleRow.className = "quiz-title-row";
   const badge = document.createElement("span");
   badge.className = "quiz-badge";
-  badge.textContent = `${emoji} ${quiz.topic}`;
+  badge.innerHTML = icon(spriteName, 2);
+  const badgeText = document.createElement("span");
+  badgeText.textContent = quiz.topic;
+  badge.appendChild(badgeText);
   const title = document.createElement("strong");
   title.textContent = quiz.title;
   titleRow.appendChild(badge);
@@ -163,7 +168,7 @@ function renderOrderQuiz(container, quiz, onResult) {
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card hud-frame";
-    renderQuizHeader(card, quiz, "🧩");
+    renderQuizHeader(card, quiz, "puzzle");
 
     const list = document.createElement("ul");
     list.className = "quiz-order-list";
@@ -277,7 +282,7 @@ function renderPredictQuiz(container, quiz, onResult) {
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card hud-frame";
-    renderQuizHeader(card, quiz, "❓");
+    renderQuizHeader(card, quiz, "question");
 
     const codeBlock = document.createElement("pre");
     codeBlock.className = "code-block";
@@ -337,7 +342,7 @@ function renderDebugQuiz(container, quiz, onResult) {
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card hud-frame";
-    renderQuizHeader(card, quiz, "🐛");
+    renderQuizHeader(card, quiz, "bug");
 
     const list = document.createElement("ul");
     list.className = "quiz-order-list";
@@ -413,7 +418,7 @@ function renderFillBlankQuiz(container, quiz, onResult) {
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card hud-frame";
-    renderQuizHeader(card, quiz, "✏️");
+    renderQuizHeader(card, quiz, "pencil");
 
     const codeBlock = document.createElement("pre");
     codeBlock.className = "code-block";
@@ -482,6 +487,7 @@ function renderMatchQuiz(container, quiz, onResult) {
       matchedLefts.add(selectedLeft);
       matchedRights.add(right);
       selectedLeft = null;
+      playSfx("select");
       render();
       if (matchedLefts.size === quiz.pairs.length) {
         onResult(quiz.id, !hadMistake, quiz.topic);
@@ -489,6 +495,7 @@ function renderMatchQuiz(container, quiz, onResult) {
     } else {
       hadMistake = true;
       flashPair = { left: selectedLeft, right };
+      playSfx("wrong");
       render();
       setTimeout(() => {
         flashPair = null;
@@ -502,7 +509,7 @@ function renderMatchQuiz(container, quiz, onResult) {
     container.innerHTML = "";
     const card = document.createElement("div");
     card.className = "quiz-card hud-frame";
-    renderQuizHeader(card, quiz, "🔗");
+    renderQuizHeader(card, quiz, "link");
 
     const board = document.createElement("div");
     board.className = "quiz-match-board";

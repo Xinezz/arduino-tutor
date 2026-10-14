@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#171a23" />
 <title>Arduino Tutor</title>
+<script>
+  // Dev/testing escape hatch: add ?nosplash to the URL to skip the title screen.
+  if (/[?&]nosplash/.test(location.search)) document.documentElement.classList.add("no-splash");
+</script>
 
 <!-- Inter for UI text. VT323 for the retro terminal look - the practice
      editor, lesson code examples, solutions, the Serial Monitor. JetBrains
@@ -26,10 +31,33 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
 <link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/game.css" />
+<link rel="stylesheet" href="css/hud.css" />
+<link rel="stylesheet" href="css/screens.css" />
+<link rel="stylesheet" href="css/scenes.css" />
 </head>
 <body>
 
-<div class="menu-screen" id="menu-screen">
+<!-- The title screen. Static markup so there's never a flash of an unstyled
+     page; js/game/splash.js adds the starfield, the boot lines and the
+     "PRESS START" behaviour. -->
+<div class="splash-screen" id="splash-screen">
+  <div class="splash-stars" id="splash-stars" aria-hidden="true"></div>
+  <div class="splash-inner">
+    <div class="splash-chip" id="splash-chip" aria-hidden="true"></div>
+    <h1 class="splash-logo"><span class="splash-logo-top">ARDUINO</span><span class="splash-logo-bottom">TUTOR</span></h1>
+    <p class="splash-tag">A CIRCUITWORKS ROBOTICS ADVENTURE</p>
+    <div class="splash-boot" id="splash-boot" aria-hidden="true"></div>
+    <button class="splash-start" id="splash-start" data-sfx="none" hidden>PRESS START</button>
+    <div class="splash-footer" id="splash-footer" hidden>
+      <button class="splash-music" id="splash-music" data-sfx="none" aria-pressed="false"></button>
+      <span class="splash-hint">CLICK, TAP OR PRESS ANY KEY</span>
+    </div>
+  </div>
+  <div class="splash-copy">&copy; CIRCUITWORKS ROBOTICS &middot; 1UP</div>
+</div>
+
+<div class="menu-screen" id="menu-screen" hidden>
   <!-- filled in by js/menu/menu.js -->
 </div>
 
@@ -37,25 +65,33 @@
 
 <header class="topbar">
   <div class="topbar-left">
-    <button id="sidebar-toggle" class="btn btn-secondary sidebar-toggle" aria-label="Toggle lesson list">☰ Lessons</button>
+    <button id="sidebar-toggle" class="btn btn-secondary sidebar-toggle" aria-label="Toggle lesson list"><span data-sprite="list"></span><span class="sb-label">Quests</span></button>
     <div class="brand">
       <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="6" y="6" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
         <path d="M9 6V2M12 6V2M15 6V2M9 22v-4M12 22v-4M15 22v-4M6 9H2M6 12H2M6 15H2M22 9h-4M22 12h-4M22 15h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
       </svg>
-      Arduino<span>Tutor</span>
+      <span class="brand-text">Arduino<span>Tutor</span></span>
     </div>
   </div>
   <nav class="view-tabs" id="view-tabs">
-    <button class="view-tab active" data-view="lessons">Lessons</button>
-    <button class="view-tab" data-view="projects">Projects</button>
-    <button class="view-tab" data-view="practice">Practice</button>
-    <button class="view-tab" data-view="dashboard">Dashboard</button>
+    <button class="view-tab active" data-view="lessons" data-sprite-icon="book" data-sfx="select"><span class="tab-label">Lessons</span></button>
+    <button class="view-tab" data-view="map" data-sprite-icon="map" data-sfx="select"><span class="tab-label">Map</span></button>
+    <button class="view-tab" data-view="projects" data-sprite-icon="chip" data-sfx="select"><span class="tab-label">Projects</span></button>
+    <button class="view-tab" data-view="practice" data-sprite-icon="led" data-sfx="select"><span class="tab-label">Practice</span></button>
+    <button class="view-tab" data-view="shop" data-sprite-icon="bag" data-sfx="select"><span class="tab-label">Shop</span></button>
+    <button class="view-tab" data-view="dashboard" data-sprite-icon="person" data-sfx="select"><span class="tab-label">Profile</span><span class="tab-badge" id="profile-badge" hidden>0</span></button>
   </nav>
-  <div class="topbar-right">
-    <div class="level-display" id="level-display" title="Your level at CircuitWorks Robotics - earned from XP, which (unlike credits) never goes down.">🎖️ Lv 1</div>
-    <div class="credits-display" id="credits-display" title="Credits earned at CircuitWorks Robotics - spend them on hints.">⚡ 25</div>
-    <div class="progress-summary" id="progress-summary">Level 1 · 0 / 10 lessons</div>
+  <div class="hud" id="hud">
+    <button class="hud-avatar" id="hud-avatar" aria-label="Open your profile"></button>
+    <div class="hud-level" id="hud-level">
+      <span class="hud-lv"><span class="hud-lv-label">LV</span><span class="hud-lv-num" id="hud-lv-num">1</span></span>
+      <span class="hud-xp-track"><span class="hud-xp-fill" id="hud-xp-fill"></span></span>
+    </div>
+    <div class="hud-chip hud-coins" id="hud-coins"><span class="hud-ico"></span><span class="hud-num" id="hud-coins-num">25</span></div>
+    <div class="hud-chip hud-streak" id="hud-streak"><span class="hud-ico"></span><span class="hud-num" id="hud-streak-num">1</span></div>
+    <button class="icon-btn" id="hud-mute" aria-label="Mute or unmute sound" data-sfx="none"></button>
+    <button class="icon-btn" id="hud-settings" aria-label="Open options" title="Options (S)"></button>
   </div>
 </header>
 
@@ -85,8 +121,8 @@
       <div class="editor-toolbar">
         <span class="editor-label">Practice Editor</span>
         <div class="editor-toolbar-actions">
-          <button id="run-code-btn" class="btn btn-complete">▶ Run</button>
-          <button id="stop-code-btn" class="btn btn-danger" disabled>■ Stop</button>
+          <button id="run-code-btn" class="btn btn-complete"><span data-sprite="play"></span> Run</button>
+          <button id="stop-code-btn" class="btn btn-danger" disabled><span class="stop-ico"></span> Stop</button>
           <button id="reset-code-btn" class="btn btn-secondary">Reset</button>
         </div>
       </div>
@@ -148,6 +184,18 @@
 </div>
 </div>
 
+<div class="view" id="view-map" hidden>
+  <main class="main-panel main-panel-wide" id="map-panel">
+    <!-- filled in by js/game/worldmap.js -->
+  </main>
+</div>
+
+<div class="view" id="view-shop" hidden>
+  <main class="main-panel main-panel-wide" id="shop-panel">
+    <!-- filled in by js/game/shopView.js -->
+  </main>
+</div>
+
 <div class="view" id="view-projects" hidden>
   <main class="main-panel main-panel-wide" id="projects-panel">
     <!-- filled in by js/projects/projects.js -->
@@ -157,7 +205,7 @@
 <div class="view" id="view-practice" hidden>
   <main class="main-panel main-panel-wide">
     <div class="practice-intro hud-frame">
-      <h1>🔧 Free Practice</h1>
+      <h1><span data-sprite="led" data-scale="3"></span> Free Practice</h1>
       <p>No lesson, no challenge - just you, the code editor, and the circuit board. Wire up whatever you want, write whatever you want, and see what happens.</p>
     </div>
 
@@ -165,8 +213,8 @@
       <div class="editor-toolbar">
         <span class="editor-label">Practice Editor</span>
         <div class="editor-toolbar-actions">
-          <button id="practice-run-btn" class="btn btn-complete">▶ Run</button>
-          <button id="practice-stop-btn" class="btn btn-danger" disabled>■ Stop</button>
+          <button id="practice-run-btn" class="btn btn-complete"><span data-sprite="play"></span> Run</button>
+          <button id="practice-stop-btn" class="btn btn-danger" disabled><span class="stop-ico"></span> Stop</button>
           <button id="practice-reset-btn" class="btn btn-secondary">Reset</button>
         </div>
       </div>
@@ -225,12 +273,21 @@
 </div>
 
 <footer class="statusbar">
+  <span class="status-prompt" data-sprite="play" data-scale="1"></span>
   <span id="status-text">Ready.</span>
+  <span class="status-hint">? SHORTCUTS</span>
 </footer>
 
 <!-- CodeMirror core + a "C-like" language mode, which is close enough to Arduino's C++ syntax -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+
+<!-- game overlays: toasts, modals, particles and the CRT scanlines. Fixed-position and
+     empty until js/game/* fills them. -->
+<div id="toast-root" aria-live="polite"></div>
+<div id="modal-root"></div>
+<div id="fx-layer" aria-hidden="true"></div>
+<div id="crt-overlay" aria-hidden="true"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>
