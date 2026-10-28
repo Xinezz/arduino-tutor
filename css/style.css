@@ -1118,6 +1118,9 @@ h1, h2, h3 {
 }
 
 .sim-console .sim-error { color: var(--red); }
+/* Warnings: the sketch keeps running, but something probably isn't doing
+   what was meant - amber, so they read as advice rather than a crash. */
+.sim-console .sim-warn { color: var(--yellow); }
 .sim-console .sim-status { color: var(--text-dim); }
 
 /* ---------- Buttons ---------- */

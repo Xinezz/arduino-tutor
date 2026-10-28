@@ -108,8 +108,13 @@ export function createSimulatorPanel({
       lcdPrint: board.lcdPrint,
       lcdSetCursor: board.lcdSetCursor,
       lcdClear: board.lcdClear,
+      pinStatus: board.pinStatus,
     }, {
       onOutput: (text) => consoleWrite(text),
+      // Warnings are for code that runs but probably isn't doing what was
+      // meant (a pin used without pinMode, analogWrite on a non-PWM pin...) -
+      // shown in their own color so they never look like a crash.
+      onWarning: (message) => consoleWrite(`Warning: ${message}\n`, "sim-warn"),
       onError: (message) => {
         consoleWrite(`Error: ${message}\n`, "sim-error");
         onRunError?.(message);

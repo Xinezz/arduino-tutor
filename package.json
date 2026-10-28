@@ -1,0 +1,12 @@
+{
+  "name": "arduino-tutor",
+  "private": true,
+  "description": "Browser-based Arduino learning platform with a C++-subset interpreter and a virtual Arduino Uno.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

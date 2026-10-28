@@ -43,8 +43,9 @@ export const level4Lessons = [
       explain: [
         "analogRead(potPin) reads the pot's current position as a 0-1023 value, every single pass through loop().",
         "map(raw, 0, 1023, 0, 255) rescales that into the 0-255 range analogWrite() expects - without this " +
-          "step, a raw value like 600 would be treated as \"600\" by analogWrite(), which clips to full " +
-          "brightness for anything over 255.",
+          "step, a raw value like 600 would go straight into analogWrite(), which only keeps the lowest 8 " +
+          "bits of the number - 600 comes out as 88, so the LED would get brighter, suddenly dim, then " +
+          "brighten again as you turn the knob (the simulator warns you when this happens).",
         "analogWrite(ledPin, brightness) sets the LED's brightness to match, and because there's no delay() " +
           "slowing loop() down, the LED responds to the knob essentially instantly.",
       ],
@@ -66,9 +67,10 @@ export const level4Lessons = [
         "sawtooth pattern (ramps up, then snaps back down). A true fade-in-then-fade-out needs the " +
         "brightness to count both up AND down, which you'll build in the challenge." },
       { type: "note", text:
-        "LEDs must be wired to a PWM-capable pin for analogWrite() to have any effect - on a real Uno " +
-        "that's pins 3, 5, 6, 9, 10, and 11 (marked with ~). This simulator doesn't restrict which pins " +
-        "accept analogWrite, but get in the habit of checking for the ~ mark on real hardware." },
+        "LEDs must be wired to a PWM-capable pin for analogWrite() to dim them - on a real Uno " +
+        "that's pins 3, 5, 6, 9, 10, and 11 (marked with ~). On any other pin, analogWrite() can't dim: " +
+        "the pin just switches fully on for values of 128 or more and fully off below that. The simulator " +
+        "behaves the same way and shows a warning, but get in the habit of checking for the ~ mark." },
     ],
     challenge: {
       id: "c11",
@@ -186,13 +188,16 @@ export const level4Lessons = [
           "128) % 256 - experiment and see what patterns you get.",
       ],
       solution:
-        "int redPin = 9, greenPin = 10, bluePin = 11;\nint redVal = 255, redStep = -3;\nint greenVal = 0, greenStep = 4;\nint blueVal = 128, blueStep = 5;\n\nvoid setup() {\n  pinMode(redPin, OUTPUT);\n  pinMode(greenPin, OUTPUT);\n  pinMode(bluePin, OUTPUT);\n}\n\nvoid loop() {\n  analogWrite(redPin, redVal);\n  analogWrite(greenPin, greenVal);\n  analogWrite(bluePin, blueVal);\n\n  if (redVal >= 255) { redStep = -3; } else if (redVal <= 0) { redStep = 3; }\n  if (greenVal >= 255) { greenStep = -4; } else if (greenVal <= 0) { greenStep = 4; }\n  if (blueVal >= 255) { blueStep = -5; } else if (blueVal <= 0) { blueStep = 5; }\n\n  redVal = redVal + redStep;\n  greenVal = greenVal + greenStep;\n  blueVal = blueVal + blueStep;\n\n  delay(20);\n}",
+        "int redPin = 9, greenPin = 10, bluePin = 11;\nint redVal = 255, redStep = -3;\nint greenVal = 0, greenStep = 4;\nint blueVal = 128, blueStep = 5;\n\nvoid setup() {\n  pinMode(redPin, OUTPUT);\n  pinMode(greenPin, OUTPUT);\n  pinMode(bluePin, OUTPUT);\n}\n\nvoid loop() {\n  analogWrite(redPin, redVal);\n  analogWrite(greenPin, greenVal);\n  analogWrite(bluePin, blueVal);\n\n  if (redVal >= 255) { redStep = -3; } else if (redVal <= 0) { redStep = 3; }\n  if (greenVal >= 255) { greenStep = -4; } else if (greenVal <= 0) { greenStep = 4; }\n  if (blueVal >= 255) { blueStep = -5; } else if (blueVal <= 0) { blueStep = 5; }\n\n  redVal = constrain(redVal + redStep, 0, 255);\n  greenVal = constrain(greenVal + greenStep, 0, 255);\n  blueVal = constrain(blueVal + blueStep, 0, 255);\n\n  delay(20);\n}",
       explain: [
         "Each color channel gets its own value AND its own step size (3, 4, 5) - using DIFFERENT step " +
           "sizes per channel is what makes them drift out of sync with each other instead of all peaking " +
           "at the same moment, which is what produces new blended colors over time.",
         "Each channel's if / else if independently flips that channel's direction when it hits a boundary " +
           "- exactly the same pattern as the single-LED fade challenge, just done three times in parallel.",
+        "constrain(..., 0, 255) keeps every value inside analogWrite()'s range. Green climbs in steps of 4 " +
+          "(..., 248, 252, 256) and blue in steps of 5 (..., 253, 258), so without it they would overshoot " +
+          "255 - and a real Uno only keeps the lowest 8 bits, so 256 would suddenly become 0 (a flicker).",
         "Because all three analogWrite() calls happen every loop() with no delay between them, the three " +
           "channels update together - only the SPEED and TIMING of each one's fade differs.",
       ],

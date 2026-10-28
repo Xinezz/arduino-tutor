@@ -136,7 +136,7 @@ export const level2Lessons = [
         "released, it doesn't. Wired simply between a pin and 5V, digitalRead() will read HIGH while " +
         "pressed." },
       { type: "code", text:
-        "int buttonPin = 7;\n\nvoid setup() {\n  pinMode(buttonPin, INPUT);\n}\n\nvoid loop() {\n  int state = digitalRead(buttonPin);\n  Serial.println(state);   // watch this change as you press/release\n}" },
+        "int buttonPin = 7;\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(buttonPin, INPUT);\n}\n\nvoid loop() {\n  int state = digitalRead(buttonPin);\n  Serial.println(state);   // watch this change as you press/release\n}" },
       { type: "note", text:
         "Try wiring exactly this and watching the Serial Monitor as you press the button - you should see " +
         "the printed value flip between 1 and 0. If it doesn't, the next two lessons explain the most " +

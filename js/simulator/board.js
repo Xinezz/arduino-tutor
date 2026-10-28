@@ -15,6 +15,8 @@
 // Component leads are data-driven (COMPONENT_LEADS / LEAD_OFFSETS below) so
 // adding a new component type doesn't require touching the wiring logic.
 
+import { analogWriteLevel } from "./uno.js";
+
 const DIGITAL_PINS = Array.from({ length: 14 }, (_, i) => i); // 0-13
 const ANALOG_PINS = [14, 15, 16, 17, 18, 19]; // A0-A5, numbered the same way real Uno headers do
 
@@ -168,9 +170,17 @@ function leadSuffixes(kind) {
   return Object.keys(LEAD_OFFSETS[kind] || {});
 }
 
-export function createBoard(svgEl) {
+// options.random: the noise source for a floating input pin (tests pass a
+// predictable one).
+export function createBoard(svgEl, options = {}) {
+  const random = options.random || Math.random;
   let pinModes = {};        // pin -> "OUTPUT" | "INPUT" | "INPUT_PULLUP"
-  let pinOutputs = {};      // pin -> 0-255 (digitalWrite HIGH=255/LOW=0, or a raw analogWrite value)
+  let pinOutputs = {};      // pin -> 0-255 level an OUTPUT pin drives (digitalWrite HIGH=255/LOW=0, or analogWrite's level)
+  // pin -> the pin's "PORT bit", exactly like the ATmega328P: on an OUTPUT
+  // pin it's the level being driven, and on an INPUT pin it switches the
+  // internal pull-up resistor on. That's why digitalWrite(pin, HIGH) on a pin
+  // that isn't an OUTPUT turns the pull-up on instead of lighting an LED.
+  let portHigh = {};
   let pinAnalogInputs = {}; // pin (14-19 = A0-A5) -> 0-1023, driven by potentiometer/LDR/temp sensor
   let servoAngles = {};     // pin -> 0-180
   let components = [];      // { id, kind, x, y, ...kind-specific fields }
@@ -188,10 +198,12 @@ export function createBoard(svgEl) {
 
   let audioCtx = null;
   const activeTones = {}; // pin -> { osc, gain }
+  const toneTimers = {};  // pin -> timer that ends a tone(pin, freq, duration)
 
   function reset() {
     pinModes = {};
     pinOutputs = {};
+    portHigh = {};
     pinAnalogInputs = {};
     servoAngles = {};
     pressed = new Set();
@@ -241,6 +253,8 @@ export function createBoard(svgEl) {
   }
 
   function stopToneOnPin(pin) {
+    clearTimeout(toneTimers[pin]);
+    delete toneTimers[pin];
     const entry = activeTones[pin];
     if (!entry) return;
     try { entry.osc.stop(); entry.osc.disconnect(); entry.gain.disconnect(); } catch { /* already stopped */ }
@@ -255,41 +269,107 @@ export function createBoard(svgEl) {
 
   function pinMode(pin, mode) {
     pinModes[pin] = mode;
+    if (mode === "INPUT_PULLUP") portHigh[pin] = true;
+    if (mode === "INPUT") portHigh[pin] = false;
+    // OUTPUT keeps the PORT bit, so a pin whose pull-up was on starts out HIGH.
+    pinOutputs[pin] = mode === "OUTPUT" && portHigh[pin] ? 255 : 0;
     render();
   }
 
+  // Only an OUTPUT pin is actually driven. On an input pin, digitalWrite just
+  // flips the PORT bit - i.e. turns the weak internal pull-up on or off - so
+  // an LED on it stays dark (on a real Uno it would glow very faintly at most).
   function digitalWrite(pin, value) {
-    pinOutputs[pin] = value ? 255 : 0;
-    const buzzer = components.find((c) => c.kind === "buzzer" && wiredPinOf(c.id + "-s") === pin);
-    if (buzzer) {
-      if (value) playToneOnPin(pin, 1000);
-      else stopToneOnPin(pin);
+    portHigh[pin] = !!value;
+    if (pinModes[pin] === "OUTPUT") {
+      pinOutputs[pin] = value ? 255 : 0;
+      const buzzer = components.find((c) => c.kind === "buzzer" && wiredPinOf(c.id + "-s") === pin);
+      if (buzzer) {
+        if (value) playToneOnPin(pin, 1000);
+        else stopToneOnPin(pin);
+      }
     }
     render();
   }
 
+  // Exactly what the Arduino core's analogWrite() does: it makes the pin an
+  // OUTPUT, PWM pins (3, 5, 6, 9, 10, 11) get the low 8 bits of the value as
+  // their duty cycle, and any other pin can only switch fully on (128+) or
+  // off. See analogWriteLevel() in uno.js.
   function analogWrite(pin, value) {
-    pinOutputs[pin] = Math.max(0, Math.min(255, value));
+    pinModes[pin] = "OUTPUT";
+    pinOutputs[pin] = analogWriteLevel(pin, value);
+    portHigh[pin] = pinOutputs[pin] === 255;
     render();
+  }
+
+  // Connectivity that does NOT pass through a resistor - a resistor is only a
+  // weak connection electrically (a pull-up/pull-down), so it mustn't count
+  // the same as a plain wire when deciding what an input pin reads.
+  function strongNet(startId) {
+    return connectedSet(startId, false);
+  }
+  const touchesGnd = (set) => { for (const id of set) if (id in GND_HOLES) return true; return false; };
+  const touches5v = (set) => { for (const id of set) if (id in FIVEV_HOLES) return true; return false; };
+
+  // What an INPUT pin is electrically connected to right now. Returns
+  // { level: 0 or 1 } when something defines it, or { level: null } when
+  // nothing does - a "floating" pin, which on real hardware reads noise.
+  // Strongest connection wins, like real electronics:
+  //   1. a wire straight to GND or 5V, a pressed button, or an IR sensor's
+  //      output - these DRIVE the pin
+  //   2. otherwise a pull-up/pull-down: the chip's internal pull-up
+  //      (INPUT_PULLUP), or a resistor from the pin to 5V or GND
+  //   3. otherwise nothing: floating.
+  function inputLevel(pin) {
+    const pinId = `pin-${pin}`;
+    const strong = strongNet(pinId);
+    const all = connectedSet(pinId);
+    if (touchesGnd(strong)) return { level: 0 };
+    if (touches5v(strong)) return { level: 1 };
+
+    for (const btn of components) {
+      if (btn.kind !== "button" || !pressed.has(btn.id)) continue;
+      for (const [near, far] of [["-1", "-2"], ["-2", "-1"]]) {
+        if (!all.has(btn.id + near)) continue;
+        const other = connectedSet(btn.id + far);
+        if (touchesGnd(other)) return { level: 0 };
+        if (touches5v(other)) return { level: 1 };
+      }
+    }
+    for (const ir of components) {
+      // Most IR obstacle sensors are active-LOW: they pull the signal down
+      // when they detect something in front of them.
+      if (ir.kind === "irsensor" && isTwoLeadWiredToPin(ir, pin, "-s", "-g")) return { level: irBlocked.has(ir.id) ? 0 : 1 };
+    }
+
+    if (portHigh[pin]) return { level: 1 }; // internal pull-up resistor
+    for (const r of components) {
+      if (r.kind !== "resistor") continue;
+      for (const [near, far] of [["-1", "-2"], ["-2", "-1"]]) {
+        if (!strong.has(r.id + near)) continue;
+        const other = strongNet(r.id + far);
+        if (touchesGnd(other)) return { level: 0 }; // pull-down resistor
+        if (touches5v(other)) return { level: 1 };  // pull-up resistor
+      }
+    }
+    return { level: null };
   }
 
   function digitalRead(pin) {
-    const mode = pinModes[pin];
-    const button = components.find((c) => c.kind === "button" && isTwoLeadWiredToPin(c, pin, "-1", "-2"));
-    const isPressed = button && pressed.has(button.id);
-    const ir = components.find((c) => c.kind === "irsensor" && isTwoLeadWiredToPin(c, pin, "-s", "-g"));
-    const isBlocked = ir && irBlocked.has(ir.id);
+    if (pinModes[pin] === "OUTPUT") return (pinOutputs[pin] ?? 0) > 0 ? 1 : 0; // reading back an OUTPUT pin
+    const { level } = inputLevel(pin);
+    if (level === null) return random() < 0.5 ? 0 : 1; // floating: electrical noise
+    return level;
+  }
 
-    if (button) {
-      if (mode === "INPUT_PULLUP") return isPressed ? 0 : 1;
-      if (mode === "INPUT") return isPressed ? 1 : 0;
-    }
-    if (ir) {
-      // Most IR obstacle sensors are active-LOW: they pull the signal down
-      // when they detect something in front of them.
-      return isBlocked ? 0 : 1;
-    }
-    return (pinOutputs[pin] ?? 0) > 0 ? 1 : 0; // reading back an OUTPUT pin
+  // Used by the interpreter to explain what's going on (e.g. "this pin is
+  // floating") - doesn't change anything.
+  // level is the 0-255 output level for an OUTPUT pin (0 for an input).
+  function pinStatus(pin) {
+    const mode = pinModes[pin] ?? "INPUT";
+    if (mode === "OUTPUT") return { mode, floating: false, pullup: false, level: pinOutputs[pin] ?? 0 };
+    return { mode, floating: inputLevel(pin).level === null, pullup: !!portHigh[pin], level: 0 };
   }
 
   function analogRead(pin) {
@@ -302,7 +382,14 @@ export function createBoard(svgEl) {
     return Math.round(sensor.distanceCm * 58); // matches the real HC-SR04 timing formula
   }
 
-  function tone(pin, frequency) { playToneOnPin(pin, frequency); render(); }
+  // tone(pin, frequency, duration) stops by itself after `duration` ms, like
+  // the real one; without a duration it plays until noTone().
+  function tone(pin, frequency, duration) {
+    pinModes[pin] = "OUTPUT";
+    playToneOnPin(pin, frequency);
+    if (duration > 0) toneTimers[pin] = setTimeout(() => { stopToneOnPin(pin); render(); }, duration);
+    render();
+  }
   function noTone(pin) { stopToneOnPin(pin); render(); }
 
   function servoWrite(pin, angle) {
@@ -401,8 +488,9 @@ export function createBoard(svgEl) {
   // Every connector electrically joined to startId - by explicit wires AND
   // by implicit net membership (same column, same rail) - found the same way
   // you'd trace a real circuit with a multimeter: keep following connections
-  // until nothing new turns up.
-  function connectedSet(startId) {
+  // until nothing new turns up. throughResistors = false stops at resistors
+  // (used to tell a pull-up/pull-down resistor apart from a plain wire).
+  function connectedSet(startId, throughResistors = true) {
     const visited = new Set();
     const queue = [startId];
     while (queue.length) {
@@ -414,7 +502,9 @@ export function createBoard(svgEl) {
         else if (w.to === id) queue.push(w.from);
       }
       const netKey = implicitNetKey(id);
-      if (netKey) for (const member of implicitGroupMembers(netKey)) queue.push(member);
+      if (netKey && (throughResistors || !netKey.startsWith("net:comp-"))) {
+        for (const member of implicitGroupMembers(netKey)) queue.push(member);
+      }
     }
     return visited;
   }
@@ -494,6 +584,30 @@ export function createBoard(svgEl) {
     if (kind === "servo") comp.currentAngle = 90;
 
     components.push(comp);
+    render();
+    return id;
+  }
+
+  // ---------- programmatic circuit building ----------
+  // The same actions the mouse performs (drawing a wire, holding a button,
+  // moving a slider), callable from code - used by the automated tests.
+
+  function connect(fromId, toId, color) {
+    wires.push({ from: fromId, to: toId, color: color || autoColor(fromId, toId) });
+    syncAnalogInputs();
+    render();
+  }
+
+  function setButtonPressed(id, isPressed) {
+    if (isPressed) pressed.add(id);
+    else pressed.delete(id);
+    render();
+  }
+
+  function updateComponent(id, props) {
+    const comp = components.find((c) => c.id === id);
+    if (comp) Object.assign(comp, props);
+    syncAnalogInputs();
     render();
   }
 
@@ -1035,7 +1149,8 @@ export function createBoard(svgEl) {
 
   function drawLed(led) {
     const pin = ledConnectedPin(led);
-    const isLit = pin !== null && pinModes[pin] !== undefined && pinOutputs[pin] > 0;
+    // Only a pin set to OUTPUT can power an LED (see digitalWrite above).
+    const isLit = pin !== null && pinModes[pin] === "OUTPUT" && pinOutputs[pin] > 0;
     const brightness = isLit ? pinOutputs[pin] / 255 : 0;
     const g = wireGroup(led);
 
@@ -1107,9 +1222,10 @@ export function createBoard(svgEl) {
   function drawRgbLed(comp) {
     const rPin = wiredPinOf(comp.id + "-r"), gPin = wiredPinOf(comp.id + "-g"), bPin = wiredPinOf(comp.id + "-b");
     const commonOk = isWiredToGnd(comp.id + "-c");
-    const rVal = commonOk && rPin !== null ? (pinOutputs[rPin] ?? 0) : 0;
-    const gVal = commonOk && gPin !== null ? (pinOutputs[gPin] ?? 0) : 0;
-    const bVal = commonOk && bPin !== null ? (pinOutputs[bPin] ?? 0) : 0;
+    const drive = (p) => (commonOk && p !== null && pinModes[p] === "OUTPUT" ? (pinOutputs[p] ?? 0) : 0);
+    const rVal = drive(rPin);
+    const gVal = drive(gPin);
+    const bVal = drive(bPin);
     const isLit = rVal > 0 || gVal > 0 || bVal > 0;
 
     const g = wireGroup(comp);
@@ -1309,8 +1425,9 @@ export function createBoard(svgEl) {
 
   return {
     pinMode, digitalWrite, digitalRead, analogRead, analogWrite, pulseIn, tone, noTone, servoWrite,
-    lcdBegin, lcdPrint, lcdSetCursor, lcdClear,
+    lcdBegin, lcdPrint, lcdSetCursor, lcdClear, pinStatus,
     addComponent, removeComponent, clearWiring, reset, setRunning, setWireColor,
+    connect, setButtonPressed, updateComponent,
     getWirePalette: () => WIRE_PALETTE,
   };
 }
