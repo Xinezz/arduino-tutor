@@ -106,9 +106,9 @@ The XP and credits layer works well, but it's attached to the wrong signals.
 
 | # | Improvement | Status |
 | --- | --- | --- |
-| H1 | Code feedback that teaches: what went wrong, why, which line, **which lesson to review** (a link), and hints revealed one at a time - for errors *and* warnings such as a missing `pinMode()` | Planned next |
+| H1 | Code feedback that teaches: what went wrong, why, which line, **which lesson to review** (a link), and hints revealed one at a time - for errors *and* warnings such as a missing `pinMode()` | Done - every error kind, every simulator warning and every wiring finding |
 | H2 | **Try it** buttons on lesson code examples, loading them into the editor so learners can observe and experiment | Done - every complete sketch in every lesson |
-| H3 | A breadboard and circuits lesson in the foundations | Planned |
+| H3 | A breadboard and circuits lesson in the foundations | Done - "Breadboards and Complete Circuits", with a checkpoint |
 | H4 | Learning objectives and a short checkpoint on each lesson, starting with the foundations and the new Program Flow world | Started - Program Flow has objectives, predict-then-explain, common mistakes and a checkpoint; the other worlds still need them |
 | H5 | Wiring feedback on the board: + and − marks on leads, labels like "LED (check wiring)", and a wiring check every time Run is pressed | Done |
 | H6 | Destructive actions look different and ask first ("Reset Code", "Clear Wiring"); tooltips on every control | Done |

@@ -111,7 +111,7 @@ or `}`), *Code problem* (grammatical, but something doesn't make sense - an
 undeclared name, a type mismatch, a changed `const`), *Not supported in this
 simulator* (possibly valid Arduino code the simulator can't run) or *Runtime
 error* (it broke while running). The line is highlighted in the editor, and
-`js/simulator/feedback.js` adds a hint and how to carry on. Wiring problems
+`js/simulator/feedback.js` adds hints (revealed one at a time, gentlest first), the lesson to review, and how to carry on. Warnings and circuit-check findings get the same hints-and-lesson treatment. Wiring problems
 are never reported as code errors - they come from the circuit check below.
 
 **Errors** stop the sketch (or prevent it starting). They cover syntax mistakes,

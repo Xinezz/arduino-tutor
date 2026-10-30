@@ -248,8 +248,22 @@ export const quizzes = {
   },
 };
 
-// ---- Program Flow: one checkpoint per lesson ----
+// ---- Checkpoints added with the structured lessons (Breadboards, Program Flow) ----
 Object.assign(quizzes, {
+  "l1-16": {
+    id: "quiz-match-breadboard",
+    type: "match",
+    topic: "Breadboards",
+    title: "Match the Pairs",
+    prompt: "Match each part of a breadboard to how it's connected.",
+    pairs: [
+      { left: "A + or − rail", right: "Every hole along it is connected" },
+      { left: "A 5-hole column", right: "Those five holes are connected to each other" },
+      { left: "The center trench", right: "Separates the top half from the bottom half" },
+      { left: "A jumper wire", right: "Connects two points that aren't joined inside the board" },
+    ],
+  },
+
   "l5-1": {
     id: "quiz-if-assign",
     type: "debug",

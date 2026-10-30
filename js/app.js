@@ -224,6 +224,7 @@ const lessonsPanel = createSimulatorPanel({
   onStatus: setStatus,
   onRun: handleRun,
   onRunError: () => runFailed("sim-console"),
+  onReview: (lessonId) => reviewLesson(lessonId),
 });
 const editor = lessonsPanel.editor;
 
@@ -245,7 +246,18 @@ const practicePanel = createSimulatorPanel({
   onStatus: setStatus,
   onRun: handleRun,
   onRunError: () => runFailed("practice-sim-console"),
+  onReview: (lessonId) => reviewLesson(lessonId),
 });
+
+// A hint's "Review: <lesson>" button. Nothing is lost by following it: the
+// editors and boards keep their code and wiring while you read.
+function reviewLesson(lessonId) {
+  const lesson = findLesson(lessonId);
+  if (!lesson) return;
+  switchView("lessons");
+  openLesson(lessonId);
+  setStatus(`Reviewing "${lesson.title}" - your code and circuit are still where you left them.`);
+}
 
 // ---- "Start your first circuit": the guided walkthrough in Free Practice ----
 

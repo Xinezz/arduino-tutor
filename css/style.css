@@ -1941,3 +1941,22 @@ h1, h2, h3 {
 .code-with-try { margin: 12px 0; }
 .code-with-try .code-block { margin-bottom: 8px; }
 .try-it-btn { font-size: 0.55rem; }
+
+/* Buttons inside the Serial Monitor and the circuit check: "More help",
+   "Why? Show a hint", "Review: <lesson>". Small, so they don't drown out
+   the output itself. */
+.sim-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; white-space: normal; }
+.sim-link {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-dim);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  text-shadow: none;
+}
+.sim-link:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); }
+.cr-item .cr-review { grid-column: 1 / -1; justify-self: start; margin-top: 6px; }

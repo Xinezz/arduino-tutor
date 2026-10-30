@@ -17,7 +17,7 @@
 import { createEditor } from "../editor/editor.js";
 import { createBoard } from "./board.js";
 import { startProgram } from "./interpreter.js";
-import { explainError } from "./feedback.js";
+import { explainError, explainWarning, conceptForFinding } from "./feedback.js";
 import { openSimulatorLimits } from "./limits.js";
 import { confirmDialog } from "../game/modal.js";
 
@@ -41,6 +41,7 @@ export function createSimulatorPanel({
   onStatus, // optional: (message) => void, for reporting into the shared status bar
   onRun, // optional: () => void, called each time a program is started (feeds daily missions / trophies)
   onRunError, // optional: (message) => void, called when a running program hits an error
+  onReview, // optional: (lessonId) => void, opens the lesson a hint points to
 }) {
   const editor = createEditor(codeEditorEl);
   let activeRun = null;
@@ -56,6 +57,44 @@ export function createSimulatorPanel({
     if (cls) span.className = cls;
     span.textContent = text;
     consoleEl.appendChild(span);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  // A small button inside the Serial Monitor, e.g. "More help" or
+  // "Review: Variables".
+  function consoleButton(label, onClick, cls = "sim-link") {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = cls;
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // Hints are revealed one at a time: `shown` of them right away, then a
+  // button reveals the next until there are none left. "Review" opens the
+  // lesson that teaches the idea.
+  function writeHelp({ hints = [], review = null }, { shown = 1, firstLabel = "More help" } = {}) {
+    const actions = document.createElement("span");
+    actions.className = "sim-actions";
+    consoleEl.appendChild(actions);
+    let next = 0;
+    const more = consoleButton(firstLabel, () => reveal());
+    function reveal() {
+      if (next >= hints.length) return;
+      const span = document.createElement("span");
+      span.className = "sim-hint";
+      span.textContent = `Hint ${next + 1}${hints.length > 1 ? ` of ${hints.length}` : ""}: ${hints[next]}\n`;
+      consoleEl.insertBefore(span, actions);
+      next++;
+      if (next >= hints.length) more.remove();
+      else more.textContent = "Another hint";
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+    for (let i = 0; i < shown; i++) reveal();
+    if (next < hints.length) actions.appendChild(more);
+    if (review && onReview) actions.appendChild(consoleButton(`Review: ${review.title}`, () => onReview(review.lessonId)));
+    if (!actions.children.length) actions.remove();
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
@@ -147,6 +186,8 @@ export function createSimulatorPanel({
       const text = document.createElement("p");
       text.textContent = f.text;
       li.append(tag, subject, text);
+      const concept = conceptForFinding(f);
+      if (concept && onReview) li.appendChild(consoleButton(`Review: ${concept.title}`, () => onReview(concept.lessonId), "sim-link cr-review"));
       list.appendChild(li);
     }
     circuitReportEl.appendChild(list);
@@ -184,8 +225,8 @@ export function createSimulatorPanel({
     consoleWrite(`✖ ${info.title.toUpperCase()}${info.line ? ` · LINE ${info.line}` : ""}\n`, "sim-error sim-error-title");
     consoleWrite(`${info.detail}\n`, "sim-error");
     consoleWrite(`${info.what}\n`, "sim-status");
-    if (info.hint) consoleWrite(`Hint: ${info.hint}\n`, "sim-hint");
     consoleWrite(`${info.recovery}\n`, "sim-recovery");
+    writeHelp(info);
     editor.markErrorLine(info.line);
   }
 
@@ -230,7 +271,11 @@ export function createSimulatorPanel({
       // Warnings are for code that runs but probably isn't doing what was
       // meant (a pin used without pinMode, analogWrite on a non-PWM pin...) -
       // shown in their own color so they never look like a crash.
-      onWarning: (message) => consoleWrite(`Warning: ${message}\n`, "sim-warn"),
+      onWarning: (message) => {
+        consoleWrite(`Warning: ${message}\n`, "sim-warn");
+        // the hints stay folded away until asked for - a warning isn't a crash
+        writeHelp(explainWarning(message), { shown: 0, firstLabel: "Why? Show a hint" });
+      },
       onError: (message, details) => {
         showError(message, details);
         onRunError?.(message);

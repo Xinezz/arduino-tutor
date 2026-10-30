@@ -317,6 +317,62 @@ export const level1Lessons = [
     ],
   },
 
+  // Added after the course launched, so its id is out of sequence - ids never
+  // change (saved progress uses them); the position in this list is the order.
+  {
+    id: "l1-16",
+    level: 1,
+    title: "Breadboards and Complete Circuits",
+    body: [
+      { type: "objectives", items: [
+        "Explain what a complete circuit is, and why a break anywhere stops it",
+        "Know which holes of a breadboard are connected to each other",
+        "Build a circuit on the simulator's board, and know where it differs from a real one",
+      ] },
+      { type: "p", text:
+        "Electricity only flows around a complete loop: out of a power source (5V, or a pin set HIGH), " +
+        "through the parts, and back to GND. If the loop is broken anywhere - a loose wire, a part in " +
+        "backwards - nothing flows anywhere in it. That's why one bad connection can make a whole circuit " +
+        "look dead." },
+      { type: "p", text:
+        "A breadboard lets you build that loop without soldering. Inside it, metal strips join certain " +
+        "holes together:" },
+      { type: "p", text:
+        "The two long rows along each edge are the power rails: every hole in a + rail is connected, and " +
+        "every hole in a − rail is connected. Run a wire from the Arduino's 5V to + and from GND to −, and " +
+        "the whole rail becomes 5V or GND." },
+      { type: "p", text:
+        "In the middle, holes are joined in short columns of 5. Two legs in the same column are connected " +
+        "- no wire needed. Columns are NOT joined to their neighbours, and the trench down the middle " +
+        "separates the top half from the bottom half." },
+      { type: "predict",
+        question: "An LED's two legs are pushed into holes in the SAME 5-hole column. What happens when its circuit is powered?",
+        options: [
+          "It lights normally",
+          "It stays dark - both legs are joined, so current goes round it, not through it",
+          "It lights extra brightly",
+          "The breadboard melts",
+        ],
+        answer: 1,
+        explain:
+          "Holes in the same column are connected, so the LED's + and − legs are joined by the metal strip. " +
+          "Current takes that easy path instead of going through the LED. Each leg of a part needs its own " +
+          "column - that's why parts are placed across columns, or across the trench." },
+      { type: "note", text:
+        "How this simulator's board works: parts don't plug in by sitting on the breadboard - connect each " +
+        "leg with a wire, to a pin or to a hole. Holes in the same column ARE connected, like a real board. " +
+        "And the rails are already live as 5V and GND here; on a real breadboard, run those two wires from " +
+        "the Arduino first. Check Circuit always tells you what's connected." },
+      { type: "mistakes", items: [
+        "Both legs of a part in the same column - they're shorted together, so the part does nothing.",
+        "Using a rail that isn't connected to the Arduino (on a real board, nothing is live until you wire 5V and GND to the rails).",
+        "A part placed so it bridges nothing - each leg needs to reach the pin, rail or other part it's meant to.",
+      ] },
+      { type: "action", action: "first-circuit", label: "Build a complete circuit", text:
+        "See a complete circuit - and what breaking it does - in the guided first circuit." },
+    ],
+  },
+
   {
     id: "l1-14",
     level: 1,
