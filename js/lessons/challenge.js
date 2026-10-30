@@ -7,6 +7,11 @@
 // stays cheaper than skipping ahead), reported to app.js via onSpend rather than
 // touching progress/credits directly here - this module only renders and reports.
 //
+// Solving is checked, not self-reported: "Check My Solution" runs the
+// learner's code off-screen against the challenge's goal (js/lessons/
+// checks.js) and the circuit on the lesson's board, and lists what works and
+// what doesn't. The reward only comes with a passing check.
+//
 // Challenges marked difficulty "boss" get the full boss-fight treatment: a
 // menacing chip with an HP bar, and a short defeat sequence when you mark it
 // solved. It's presentation only - the reward is the same as any other
@@ -19,6 +24,7 @@ import { icon } from "../game/sprites.js";
 import { playSfx, duckMusic } from "../game/audio.js";
 import { getSettings } from "../game/settings.js";
 import { burst, banner, shake, screenFlash, confetti, centerOf } from "../game/fx.js";
+import { hasCheck, runChallengeCheck } from "./checks.js";
 
 const DIFFICULTY = {
   easy: { label: "Easy", stars: 1, cls: "difficulty-easy" },
@@ -30,7 +36,10 @@ const DIFFICULTY = {
 const BOSS_HP_SEGMENTS = 10;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function renderChallenge(container, challenge, { onComplete, onSpend, alreadySolved = false }) {
+// getCode() -> the editor's code; getFindings() -> the lesson board's
+// circuit check findings; onCheckError(details) -> a check hit a code error
+// (app.js highlights the line in the editor).
+export function renderChallenge(container, challenge, { onComplete, onSpend, alreadySolved = false, getCode, getFindings, onCheckError }) {
   container.innerHTML = "";
   if (!challenge) return;
 
@@ -116,15 +125,24 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
   const solutionBtn = document.createElement("button");
   solutionBtn.className = "btn btn-hint";
   solutionBtn.dataset.sfx = "none";
+  const checkable = hasCheck(challenge.id) && typeof getCode === "function";
   const doneBtn = document.createElement("button");
-  doneBtn.className = "btn btn-primary";
+  doneBtn.className = checkable ? "btn btn-complete" : "btn btn-primary";
   doneBtn.dataset.sfx = "none";
-  doneBtn.textContent = isBoss ? "Defeat the Boss" : "Mark as Solved";
+  doneBtn.textContent = checkable ? "Check My Solution" : isBoss ? "Defeat the Boss" : "Mark as Solved";
+  if (checkable) doneBtn.title = "Runs your code and checks your circuit against the challenge - then tells you what works and what doesn't";
 
   controls.appendChild(hintBtn);
   controls.appendChild(solutionBtn);
   controls.appendChild(doneBtn);
   card.appendChild(controls);
+
+  // The result of the last check: a checklist of the challenge's goals.
+  const checkArea = document.createElement("div");
+  checkArea.className = "check-result";
+  checkArea.setAttribute("aria-live", "polite");
+  checkArea.hidden = true;
+  card.appendChild(checkArea);
 
   const revealArea = document.createElement("div");
   card.appendChild(revealArea);
@@ -221,22 +239,113 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
     await wait(900);
   }
 
+  let solved = alreadySolved;
+
+  function showCheck(result) {
+    checkArea.hidden = false;
+    checkArea.innerHTML = "";
+    checkArea.className = `check-result is-${result.status}`;
+    const head = document.createElement("div");
+    head.className = "check-result-head";
+    head.textContent = result.status === "pass"
+      ? "✔ Every goal met!"
+      : result.status === "error"
+        ? `✖ ${result.error.title}${result.error.line ? ` on line ${result.error.line}` : ""} - the check couldn't run`
+        : `Not yet: ${result.items.filter((i) => i.ok).length} of ${result.items.length} goals met`;
+    checkArea.appendChild(head);
+    if (result.status === "error") {
+      for (const [cls, text] of [["check-detail", result.error.detail], ["check-hint", result.error.hint && `Hint: ${result.error.hint}`], ["check-hint", result.error.recovery]]) {
+        if (!text) continue;
+        const p = document.createElement("p");
+        p.className = cls;
+        p.textContent = text;
+        checkArea.appendChild(p);
+      }
+      return;
+    }
+    // One problem at a time: the first unmet goal of the CODE is explained,
+    // later ones usually depend on it ("never turns off" means nothing while
+    // it never turns on), so they're listed as goals still to come. Circuit
+    // goals are independent and always explained.
+    const list = document.createElement("ul");
+    list.className = "check-list";
+    let explained = false;
+    for (const it of result.items) {
+      const li = document.createElement("li");
+      const mark = document.createElement("span");
+      mark.className = "check-mark";
+      const text = document.createElement("span");
+      if (it.ok) {
+        li.className = "is-ok";
+        mark.textContent = "✔";
+        text.textContent = it.text;
+      } else if (!explained || it.independent) {
+        li.className = "is-todo";
+        mark.textContent = "✖";
+        text.textContent = it.text;
+        if (!it.independent) explained = true;
+      } else {
+        li.className = "is-pending";
+        mark.textContent = "○";
+        text.textContent = it.goal;
+      }
+      li.append(mark, text);
+      list.appendChild(li);
+    }
+    checkArea.appendChild(list);
+    if (result.status === "fail") {
+      const p = document.createElement("p");
+      p.className = "check-hint";
+      p.textContent = "Fix the first ✖, then check again. Stuck? The hints above get more specific each time.";
+      checkArea.appendChild(p);
+    }
+  }
+
+  async function complete(at) {
+    if (isBoss) await defeatBoss();
+    onComplete(challenge.id, { at, isBoss });
+    solved = true;
+  }
+
   doneBtn.addEventListener("click", async () => {
     if (doneBtn.disabled) return;
-    doneBtn.disabled = true;
     const at = centerOf(doneBtn);
-    if (isBoss) {
-      await defeatBoss();
+    if (!checkable) {
+      doneBtn.disabled = true;
+      await complete(at);
+      doneBtn.innerHTML = `${icon("check", 2)} ${isBoss ? "Defeated" : "Solved"}`;
+      return;
     }
-    onComplete(challenge.id, { at, isBoss });
-    doneBtn.innerHTML = `${icon("check", 2)} ${isBoss ? "Defeated" : "Solved"}`;
+    doneBtn.disabled = true;
+    doneBtn.textContent = "Checking...";
+    // let "Checking..." paint before the (synchronous) simulation runs
+    await wait(30);
+    let result;
+    try {
+      result = runChallengeCheck(challenge.id, getCode(), getFindings?.() ?? null);
+    } catch (err) {
+      console.error(err);
+      result = { status: "error", items: [], error: { title: "Simulator problem", line: null, detail: err.message, hint: null, recovery: "Try again - if it keeps happening, it's a bug in the checker, not your code." } };
+    }
+    showCheck(result);
+    if (result.status === "error") onCheckError?.(result.error);
+    if (result.status === "pass") {
+      playSfx("correct");
+      if (!solved) await complete(at);
+      doneBtn.innerHTML = `${icon("check", 2)} ${isBoss ? "Defeated" : "Solved"} - Check Again`;
+    } else {
+      playSfx("wrong");
+      shake(checkArea, 260);
+      doneBtn.textContent = solved ? "Solved - Check Again" : "Check Again";
+    }
+    doneBtn.disabled = false;
   });
 
   if (alreadySolved) {
-    // Re-visiting a challenge you've already cleared: show it as done (no
-    // second payout is possible anyway - progress.js guards that).
-    doneBtn.innerHTML = `${icon("check", 2)} ${isBoss ? "Defeated" : "Solved"}`;
-    doneBtn.disabled = true;
+    // Re-visiting a challenge you've already cleared: show it as done. It can
+    // still be checked again (no second payout - progress.js guards that).
+    doneBtn.innerHTML = `${icon("check", 2)} ${isBoss ? "Defeated" : "Solved"}${checkable ? " - Check Again" : ""}`;
+    doneBtn.disabled = !checkable;
   }
 
   updateHintButton();

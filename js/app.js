@@ -576,6 +576,11 @@ function openLesson(lessonId) {
 
   renderChallenge(challengeSectionEl, challenge, {
     alreadySolved: challengeSolved,
+    // "Check My Solution" checks the code in this lesson's editor and the
+    // circuit on this lesson's board.
+    getCode: () => editor.getValue(),
+    getFindings: () => lessonsPanel.board?.inspectCircuit().findings ?? null,
+    onCheckError: (err) => editor.markErrorLine(err.line),
     onComplete: (challengeId, { at, isBoss } = {}) => {
       const firstTime = !progress.completedChallenges.includes(challengeId);
       const before = rewards.snapshot();
@@ -596,7 +601,7 @@ function openLesson(lessonId) {
           ? `"${challenge.title}" was already solved - no extra credits this time.`
           : isBoss
             ? `Boss defeated: "${challenge.title}". +${result.gained} credits!`
-            : `Challenge "${challenge.title}" marked as solved. +${result.gained} credits!`
+            : `Challenge "${challenge.title}" solved - every check passed! +${result.gained} credits!`
       );
     },
     onSpend: (cost, label, { challengeId, isSolution, at } = {}) => {

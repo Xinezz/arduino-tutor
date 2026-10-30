@@ -1659,7 +1659,8 @@ export function createBoard(svgEl, options = {}) {
       const pinned = wiredLegs.filter(([, id]) => wiredPinOf(id) !== null);
       add(pinned.length === 3 ? "ok" : "info", rgb, pinned.length === 3
         ? `All three colors are wired: ${pinned.map(([c, id]) => `${c} → pin ${pinLabel(wiredPinOf(id))}`).join(", ")}.`
-        : `${pinned.length} of 3 color legs reach a pin.`);
+        : `${pinned.length} of 3 color legs reach a pin.`,
+      pinned.length === 3 ? { r: wiredPinOf(legs.R), g: wiredPinOf(legs.G), b: wiredPinOf(legs.B) } : undefined);
       if (pinned.some(([, id]) => pinsIn(strongNet(id)).length > 0)) {
         add("real", rgb, "At least one color leg is wired straight to a pin. The simulator doesn't mind, but on a real board each color needs its own 220Ω resistor.");
       }
@@ -1694,7 +1695,7 @@ export function createBoard(svgEl, options = {}) {
       }
       add("ok", btn, toGnd
         ? `Pin ${P} to GND. With pinMode(${P}, INPUT_PULLUP) it reads HIGH when released and LOW while pressed.`
-        : `Pin ${P} to 5V. It reads HIGH while pressed.`, { pin: p });
+        : `Pin ${P} to 5V. It reads HIGH while pressed.`, { pin: p, to: toGnd ? "gnd" : "5v" });
       const m = modeInLastRun(p);
       const pull = pullResistor(p);
       if (toGnd && m === "INPUT" && pull !== "up") {
@@ -1746,7 +1747,7 @@ export function createBoard(svgEl, options = {}) {
       const trig = wiredPinOf(us.id + "-t"), echo = wiredPinOf(us.id + "-e");
       if (trig === null && echo === null) { add("info", us, "Not wired yet. T (trig) and E (echo) each go to a digital pin."); continue; }
       if (trig === null || echo === null) { add("problem", us, `The ${trig === null ? "T (trig)" : "E (echo)"} leg doesn't reach a pin. Both need their own pin.`); continue; }
-      add("ok", us, `Trig on pin ${trig}, echo on pin ${echo}.`);
+      add("ok", us, `Trig on pin ${trig}, echo on pin ${echo}.`, { trig, echo });
       add("real", us, "A real HC-SR04 also needs VCC (5V) and GND wires. This simulated one only has its trig and echo legs.");
     }
     for (const sv of ofKind("servo")) {
