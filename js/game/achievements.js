@@ -13,7 +13,7 @@ import { quizzes } from "../quiz/data.js";
 import { projects } from "../projects/data.js";
 import { computeCurrentRankIndex, RANKS } from "../progress/ranks.js";
 import { getLevelInfo } from "../progress/progress.js";
-import { levelTitle } from "../lessons/levels.js";
+import { levelTitle, levelNumber } from "../lessons/levels.js";
 import { THEMES } from "./shop.js";
 
 const bossChallengeIds = lessons
@@ -70,7 +70,8 @@ const flag = (id, name, desc, icon, reward, check, extra = {}) => ({
 });
 
 const levelClears = levelNumbers.map((n) =>
-  flag(`clear-${n}`, `World ${n} Cleared`, `Finish every lesson in ${levelTitle(n)}`, "flag", 20, (c) => c.levelsCleared.has(n))
+  // the id keeps the level's permanent ID (saved trophies use it); the name shows its place in the course
+  flag(`clear-${n}`, `World ${levelNumber(n)} Cleared`, `Finish every lesson in ${levelTitle(n)}`, "flag", 20, (c) => c.levelsCleared.has(n))
 );
 
 export const ACHIEVEMENTS = [

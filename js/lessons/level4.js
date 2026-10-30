@@ -1,4 +1,4 @@
-// Level 4: PWM and Outputs - analogWrite, LED fading, buzzers, RGB LEDs,
+// PWM and Outputs (level ID 4, taught fifth - see LEVEL_ORDER in levels.js) - analogWrite, LED fading, buzzers, RGB LEDs,
 // servo motors, and a conceptual look at DC motors.
 
 export const level4Lessons = [

@@ -1,4 +1,4 @@
-// Level 3: Analog Input.
+// Analog Input (level ID 3, taught fourth - see LEVEL_ORDER in levels.js).
 
 export const level3Lessons = [
   {
@@ -7,7 +7,7 @@ export const level3Lessons = [
     title: "Analog vs Digital Signals",
     body: [
       { type: "p", text:
-        "Everything in Level 2 was digital: a pin was either HIGH or LOW, on or off, 5V or 0V - nothing " +
+        "Everything in Digital I/O was digital: a pin was either HIGH or LOW, on or off, 5V or 0V - nothing " +
         "in between. Most of the real world isn't like that. A room isn't just \"light\" or \"dark\" - " +
         "it has a brightness. A knob isn't just \"turned\" or \"not turned\" - it has a position." },
       { type: "p", text:
@@ -147,8 +147,8 @@ export const level3Lessons = [
         "int ldrPin = A0;\n\nvoid loop() {\n  int brightness = analogRead(ldrPin);\n  if (brightness < 300) {\n    Serial.println(\"It's dark\");\n  } else {\n    Serial.println(\"It's bright\");\n  }\n  delay(200);\n}" },
       { type: "note", text:
         "This lesson introduces the pattern behind almost every \"smart\" sensor project: read an analog " +
-        "value, then use if/else (Level 5 covers this properly, but you've already used it in earlier " +
-        "challenges) to decide what that value MEANS and what to do about it." },
+        "value, then use if/else (from Program Flow) to decide what that value MEANS and what to do " +
+        "about it." },
     ],
   },
 

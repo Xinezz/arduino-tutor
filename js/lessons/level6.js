@@ -79,7 +79,7 @@ export const level6Lessons = [
     title: "Automation with a Light Sensor",
     body: [
       { type: "p", text:
-        "You met the LDR back in Level 3 as a raw analog reading. Now let's actually DO something with " +
+        "You met the LDR back in Analog Input as a raw analog reading. Now let's actually DO something with " +
         "it: instead of just printing a light level, use it to automatically control an output - the " +
         "core idea behind an automatic night light." },
       { type: "code", text:

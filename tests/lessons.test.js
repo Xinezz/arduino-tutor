@@ -39,7 +39,7 @@ for (const project of projects) {
 
 test("there is course content to check", () => {
   assert.ok(sketches.length >= 30, `found only ${sketches.length} sketches`);
-  assert.equal(lessons.filter((l) => l.challenge).length, 18, "all 18 challenge solutions are included");
+  assert.equal(lessons.filter((l) => l.challenge).length, 24, "all 24 challenge solutions are included");
 });
 
 for (const s of sketches) {
@@ -60,6 +60,7 @@ const FRAGMENTS_NOT_EXPECTED_TO_COMPILE = new Map([
   ["l1-15#2", "deliberately missing ';' - the lesson is about reading that compiler error"],
   ["l2-1#2", "shows the words HIGH and LOW with comments, not statements"],
   ["l6-5#2", "an excerpt: '... trigger + measure distance as before ...' stands in for the code that declares duration"],
+  ["l5-2#3", "a reference table of the six comparison operators, not statements"],
 ]);
 
 test("every lesson code fragment compiles once wrapped into a sketch", () => {
@@ -85,11 +86,32 @@ test("every lesson code fragment compiles once wrapped into a sketch", () => {
   assert.deepEqual(failures, []);
 });
 
+// A lesson's "predict first" question states what the sketch really prints
+// (its own code, or the full sketch just above it). If the simulator ever
+// disagreed, the lesson would be teaching something wrong.
+test("every lesson prediction's answer is what the simulator really prints", () => {
+  let checked = 0;
+  for (const lesson of lessons) {
+    lesson.body.forEach((block, i) => {
+      if (block.type !== "predict") return;
+      assert.ok(block.options[block.answer] !== undefined, `${lesson.id}: the answer is one of the options`);
+      if (block.output === undefined) return;
+      const code = block.code ?? [...lesson.body.slice(0, i)].reverse().find((b) => b.type === "code" && isFullSketch(b.text))?.text;
+      assert.ok(code, `${lesson.id}: a prediction with an output needs a sketch to run`);
+      const r = runSketch(code, { ms: 3000 });
+      assert.deepEqual(r.errors, [], `${lesson.id}: ${r.errors}`);
+      assert.equal(r.lines.join("\n"), block.output, `${lesson.id}: the stated output must be what the sketch prints`);
+      checked++;
+    });
+  }
+  assert.ok(checked >= 6, `checked ${checked} predictions`);
+});
+
 test('"predict the output" quizzes agree with the simulator', () => {
   const predicts = Object.values(quizzes).filter((q) => q.type === "predict" && /Serial\.print/.test(q.code));
   assert.ok(predicts.length >= 2);
   for (const q of predicts) {
-    const r = runSketch(`void setup() {\nSerial.begin(9600);\n${q.code}\n}\nvoid loop() { delay(1000); }`, { ms: 10 });
+    const r = runSketch(`void setup() {\nSerial.begin(9600);\n${q.code}\n}\nvoid loop() { delay(1000); }`, { ms: 1000 });
     assert.deepEqual(r.errors, [], q.id);
     assert.equal(r.lines.join("\n"), q.options[q.correctIndex], `${q.id}: the simulator must print the quiz's correct answer`);
   }

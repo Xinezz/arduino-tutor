@@ -1919,3 +1919,25 @@ h1, h2, h3 {
 .check-result .check-hint { margin: 8px 0 0; color: var(--text-dim); font-size: 0.86rem; line-height: 1.45; }
 .check-list .is-pending { color: var(--text-dim); }
 .check-list .is-pending .check-mark { color: var(--text-dim); }
+
+/* ---------- Lesson structure: objectives, predictions, common mistakes ---------- */
+.lesson-objectives, .lesson-mistakes, .lesson-predict {
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 14px 0;
+  background: var(--panel-alt);
+}
+.lesson-objectives { border-left: 4px solid var(--accent); }
+.lesson-mistakes { border-left: 4px solid var(--yellow); }
+.lesson-predict { border: 2px solid var(--accent-dim); }
+.lesson-list-heading { font-family: var(--font-pixel); font-size: 0.52rem; letter-spacing: 0.04em; line-height: 1.7; color: var(--accent); margin-bottom: 4px; }
+.lesson-mistakes .lesson-list-heading { color: var(--yellow); }
+.lesson-objectives ul, .lesson-mistakes ul { margin: 4px 0 2px; padding-left: 18px; display: grid; gap: 5px; line-height: 1.5; }
+.lesson-predict-q { margin: 4px 0 10px; font-weight: 600; }
+.lesson-predict-options { display: grid; gap: 6px; }
+.lesson-predict-reveal p { line-height: 1.55; }
+.lesson-predict .guide-verdict.is-right { color: var(--green); }
+.lesson-predict .guide-verdict.is-wrong { color: var(--yellow); }
+.code-with-try { margin: 12px 0; }
+.code-with-try .code-block { margin-bottom: 8px; }
+.try-it-btn { font-size: 0.55rem; }

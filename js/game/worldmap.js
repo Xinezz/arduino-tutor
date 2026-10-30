@@ -8,7 +8,7 @@
 // on the available width, so the map re-lays itself out if the window resizes.
 
 import { lessons } from "../lessons/data.js";
-import { levelTitle, levelIcon } from "../lessons/levels.js";
+import { levelTitle, levelIcon, levelNumber } from "../lessons/levels.js";
 import { icon } from "./sprites.js";
 import { avatarSpriteName } from "./shop.js";
 import { renderMentorBox, getMapLine } from "../npc/mentor.js";
@@ -86,7 +86,7 @@ export function renderWorldMap(container, progress, { onOpenLesson, onPoke } = {
     zico.innerHTML = icon(levelIcon(levelNum), 3);
     zhead.appendChild(zico);
     const ztext = el("div", "zone-text");
-    ztext.appendChild(el("div", "zone-world", `WORLD ${levelNum}`));
+    ztext.appendChild(el("div", "zone-world", `WORLD ${levelNumber(levelNum)}`));
     ztext.appendChild(el("div", "zone-name", levelTitle(levelNum)));
     zhead.appendChild(ztext);
     const zprog = el("div", "zone-progress");

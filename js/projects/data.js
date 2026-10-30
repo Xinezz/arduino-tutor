@@ -17,7 +17,7 @@ export const projects = [
       "An LED blinks while you wait, then lights up solid at a random moment - click the button as fast " +
       "as you can and see your reaction time printed in milliseconds.",
     requiredLessons: ["l2-8"],
-    requiredLabel: "Complete Level 2 through \"INPUT_PULLUP\" to unlock",
+    requiredLabel: "Complete Digital I/O (Level 3) through \"INPUT_PULLUP\" to unlock",
     stages: [
       {
         id: "stage-1",
@@ -25,7 +25,7 @@ export const projects = [
         goal:
           "Wire an LED to pin 13. Make it blink continuously (LED on, wait, LED off, wait) to show the " +
           "game is idle and waiting for a round to begin.",
-        hint: "You've already built exactly this pattern in the Blink challenge back in Level 2 - reuse it.",
+        hint: "You've already built exactly this pattern in the Blink challenge back in Digital I/O - reuse it.",
         exampleCode:
           "int ledPin = 13;\n\nvoid setup() {\n  pinMode(ledPin, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(ledPin, HIGH);\n  delay(300);\n  digitalWrite(ledPin, LOW);\n  delay(300);\n}",
       },
@@ -88,7 +88,7 @@ export const projects = [
       "Arm the system with one button, watch a status LED confirm it's armed, then trip a second " +
       "\"sensor\" button to set off a flashing alarm light and a Serial warning.",
     requiredLessons: ["l2-10"],
-    requiredLabel: "Complete all of Level 2 (through the Button Counter lab) to unlock",
+    requiredLabel: "Complete all of Digital I/O, Level 3 (through the Button Counter lab) to unlock",
     stages: [
       {
         id: "stage-1",

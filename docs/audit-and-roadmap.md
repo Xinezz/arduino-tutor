@@ -99,17 +99,17 @@ The XP and credits layer works well, but it's attached to the wrong signals.
 | C1 | First hands-on work comes after 18 reading lessons; the Blink challenge assumed a pre-wired board | Guided **"Start your first circuit"**: parts → wiring → code → predict → run → explain → change → break and fix. It's the default start for new players, with call-outs in lessons 1 and 19 | Done |
 | C2 | Simulator simplifications were silent | Honest LED model (current has to flow from a HIGH source to a LOW sink); a buzzer needs GND; Stop powers the board down; **Check Circuit** reports every simplification as a "REAL BOARD" note; a **Simulator Limits** window | Done |
 | C3 | Errors didn't say what kind of mistake they were | Errors are labelled *syntax error / code problem / not supported / runtime error*, the line is highlighted in the editor, and each comes with a hint and recovery steps; a missing `}` is now reported as a missing `}` | Done |
-| C4 | Challenges grade themselves | **Check My Solution**: the learner's code runs in a fast, off-screen simulation, its behaviour is compared with the goal, and the feedback is specific ("the LED turns on but never off"). Rewards only follow a passing check | Planned next |
-| C5 | Level 5 is missing but promised in the text | A **Program Flow** world (if/else, comparisons and logic, loops, functions, `millis()`), placed straight after Arduino Basics so the Level 2 challenges no longer need concepts that haven't been taught | Planned |
+| C4 | Challenges grade themselves | **Check My Solution**: the learner's code runs in a fast, off-screen simulation, its behaviour is compared with the goal, and the feedback is specific ("the LED turns on but never off"). Rewards only follow a passing check | Done - all 24 challenges |
+| C5 | Level 5 is missing but promised in the text | A **Program Flow** world (if/else, comparisons and logic, loops, functions, `millis()`), placed straight after Arduino Basics so the Level 2 challenges no longer need concepts that haven't been taught | Done - 6 lessons, 6 checked challenges, 6 checkpoints |
 
 ### High priority - makes a big difference for beginners
 
 | # | Improvement | Status |
 | --- | --- | --- |
 | H1 | Code feedback that teaches: what went wrong, why, which line, **which lesson to review** (a link), and hints revealed one at a time - for errors *and* warnings such as a missing `pinMode()` | Planned next |
-| H2 | **Try it** buttons on lesson code examples, loading them into the editor so learners can observe and experiment | Planned |
+| H2 | **Try it** buttons on lesson code examples, loading them into the editor so learners can observe and experiment | Done - every complete sketch in every lesson |
 | H3 | A breadboard and circuits lesson in the foundations | Planned |
-| H4 | Learning objectives and a short checkpoint on each lesson, starting with the foundations and the new Program Flow world | Planned |
+| H4 | Learning objectives and a short checkpoint on each lesson, starting with the foundations and the new Program Flow world | Started - Program Flow has objectives, predict-then-explain, common mistakes and a checkpoint; the other worlds still need them |
 | H5 | Wiring feedback on the board: + and − marks on leads, labels like "LED (check wiring)", and a wiring check every time Run is pressed | Done |
 | H6 | Destructive actions look different and ask first ("Reset Code", "Clear Wiring"); tooltips on every control | Done |
 

@@ -1,4 +1,4 @@
-// Level 2: Digital Input and Output.
+// Digital Input and Output (level ID 2, taught third - see LEVEL_ORDER in levels.js).
 
 export const level2Lessons = [
   {
@@ -9,14 +9,14 @@ export const level2Lessons = [
       { type: "p", text:
         "A digital pin only ever has two possible states: HIGH (roughly 5V) or LOW (roughly 0V). " +
         "There is no \"halfway\" - this is what makes it \"digital\" rather than \"analog\" (which we " +
-        "cover in Level 3)." },
+        "cover in Analog Input, Level 4)." },
       { type: "code", text:
         "HIGH   // on, about 5V\nLOW    // off, about 0V" },
       { type: "p", text:
         "HIGH and LOW are just built-in names for the numbers 1 and 0 - Arduino defines them for " +
         "readability, but digitalWrite(pin, 1) and digitalWrite(pin, HIGH) do the exact same thing." },
       { type: "note", text:
-        "Everything in Level 2 is about controlling and reading these two states through pins - it's the " +
+        "Everything in Digital I/O is about controlling and reading these two states through pins - it's the " +
         "simplest possible interaction between code and the physical world, and almost every project " +
         "builds on it." },
     ],
@@ -75,7 +75,7 @@ export const level2Lessons = [
       { type: "note", text:
         "Ohm's law preview: current = voltage / resistance. A bigger resistor means less current means a " +
         "dimmer (but safer) LED. You'll use this relationship more deliberately once we reach PWM in " +
-        "Level 4." },
+        "Level 5." },
       { type: "action", action: "first-circuit", label: "Open the guided first circuit", text:
         "Never wired an LED before? The guided first circuit builds exactly this circuit - pin 13 -> " +
         "resistor -> LED -> GND - one wire at a time, in Free Practice." },
@@ -125,8 +125,8 @@ export const level2Lessons = [
         "int buttonState = digitalRead(7);\n\nif (buttonState == HIGH) {\n  // pin 7 is currently reading ~5V\n}" },
       { type: "p", text:
         "Notice digitalRead() returns a value rather than taking an action - you almost always store " +
-        "that value in a variable, then decide what to do with it (often using if, which we'll cover " +
-        "properly in Level 5)." },
+        "that value in a variable, then decide what to do with it - usually with an if, exactly as in " +
+        "Program Flow (Level 2)." },
     ],
   },
 
@@ -200,8 +200,8 @@ export const level2Lessons = [
         "Concept hint: the Arduino can't \"see\" the button - it can only read a voltage on a pin. You " +
           "need to read that pin's state, store it, and then decide what to do based on the value you " +
           "stored.",
-        "Function hint: digitalRead() gives you the button's state as a variable; an if statement (a " +
-          "preview of Level 5) then compares that variable to a value and runs code only when it matches.",
+        "Function hint: digitalRead() gives you the button's state as a variable; an if statement (see " +
+          "Program Flow) then compares that variable to a value and runs code only when it matches.",
         "Example hint: if (digitalRead(buttonPin) == LOW) { /* pressed, since INPUT_PULLUP is inverted */ }. " +
           "What would you put inside that block, and what should happen in the else case?",
       ],

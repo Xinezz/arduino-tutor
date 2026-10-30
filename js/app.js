@@ -312,6 +312,34 @@ async function startFirstCircuit() {
 }
 document.getElementById("start-first-circuit-btn").addEventListener("click", startFirstCircuit);
 
+// "Try it": a lesson's example goes into the lesson's own editor, which is
+// shown even on lessons without a challenge, so it can be run and changed.
+async function tryLessonCode(code) {
+  if (!editor.isTemplate() && editor.getValue() !== code) {
+    const yes = await confirmDialog({
+      title: "REPLACE YOUR CODE?",
+      body: "This puts the lesson's example in the editor, replacing the code that's in it now.",
+      confirmLabel: "Replace It",
+    });
+    if (!yes) return;
+  }
+  lessonsPanel.stopRun();
+  editorSectionEl.hidden = false;
+  simulatorSectionEl.hidden = false;
+  editor.setValue(code);
+  editor.refresh();
+  editorSectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatus("Example loaded into the editor - press Run to try it, then change something and run it again.");
+}
+
+// Buttons inside the lesson text (render.js) - one listener for all of them,
+// since some (a prediction's Try it) only appear after the learner answers.
+lessonContentEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (btn?.dataset.action === "first-circuit") startFirstCircuit();
+  else if (btn?.dataset.action === "try-code") tryLessonCode(btn.dataset.code);
+});
+
 // Desktop-only sidebar collapse (separate from the mobile drawer above) -
 // removes the sidebar from the layout entirely so the lesson content, editor,
 // and circuit board can use the freed-up width instead of leaving it blank.
@@ -656,9 +684,6 @@ function openLesson(lessonId) {
       if (result.levelUp || result.rankUp) renderMentorBox(mentorBoxEl, reactionFor(result, ""));
     });
   }
-
-  // call-outs inside the lesson text (see renderAction in render.js)
-  lessonContentEl.querySelectorAll('[data-action="first-circuit"]').forEach((b) => b.addEventListener("click", startFirstCircuit));
 
   // wire up the prev/next/complete buttons that renderLesson just created
   lessonContentEl.querySelector('[data-action="prev"]')?.addEventListener("click", () => {

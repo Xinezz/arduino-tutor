@@ -160,3 +160,38 @@ test("a button wired to 5V doesn't count for an INPUT_PULLUP challenge", () => {
   const r = runChallengeCheck("c4", solutionOf("c4"), board.inspectCircuit().findings);
   assert.deepEqual(failures(r), ["Circuit: wire a button with one leg on pin 7 and the other leg on GND."]);
 });
+
+// ---- Program Flow ----
+
+test("c19: a wrong parity test is quoted back", () => {
+  const r = runChallengeCheck("c19", broken("c19", "count % 2 == 0", "count % 2 == 1"));
+  assert.match(failures(r)[0], /It says 1 is even - check the condition/);
+});
+
+test("c20: 18 and 24 are where the off-by-one mistakes hide", () => {
+  const r = runChallengeCheck("c20", broken("c20", "temp >= 18 && temp <= 24", "temp > 18 && temp < 24"));
+  assert.match(failures(r).join("\n"), /18°C is labelled "too hot" but should be "comfortable".*18 and 24 themselves count as comfortable/);
+});
+
+test("c21: counting up, and forgetting the for loop", () => {
+  const up = runChallengeCheck("c21", broken("c21", "for (int i = 10; i >= 1; i--)", "for (int i = 1; i <= 10; i++)"));
+  assert.match(failures(up)[0], /It prints 1, 2, 3/);
+  const noFor = runChallengeCheck("c21", 'void setup() {\n  Serial.begin(9600);\n  int i = 10;\n  while (i >= 1) { Serial.println(i); delay(500); i--; }\n  Serial.println("Liftoff!");\n}\nvoid loop() {}');
+  assert.deepEqual(failures(noFor), ["Use a for loop to count down - that's the point of this one."]);
+});
+
+test("c22: doubling once too often prints 1024", () => {
+  const r = runChallengeCheck("c22", broken("c22", "while (value < 1000)", "while (value <= 1024)"));
+  assert.match(failures(r).join("\n"), /printed a number of 1000 or more/);
+});
+
+test("c23: blinking 3 times with no pause between groups", () => {
+  const r = runChallengeCheck("c23", broken("c23", "  delay(1000);\n", ""));
+  assert.match(failures(r).join("\n"), /There's no pause between groups/);
+});
+
+test("c24: delay() isn't allowed in the millis() challenge", () => {
+  const r = runChallengeCheck("c24", "void setup() { pinMode(13, OUTPUT); Serial.begin(9600); }\nvoid loop() { digitalWrite(13, HIGH); delay(500); digitalWrite(13, LOW); delay(500); }");
+  assert.equal(failures(r)[0], "This one has to work without delay() - check millis() instead of waiting.");
+});
+

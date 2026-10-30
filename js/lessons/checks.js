@@ -453,6 +453,135 @@ export const CHALLENGE_CHECKS = {
   },
 };
 
+// ---- Program Flow ----
+
+// "7 is odd" / "12 comfortable" - a number and a word or two on each line.
+const labelled = (sim, words) => sim.printed
+  .map((p) => ({ t: p.t, m: p.text.match(new RegExp(`(-?\\d+)\\D*?\\b(${words.join("|")})\\b`, "i")) }))
+  .filter((p) => p.m)
+  .map((p) => ({ t: p.t, n: Number(p.m[1]), label: p.m[2].toLowerCase() }));
+const uses = (code, re) => re.test(stripComments(code));
+
+Object.assign(CHALLENGE_CHECKS, {
+  c19: {
+    ms: 4500,
+    check(sim) {
+      const rows = labelled(sim, ["odd", "even"]);
+      const lines = sim.printed.filter((p) => p.text.trim());
+      const wrong = rows.find((r) => r.label !== (r.n % 2 === 0 ? "even" : "odd"));
+      const counts = rows.map((r) => r.n);
+      const g = gaps(rows.map((r) => r.t));
+      return [
+        item(lines.length > 0 && rows.length === lines.length, "Each line shows a number and odd or even",
+          lines.length ? `"${lines.find((p) => !labelled({ printed: [p] }, ["odd", "even"]).length)?.text.trim()}" doesn't say a number and whether it's odd or even.` : "Nothing was printed - remember Serial.begin(9600) and Serial.print()."),
+        item(rows.length > 0 && !wrong, "Every number is labelled correctly",
+          wrong ? `It says ${wrong.n} is ${wrong.label} - check the condition: a number is even when n % 2 == 0.` : "No numbers were labelled."),
+        item(counts[0] === 1 && counts.every((n, i) => i === 0 || n === counts[i - 1] + 1), "It counts 1, 2, 3, ... going up by 1",
+          counts.length ? `The numbers go ${counts.slice(0, 4).join(", ")} - they should start at 1 and go up by 1 each time.` : "No numbers were printed."),
+        item(rows.length >= 3 && g.every((x) => Math.abs(x - 1000) <= 60), "One number a second",
+          rows.length < 2 ? "It only printed once - the counting belongs in loop()." : `A new number appears every ${Math.round(average(g))} ms - it should be once a second.`),
+      ];
+    },
+  },
+
+  c20: {
+    ms: 9200,
+    check(sim) {
+      const rows = labelled(sim, ["too cold", "comfortable", "too hot"]);
+      const expected = (n) => (n < 18 ? "too cold" : n <= 24 ? "comfortable" : "too hot");
+      const wrong = rows.find((r) => r.label !== expected(r.n));
+      const temps = rows.map((r) => r.n);
+      const wraps = temps.some((n, i) => i > 0 && n === 10 && temps[i - 1] >= 40);
+      const g = gaps(rows.map((r) => r.t));
+      return [
+        item(rows.length > 0, "Each line shows the temperature and a label", "Print the temperature, then \"too cold\", \"comfortable\" or \"too hot\" on the same line."),
+        item(temps[0] === 10 && temps.slice(1).every((n, i) => n === temps[i] + 2 || (n === 10 && temps[i] >= 40)), "It starts at 10 and goes up in steps of 2",
+          `The temperatures go ${temps.slice(0, 5).join(", ")} - start at 10 and add 2 each time.`),
+        item(rows.length > 0 && !wrong, "Every temperature gets the right label - including 18 and 24",
+          wrong ? `${wrong.n}°C is labelled "${wrong.label}" but should be "${expected(wrong.n)}". Check your comparisons${wrong.n === 18 || wrong.n === 24 ? " - 18 and 24 themselves count as comfortable (>= and <=)" : ""}.` : "No labelled temperatures were printed."),
+        item(wraps, "After 40 it goes back to 10", "After 40 the temperature should go back to 10 and keep cycling."),
+        item(g.length > 2 && g.every((x) => Math.abs(x - 500) <= 50), "A new reading every half second", `A new reading every ${Math.round(average(g))} ms - it should be every 500 ms.`),
+      ];
+    },
+  },
+
+  c21: {
+    ms: 7000,
+    check(sim, code) {
+      const lines = sim.printed.map((p) => p.text.trim()).filter(Boolean);
+      const nums = lines.filter((l) => /^-?\d+$/.test(l)).map(Number);
+      const lift = lines.findIndex((l) => /liftoff/i.test(l));
+      const numTimes = sim.printed.filter((p) => /^\s*-?\d+\s*$/.test(p.text)).map((p) => p.t);
+      const g = gaps(numTimes);
+      return [
+        item(uses(code, /\bfor\s*\(/), "It uses a for loop", "Use a for loop to count down - that's the point of this one."),
+        item(nums.join() === "10,9,8,7,6,5,4,3,2,1", "It prints 10 down to 1",
+          nums.length ? `It prints ${nums.slice(0, 12).join(", ")}${nums.length > 12 ? " ..." : ""} - it should be 10, 9, 8 ... 1.` : "No numbers were printed."),
+        item(lift !== -1 && lift === lines.length - 1 && lines.filter((l) => /liftoff/i.test(l)).length === 1, "Then Liftoff! - once, at the very end",
+          lift === -1 ? "Print Liftoff! after the countdown." : "Liftoff! should be printed once, after the 1 - make sure it's after the loop, and that loop() is empty."),
+        item(g.length >= 2 && g.every((x) => Math.abs(x - 500) <= 50), "Half a second between numbers", `The numbers are ${Math.round(average(g))} ms apart - they should be 500 ms apart.`),
+      ];
+    },
+  },
+
+  c22: {
+    ms: 300,
+    check(sim, code) {
+      const lines = sim.printed.map((p) => p.text.trim()).filter(Boolean);
+      const want = "1,2,4,8,16,32,64,128,256,512,Done";
+      return [
+        item(uses(code, /\bwhile\s*\(/), "It uses a while loop", "Use a while loop - you don't know in advance how many doublings it takes."),
+        item(lines.slice(0, -1).join() === want.split(",").slice(0, -1).join(), "It prints 1, 2, 4 ... 512",
+          lines.some((l) => Number(l) >= 1000) ? "It printed a number of 1000 or more - print BEFORE doubling, and only while the value is below 1000." : `It prints ${lines.slice(0, 6).join(", ")} - it should start at 1 and double each time, up to 512.`),
+        item(lines.at(-1) === "Done" && lines.filter((l) => l === "Done").length === 1, "Then Done, once", "Print Done once, after the loop ends."),
+      ];
+    },
+  },
+
+  c23: {
+    ms: 5000,
+    circuit: [circuit.led(13)],
+    check(sim, code) {
+      const s = stretches(sim, 13);
+      const on = s.filter((x) => x.on);
+      // A group = on-blinks separated by short offs; a long off (the 1 s pause) ends a group.
+      const groups = [];
+      let cur = 0;
+      for (const x of s) {
+        if (x.on) cur++;
+        else if (x.to - x.from >= 800) { groups.push(cur); cur = 0; }
+      }
+      return [
+        item(uses(code, /\bvoid\s+blinkTimes\s*\(\s*int\s+\w+\s*\)/), "It defines void blinkTimes(int times)", "Write the function: void blinkTimes(int times) { ... }."),
+        item(uses(code, /\bblinkTimes\s*\(\s*3\s*\)/), "loop() calls blinkTimes(3)", "Call your function from loop(): blinkTimes(3);"),
+        outputItem(sim, 13, "LED"),
+        item(on.length && on.every((x) => Math.abs(x.to - x.from - 200) <= 40), "Each blink is 200 ms on", on.length ? `Each blink is on for about ${Math.round(average(on.map((x) => x.to - x.from)))} ms - it should be 200 ms.` : "The LED never blinks."),
+        item(groups.length >= 2 && groups.every((n) => n === 3), "Three blinks, a pause, then again",
+          groups.length ? `It blinks ${groups.join(", then ")} times between pauses - it should be 3 every time.` : "There's no pause between groups - add delay(1000) after blinkTimes(3)."),
+      ];
+    },
+  },
+
+  c24: {
+    ms: 6500,
+    circuit: [circuit.led(13)],
+    check(sim, code) {
+      const s = stretches(sim, 13).filter((x) => x.from > 0);
+      const lens = s.map((x) => x.to - x.from);
+      const reports = sim.printed.filter((p) => /still running/i.test(p.text)).map((p) => p.t);
+      const g = gaps([0, ...reports]);
+      return [
+        item(!uses(code, /\bdelay\s*\(/), "No delay() anywhere", "This one has to work without delay() - check millis() instead of waiting."),
+        outputItem(sim, 13, "LED"),
+        item(lens.length >= 6 && lens.every((d) => Math.abs(d - 500) <= 50), "The LED blinks: 500 ms on, 500 ms off",
+          lens.length ? `The LED changes every ${Math.round(average(lens))} ms - it should change every 500 ms.` : "The LED doesn't blink."),
+        item(reports.length >= 3 && g.every((x) => Math.abs(x - 2000) <= 60), "Still running is printed every 2 seconds",
+          reports.length ? `"Still running" appears every ${Math.round(average(g))} ms - it should be every 2000 ms.` : "Print Still running every 2 seconds (and remember Serial.begin())."),
+      ];
+    },
+  },
+});
+
 export function hasCheck(challengeId) {
   return Object.prototype.hasOwnProperty.call(CHALLENGE_CHECKS, challengeId);
 }

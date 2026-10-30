@@ -248,6 +248,106 @@ export const quizzes = {
   },
 };
 
+// ---- Program Flow: one checkpoint per lesson ----
+Object.assign(quizzes, {
+  "l5-1": {
+    id: "quiz-if-assign",
+    type: "debug",
+    topic: "if / else",
+    title: "Find the Bug",
+    prompt: "This prints \"Exactly 20 degrees\" even though the temperature is 35. Click the line that causes it.",
+    lines: [
+      "int temperature = 35;",
+      "",
+      "void setup() {",
+      "  Serial.begin(9600);",
+      "  if (temperature = 20) {",
+      "    Serial.println(\"Exactly 20 degrees\");",
+      "  }",
+      "}",
+      "",
+      "void loop() {",
+      "}",
+    ],
+    buggyLineIndex: 4,
+    explanation:
+      "A single = STORES 20 in temperature instead of comparing it. The stored value, 20, isn't zero, so the " +
+      "condition counts as true every time. Comparing needs two: ==.",
+    fixedLine: "  if (temperature == 20) {",
+  },
+
+  "l5-2": {
+    id: "quiz-match-logic",
+    type: "match",
+    topic: "Logic Operators",
+    title: "Match the Pairs",
+    prompt: "Match each operator to what it means.",
+    pairs: [
+      { left: "&&", right: "Both conditions must be true" },
+      { left: "||", right: "At least one condition must be true" },
+      { left: "!", right: "Flips true and false" },
+      { left: "!=", right: "Not equal to" },
+    ],
+  },
+
+  "l5-3": {
+    id: "quiz-fill-for",
+    type: "fill",
+    topic: "for Loops",
+    title: "Fill in the Blank",
+    prompt: "Complete the loop so it runs exactly 5 times, with i going 0, 1, 2, 3, 4.",
+    codeBefore: "for (int i = 0; i ",
+    codeAfter: " 5; i++) {\n  Serial.println(i);\n}",
+    choices: ["<", "<=", ">", "=="],
+    correctChoice: "<",
+    explanation:
+      "i < 5 stays true for 0, 1, 2, 3 and 4 - five passes. i <= 5 would also run for 5 (six passes), > would " +
+      "be false straight away, and == 5 is false when i starts at 0, so that loop wouldn't run at all.",
+  },
+
+  "l5-4": {
+    id: "quiz-predict-while",
+    type: "predict",
+    topic: "while Loops",
+    title: "Predict the Output",
+    prompt: "What will this print?",
+    code: "int n = 1;\nwhile (n < 20) {\n  n = n * 3;\n}\nSerial.println(n);",
+    options: ["9", "20", "27", "81"],
+    correctIndex: 2,
+    explanation:
+      "n goes 1 → 3 → 9 → 27. Each time, the condition is checked first: 9 < 20 is true, so it triples once " +
+      "more to 27. Then 27 < 20 is false and the loop stops - so it prints 27, not 20.",
+  },
+
+  "l5-5": {
+    id: "quiz-match-functions",
+    type: "match",
+    topic: "Functions",
+    title: "Match the Pairs",
+    prompt: "Match each part of a function to what it does.",
+    pairs: [
+      { left: "A parameter", right: "A variable that gets its value from the call" },
+      { left: "return", right: "Hands a value back and ends the function" },
+      { left: "void", right: "Says the function doesn't hand anything back" },
+      { left: "blinkTimes(3);", right: "Runs the function with times set to 3" },
+    ],
+  },
+
+  "l5-6": {
+    id: "quiz-predict-millis",
+    type: "predict",
+    topic: "millis() Timing",
+    title: "Predict the Output",
+    prompt: "What will this print?",
+    code: "unsigned long start = millis();\ndelay(250);\nSerial.println(millis() - start);",
+    options: ["0", "250", "1000", "-250"],
+    correctIndex: 1,
+    explanation:
+      "start remembers the time before the delay. After delay(250), millis() has moved on by 250, so the " +
+      "difference is 250. That subtraction - now minus then - is the whole trick behind timing with millis().",
+  },
+});
+
 export function getQuizForLesson(lessonId) {
   return quizzes[lessonId] || null;
 }

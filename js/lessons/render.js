@@ -5,7 +5,7 @@
 
 import { lessons } from "./data.js";
 import { typewriterText } from "../utils/typewriter.js";
-import { levelName, levelTitle, levelIcon } from "./levels.js";
+import { levelName, levelTitle, levelIcon, levelNumber } from "./levels.js";
 import { icon } from "../game/sprites.js";
 import { CREDIT_REWARDS } from "../progress/progress.js";
 import { getQuizForLesson } from "../quiz/data.js";
@@ -35,7 +35,7 @@ export function renderSidebar(container, progress, onSelect) {
       const doneInLevel = inLevel.filter((l) => done.has(l.id)).length;
       const heading = document.createElement("div");
       heading.className = "sidebar-level" + (doneInLevel === inLevel.length ? " is-cleared" : "");
-      heading.innerHTML = `<span class="sidebar-level-ico">${icon(levelIcon(currentLevel), 2)}</span><span class="sidebar-level-text"><span class="sidebar-level-eyebrow">LEVEL ${currentLevel}</span><span class="sidebar-level-name"></span></span><span class="sidebar-level-count">${doneInLevel}/${inLevel.length}</span>`;
+      heading.innerHTML = `<span class="sidebar-level-ico">${icon(levelIcon(currentLevel), 2)}</span><span class="sidebar-level-text"><span class="sidebar-level-eyebrow">LEVEL ${levelNumber(currentLevel)}</span><span class="sidebar-level-name"></span></span><span class="sidebar-level-count">${doneInLevel}/${inLevel.length}</span>`;
       heading.querySelector(".sidebar-level-name").textContent = levelTitle(currentLevel);
       container.appendChild(heading);
     }
@@ -105,8 +105,98 @@ function renderAction(block) {
   return box;
 }
 
+// A complete sketch (it has both setup() and loop()) can be run as it is.
+export function isFullSketch(code) {
+  return /\bvoid\s+setup\s*\(/.test(code) && /\bvoid\s+loop\s*\(/.test(code);
+}
+
+// "Try it": loads a lesson's example into the editor to run and change (app.js
+// handles the click by its data-action).
+function tryItButton(code) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-hint try-it-btn";
+  btn.dataset.action = "try-code";
+  btn.dataset.code = code;
+  btn.textContent = "▶ Try it in the editor";
+  btn.title = "Load this example into the editor below, then press Run - and try changing it";
+  return btn;
+}
+
+// { type: "objectives", items } and { type: "mistakes", items }: a short
+// headed list - what the lesson teaches, and the slips worth watching for.
+function renderList(block, heading, className) {
+  const box = document.createElement("div");
+  box.className = className;
+  const h = document.createElement("div");
+  h.className = "lesson-list-heading";
+  h.textContent = heading;
+  const ul = document.createElement("ul");
+  for (const text of block.items) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    ul.appendChild(li);
+  }
+  box.append(h, ul);
+  return box;
+}
+
+// { type: "predict", question, options, answer, explain, code?, output? }:
+// commit to a guess first, THEN see why. Not graded - choosing reveals the
+// explanation. `output` is what the sketch really prints; the tests check it
+// against the simulator so the "right" answer can never be wrong.
+function renderPredict(block) {
+  const box = document.createElement("div");
+  box.className = "lesson-predict";
+  const eyebrow = document.createElement("div");
+  eyebrow.className = "lesson-list-heading";
+  eyebrow.textContent = "PREDICT FIRST";
+  const q = document.createElement("p");
+  q.className = "lesson-predict-q";
+  q.textContent = block.question;
+  box.append(eyebrow, q);
+  if (block.code) {
+    const pre = document.createElement("pre");
+    pre.className = "code-block";
+    pre.textContent = block.code;
+    box.appendChild(pre);
+  }
+  const options = document.createElement("div");
+  options.className = "lesson-predict-options";
+  const reveal = document.createElement("div");
+  reveal.className = "lesson-predict-reveal";
+  reveal.hidden = true;
+  block.options.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "guide-option";
+    b.textContent = text;
+    b.addEventListener("click", () => {
+      options.querySelectorAll("button").forEach((x, j) => {
+        x.disabled = true;
+        if (j === i) x.classList.add("is-chosen");
+        if (j === block.answer) x.classList.add("is-correct");
+      });
+      const verdict = document.createElement("p");
+      verdict.className = i === block.answer ? "guide-verdict is-right" : "guide-verdict is-wrong";
+      verdict.textContent = i === block.answer ? "Your prediction was right. Here's why:" : `Not quite - it's "${block.options[block.answer]}". Here's why:`;
+      const explain = document.createElement("p");
+      explain.textContent = block.explain;
+      reveal.replaceChildren(verdict, explain);
+      if (block.code) reveal.appendChild(tryItButton(block.code));
+      reveal.hidden = false;
+    });
+    options.appendChild(b);
+  });
+  box.append(options, reveal);
+  return box;
+}
+
 function renderBlock(block) {
   if (block.type === "action") return renderAction(block);
+  if (block.type === "objectives") return renderList(block, "IN THIS LESSON YOU'LL LEARN TO", "lesson-objectives");
+  if (block.type === "mistakes") return renderList(block, "COMMON MISTAKES", "lesson-mistakes");
+  if (block.type === "predict") return renderPredict(block);
   const el = document.createElement(
     block.type === "code" ? "pre" : block.type === "note" ? "div" : "p"
   );
@@ -114,6 +204,12 @@ function renderBlock(block) {
   if (block.type === "code") {
     el.className = "code-block";
     typewriterText(el, block.text);
+    if (isFullSketch(block.text)) {
+      const wrap = document.createElement("div");
+      wrap.className = "code-with-try";
+      wrap.append(el, tryItButton(block.text));
+      return wrap;
+    }
   } else if (block.type === "note") {
     el.className = "note-box";
     el.textContent = block.text;
