@@ -76,6 +76,9 @@ export const level2Lessons = [
         "Ohm's law preview: current = voltage / resistance. A bigger resistor means less current means a " +
         "dimmer (but safer) LED. You'll use this relationship more deliberately once we reach PWM in " +
         "Level 4." },
+      { type: "action", action: "first-circuit", label: "Open the guided first circuit", text:
+        "Never wired an LED before? The guided first circuit builds exactly this circuit - pin 13 -> " +
+        "resistor -> LED -> GND - one wire at a time, in Free Practice." },
     ],
     challenge: {
       id: "c3",
@@ -83,7 +86,8 @@ export const level2Lessons = [
       difficulty: "medium",
       prompt:
         "Write a sketch that blinks an LED on pin 13 - on for half a second, off for half a second, " +
-        "repeating forever. Assume the LED and resistor are already wired correctly.\n\n" +
+        "repeating forever. Wire it on the board below first: pin 13 -> resistor -> LED long leg (+), " +
+        "LED short leg (-) -> GND. (Check Circuit tells you if anything's wrong.)\n\n" +
         "Before you write any code, answer this for yourself: what information does the Arduino need to " +
         "know before it can turn something on or off, and which function configures that?",
       hints: [

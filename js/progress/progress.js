@@ -44,6 +44,7 @@ function defaultProgress() {
     milestonesAwarded: [],   // levels (from LEVEL_MILESTONES) whose bonus has already been paid out
     flaggedLessons: [],      // lesson ids the learner marked "I struggled with this" - a personal bookmark, not an achievement
     playerName: null,        // set on the main menu - null means "never signed in," not just "empty string"
+    firstCircuitDone: false, // finished the guided "Start your first circuit" walkthrough
 
     // ---- the game layer ----
     achievements: {},        // achievement id -> ISO timestamp it was unlocked (presence = unlocked, so it can never pay out twice)
@@ -275,6 +276,17 @@ export function markLessonViewed(progress, lessonId) {
     applyXp(progress, CREDIT_REWARDS.lesson);
   }
   progress.lastLessonId = lessonId;
+  saveProgress(progress);
+  return progress;
+}
+
+// The guided first circuit (js/guide/firstCircuit.js) pays out like a
+// challenge, once - replaying it later is welcome but earns nothing new.
+export function markFirstCircuitDone(progress) {
+  if (!progress.firstCircuitDone) {
+    progress.firstCircuitDone = true;
+    applyXp(progress, CREDIT_REWARDS.challenge);
+  }
   saveProgress(progress);
   return progress;
 }

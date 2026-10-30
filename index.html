@@ -122,9 +122,9 @@
       <div class="editor-toolbar">
         <span class="editor-label">Practice Editor</span>
         <div class="editor-toolbar-actions">
-          <button id="run-code-btn" class="btn btn-complete"><span data-sprite="play"></span> Run</button>
-          <button id="stop-code-btn" class="btn btn-danger" disabled><span class="stop-ico"></span> Stop</button>
-          <button id="reset-code-btn" class="btn btn-secondary">Reset</button>
+          <button id="run-code-btn" class="btn btn-complete" title="Check your code, then run it on the board below - starting from setup()"><span data-sprite="play"></span> Run</button>
+          <button id="stop-code-btn" class="btn btn-danger" disabled title="Stop the sketch and power the board down. Your code and wiring stay exactly as they are."><span class="stop-ico"></span> Stop</button>
+          <button id="reset-code-btn" class="btn btn-destructive" title="Replace the code in the editor with the empty starting template (asks first). Your circuit isn't touched.">Reset Code</button>
         </div>
       </div>
       <textarea id="code-editor"></textarea>
@@ -137,7 +137,7 @@
       <div class="editor-toolbar">
         <span class="editor-label">Circuit Board</span>
         <div class="editor-toolbar-actions">
-          <select id="component-picker" class="component-picker">
+          <select id="component-picker" class="component-picker" aria-label="Part to add" title="Choose a part to put on the breadboard">
             <option value="led">LED</option>
             <option value="resistor">Resistor</option>
             <option value="rgbled">RGB LED</option>
@@ -151,8 +151,10 @@
             <option value="servo">Servo Motor</option>
             <option value="lcd">LCD Display</option>
           </select>
-          <button id="add-component-btn" class="btn btn-secondary">+ Add</button>
-          <button id="clear-wiring-btn" class="btn btn-secondary">Clear Wiring</button>
+          <button id="add-component-btn" class="btn btn-secondary" title="Put the chosen part on the breadboard - then wire its legs to the Arduino">+ Add</button>
+          <button id="check-circuit-btn" class="btn btn-hint" title="Explain what is connected to what, spot wiring mistakes, and say what a real board would need">Check Circuit</button>
+          <button id="limits-btn" class="btn btn-secondary" title="What this simulator can and can't do, and where it simplifies real hardware">Simulator Limits</button>
+          <button id="clear-wiring-btn" class="btn btn-destructive" title="Remove every wire (asks first). The parts stay on the board.">Clear Wiring</button>
         </div>
       </div>
       <p class="editor-note">
@@ -164,11 +166,12 @@
       <div class="wire-palette" id="wire-palette">
         <!-- filled in by app.js from board.getWirePalette() -->
       </div>
-      <svg id="sim-board" viewBox="0 0 780 600" class="sim-svg"></svg>
+      <svg id="sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg>
+      <div class="circuit-report" id="circuit-report" aria-live="polite" hidden></div>
 
       <div class="console-toolbar">
         <span class="editor-label">Serial Monitor</span>
-        <button id="clear-console-btn" class="btn btn-secondary">Clear</button>
+        <button id="clear-console-btn" class="btn btn-secondary" title="Clear the Serial Monitor text. The sketch keeps running.">Clear</button>
       </div>
       <pre id="sim-console" class="sim-console"></pre>
     </section>
@@ -205,18 +208,26 @@
 
 <div class="view" id="view-practice" hidden>
   <main class="main-panel main-panel-wide">
-    <div class="practice-intro hud-frame">
+    <div class="practice-intro hud-frame" id="practice-intro">
       <h1><span data-sprite="led" data-scale="3"></span> Free Practice</h1>
       <p>No lesson, no challenge - just you, the code editor, and the circuit board. Wire up whatever you want, write whatever you want, and see what happens.</p>
+      <div class="practice-intro-cta">
+        <button id="start-first-circuit-btn" class="btn btn-complete" type="button">Start your first circuit</button>
+        <span>New to Arduino? A guided 10-minute build: wire an LED, write the code, make it blink. No hardware needed.</span>
+      </div>
     </div>
+
+    <div class="practice-workspace" id="practice-workspace">
+    <section class="guide-panel hud-frame" id="first-circuit-guide" aria-live="polite" hidden></section>
+    <div class="practice-tools">
 
     <section class="editor-section">
       <div class="editor-toolbar">
         <span class="editor-label">Practice Editor</span>
         <div class="editor-toolbar-actions">
-          <button id="practice-run-btn" class="btn btn-complete"><span data-sprite="play"></span> Run</button>
-          <button id="practice-stop-btn" class="btn btn-danger" disabled><span class="stop-ico"></span> Stop</button>
-          <button id="practice-reset-btn" class="btn btn-secondary">Reset</button>
+          <button id="practice-run-btn" class="btn btn-complete" title="Check your code, then run it on the board below - starting from setup()"><span data-sprite="play"></span> Run</button>
+          <button id="practice-stop-btn" class="btn btn-danger" disabled title="Stop the sketch and power the board down. Your code and wiring stay exactly as they are."><span class="stop-ico"></span> Stop</button>
+          <button id="practice-reset-btn" class="btn btn-destructive" title="Replace the code in the editor with the empty starting template (asks first). Your circuit isn't touched.">Reset Code</button>
         </div>
       </div>
       <textarea id="practice-code-editor"></textarea>
@@ -229,7 +240,7 @@
       <div class="editor-toolbar">
         <span class="editor-label">Circuit Board</span>
         <div class="editor-toolbar-actions">
-          <select id="practice-component-picker" class="component-picker">
+          <select id="practice-component-picker" class="component-picker" aria-label="Part to add" title="Choose a part to put on the breadboard">
             <option value="led">LED</option>
             <option value="resistor">Resistor</option>
             <option value="rgbled">RGB LED</option>
@@ -243,8 +254,10 @@
             <option value="servo">Servo Motor</option>
             <option value="lcd">LCD Display</option>
           </select>
-          <button id="practice-add-component-btn" class="btn btn-secondary">+ Add</button>
-          <button id="practice-clear-wiring-btn" class="btn btn-secondary">Clear Wiring</button>
+          <button id="practice-add-component-btn" class="btn btn-secondary" title="Put the chosen part on the breadboard - then wire its legs to the Arduino">+ Add</button>
+          <button id="practice-check-circuit-btn" class="btn btn-hint" title="Explain what is connected to what, spot wiring mistakes, and say what a real board would need">Check Circuit</button>
+          <button id="practice-limits-btn" class="btn btn-secondary" title="What this simulator can and can't do, and where it simplifies real hardware">Simulator Limits</button>
+          <button id="practice-clear-wiring-btn" class="btn btn-destructive" title="Remove every wire (asks first). The parts stay on the board.">Clear Wiring</button>
         </div>
       </div>
       <p class="editor-note">
@@ -256,14 +269,17 @@
       <div class="wire-palette" id="practice-wire-palette">
         <!-- filled in by js/simulator/panel.js from board.getWirePalette() -->
       </div>
-      <svg id="practice-sim-board" viewBox="0 0 780 600" class="sim-svg"></svg>
+      <svg id="practice-sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg>
+      <div class="circuit-report" id="practice-circuit-report" aria-live="polite" hidden></div>
 
       <div class="console-toolbar">
         <span class="editor-label">Serial Monitor</span>
-        <button id="practice-clear-console-btn" class="btn btn-secondary">Clear</button>
+        <button id="practice-clear-console-btn" class="btn btn-secondary" title="Clear the Serial Monitor text. The sketch keeps running.">Clear</button>
       </div>
       <pre id="practice-sim-console" class="sim-console"></pre>
     </section>
+    </div>
+    </div>
   </main>
 </div>
 

@@ -17,6 +17,7 @@ import {
   toggleLessonFlag,
   setPlayerName,
   markChallengeCompleted,
+  markFirstCircuitDone,
   recordQuizResult,
   markProjectStageDone,
   touchStreak,
@@ -68,6 +69,7 @@ import {
 } from "./npc/mentor.js";
 import { renderMenuScreen } from "./menu/menu.js";
 import { createSimulatorPanel } from "./simulator/panel.js";
+import { createFirstCircuitGuide } from "./guide/firstCircuit.js";
 
 // ---- the game layer ----
 import { hydrateSprites, icon } from "./game/sprites.js";
@@ -92,6 +94,7 @@ import { applyTheme, itemKey, getShopItem } from "./game/shop.js";
 import { pendingRewardCount, CHEST_REWARD } from "./game/missions.js";
 import { runSplash } from "./game/splash.js";
 import { showToast } from "./game/toast.js";
+import { confirmDialog } from "./game/modal.js";
 import { floatText, coinShower, shake, banner, confetti, pixelWipe, centerOf } from "./game/fx.js";
 
 const menuScreenEl = document.getElementById("menu-screen");
@@ -215,6 +218,9 @@ const lessonsPanel = createSimulatorPanel({
   clearConsoleBtn: document.getElementById("clear-console-btn"),
   consoleEl: document.getElementById("sim-console"),
   wirePaletteEl: document.getElementById("wire-palette"),
+  checkCircuitBtn: document.getElementById("check-circuit-btn"),
+  limitsBtn: document.getElementById("limits-btn"),
+  circuitReportEl: document.getElementById("circuit-report"),
   onStatus: setStatus,
   onRun: handleRun,
   onRunError: () => runFailed("sim-console"),
@@ -233,10 +239,78 @@ const practicePanel = createSimulatorPanel({
   clearConsoleBtn: document.getElementById("practice-clear-console-btn"),
   consoleEl: document.getElementById("practice-sim-console"),
   wirePaletteEl: document.getElementById("practice-wire-palette"),
+  checkCircuitBtn: document.getElementById("practice-check-circuit-btn"),
+  limitsBtn: document.getElementById("practice-limits-btn"),
+  circuitReportEl: document.getElementById("practice-circuit-report"),
   onStatus: setStatus,
   onRun: handleRun,
   onRunError: () => runFailed("practice-sim-console"),
 });
+
+// ---- "Start your first circuit": the guided walkthrough in Free Practice ----
+
+const practiceIntroEl = document.getElementById("practice-intro");
+const practiceWorkspaceEl = document.getElementById("practice-workspace");
+
+const firstCircuitGuide = createFirstCircuitGuide({
+  container: document.getElementById("first-circuit-guide"),
+  panel: practicePanel,
+  targets: {
+    picker: document.getElementById("practice-component-picker"),
+    board: document.getElementById("practice-sim-board"),
+    editor: document.querySelector("#view-practice .editor-section"),
+    run: document.getElementById("practice-run-btn"),
+  },
+  onStatus: setStatus,
+  onExit: (byUser) => {
+    practiceWorkspaceEl.classList.remove("is-guided");
+    practiceIntroEl.hidden = false;
+    practicePanel.editor.refresh();
+    if (byUser) setStatus("Guide closed - your circuit and code are still here. Restart it any time from Free Practice.");
+  },
+  onFinish: (next) => {
+    const firstTime = !progress.firstCircuitDone;
+    const before = rewards.snapshot();
+    progress = markFirstCircuitDone(progress);
+    const result = rewards.settle(before, { kind: "challenge", label: "Your First Circuit" });
+    if (next === "lessons") {
+      switchView("lessons");
+      openLesson(getFirstLessonId());
+    } else if (next === "blink") {
+      switchView("lessons");
+      openLesson("l2-4");
+    }
+    // after opening a lesson, which sets its own "Viewing: ..." status
+    setStatus(firstTime ? `First circuit complete! +${result.gained} credits.` : "First circuit complete - nice work.");
+  },
+});
+
+async function startFirstCircuit() {
+  if (currentView !== "practice") switchView("practice");
+  if (!firstCircuitGuide.isActive()) {
+    const b = practicePanel.board;
+    const hasWork = b.listComponents().length > 0 || b.wireCount() > 0 || !practicePanel.editor.isTemplate();
+    if (hasWork) {
+      const yes = await confirmDialog({
+        title: "START WITH A CLEAN BOARD?",
+        body: "The guide starts from an empty board and editor, so the circuit and code you have in Free Practice right now will be cleared.",
+        confirmLabel: "Clear and Start",
+        danger: true,
+      });
+      if (!yes) return;
+    }
+    practicePanel.stopRun();
+    b.clearWiring();
+    for (const c of b.listComponents()) b.removeComponent(c.id);
+    practicePanel.editor.reset();
+  }
+  practiceIntroEl.hidden = true;
+  practiceWorkspaceEl.classList.add("is-guided");
+  practicePanel.editor.refresh();
+  firstCircuitGuide.start();
+  setStatus("Guided first circuit - follow the steps in the guide panel.");
+}
+document.getElementById("start-first-circuit-btn").addEventListener("click", startFirstCircuit);
 
 // Desktop-only sidebar collapse (separate from the mobile drawer above) -
 // removes the sidebar from the layout entirely so the lesson content, editor,
@@ -578,6 +652,9 @@ function openLesson(lessonId) {
     });
   }
 
+  // call-outs inside the lesson text (see renderAction in render.js)
+  lessonContentEl.querySelectorAll('[data-action="first-circuit"]').forEach((b) => b.addEventListener("click", startFirstCircuit));
+
   // wire up the prev/next/complete buttons that renderLesson just created
   lessonContentEl.querySelector('[data-action="prev"]')?.addEventListener("click", () => {
     const prevId = getAdjacentLessonId(lessonId, "prev");
@@ -719,9 +796,10 @@ installKonami(() => {
 //
 // target picks where you land, matching the menu's own action buttons:
 // undefined/null resumes the last-viewed lesson (the default), "dashboard",
-// "map" or "shop" open that screen, and anything else is treated as a lesson
+// "map" or "shop" open that screen, "first-circuit" starts the guided first
+// circuit in Free Practice, and anything else is treated as a lesson
 // id to jump directly into (e.g. the menu's "Review" on a flagged lesson).
-const SCREEN_TARGETS = new Set(["dashboard", "map", "shop"]);
+const SCREEN_TARGETS = new Set(["dashboard", "map", "shop", "first-circuit"]);
 
 function startApp(target) {
   appStarted = true;
@@ -731,7 +809,8 @@ function startApp(target) {
   const lessonTarget = target && !SCREEN_TARGETS.has(target) ? target : progress.lastLessonId || getFirstLessonId();
   openLesson(lessonTarget);
   editor.refresh(); // was created/sized while hidden behind the menu, needs a re-measure now that it's visible
-  if (SCREEN_TARGETS.has(target)) switchView(target);
+  if (target === "first-circuit") startFirstCircuit();
+  else if (SCREEN_TARGETS.has(target)) switchView(target);
   updateMusic();
 
   // Welcome-back flourishes, once per browser session.

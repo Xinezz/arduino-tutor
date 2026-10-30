@@ -170,8 +170,33 @@ function leadSuffixes(kind) {
   return Object.keys(LEAD_OFFSETS[kind] || {});
 }
 
+// Friendly names for the circuit report ("LED 1", "Resistor 2").
+const KIND_NAMES = {
+  led: "LED", resistor: "Resistor", rgbled: "RGB LED", button: "Button", buzzer: "Buzzer",
+  potentiometer: "Potentiometer", ldr: "Light sensor", tempsensor: "Temperature sensor",
+  ultrasonic: "Ultrasonic sensor", irsensor: "IR sensor", servo: "Servo", lcd: "LCD",
+};
+
+// Small marks drawn under a component's leads so you can tell them apart:
+// + and − for polarized parts (an LED's long leg is +), S for a sensor's
+// signal, W for a potentiometer's wiper, T/E for trig/echo.
+const LEAD_LABELS = {
+  led: { "-a": "+", "-k": "−" },
+  rgbled: { "-r": "R", "-g": "G", "-b": "B", "-c": "−" },
+  buzzer: { "-s": "+", "-g": "−" },
+  potentiometer: { "-v": "+", "-w": "W", "-g": "−" },
+  ldr: { "-s": "S", "-g": "−" },
+  tempsensor: { "-s": "S", "-g": "−" },
+  ultrasonic: { "-t": "T", "-e": "E" },
+  irsensor: { "-s": "S", "-g": "−" },
+  servo: { "-s": "S" },
+};
+
 // options.random: the noise source for a floating input pin (tests pass a
 // predictable one).
+// options.onCircuitChange: called whenever the circuit itself changes (a part
+// added or removed, a wire drawn or deleted, a resistor value changed) - not
+// on every pin change while a sketch runs.
 export function createBoard(svgEl, options = {}) {
   const random = options.random || Math.random;
   let pinModes = {};        // pin -> "OUTPUT" | "INPUT" | "INPUT_PULLUP"
@@ -197,8 +222,14 @@ export function createBoard(svgEl, options = {}) {
   let lcd = { begun: false, cols: 16, rows: 2, lines: [], cursorCol: 0, cursorRow: 0 };
 
   let audioCtx = null;
-  const activeTones = {}; // pin -> { osc, gain }
+  const activeTones = {}; // pin -> { osc, gain } - sound actually coming out of the speakers
+  const soundingPins = {}; // pin -> frequency of a tone the sketch is playing (whether or not a buzzer can be heard)
   const toneTimers = {};  // pin -> timer that ends a tone(pin, freq, duration)
+
+  // What the most recent run did with each pin (pin -> its last mode), kept
+  // after the run ends so the circuit check can still say "your sketch used
+  // pin 9 as an OUTPUT but nothing is wired to it".
+  let lastRunModes = null;
 
   function reset() {
     pinModes = {};
@@ -212,10 +243,28 @@ export function createBoard(svgEl, options = {}) {
     render();
   }
 
+  // Stopping the sketch is like unplugging the board: every pin goes back to
+  // an unpowered input, so nothing stays lit or keeps beeping and looks as if
+  // the sketch were still running. (A servo stays at its last angle - it's a
+  // motor, it doesn't spring back when the power goes.)
   function setRunning(value) {
     running = value;
-    if (!running) { pressed = new Set(); stopAllTones(); }
+    if (running) {
+      lastRunModes = {};
+    } else {
+      pressed = new Set();
+      stopAllTones();
+      pinModes = {};
+      pinOutputs = {};
+      portHigh = {};
+      lcd = { begun: false, cols: lcd.cols, rows: lcd.rows, lines: [], cursorCol: 0, cursorRow: 0 };
+    }
     render();
+  }
+
+  function circuitChanged() {
+    render();
+    try { options.onCircuitChange?.(); } catch (e) { console.error(e); }
   }
 
   function setWireColor(color) { selectedWireColor = color; }
@@ -232,9 +281,18 @@ export function createBoard(svgEl, options = {}) {
     return audioCtx;
   }
 
+  // A tone only makes a sound if a buzzer is really there to make it: wired
+  // to that pin AND to GND. Without one, the sketch still "plays" it (the pin
+  // toggles), but a real board would be silent - so is this one.
+  function buzzerWiredTo(pin) {
+    return components.some((c) => c.kind === "buzzer" && wiredPinOf(c.id + "-s") === pin && isWiredToGnd(c.id + "-g"));
+  }
+
   function playToneOnPin(pin, frequency) {
-    const ctx = ensureAudioCtx();
     stopToneOnPin(pin);
+    soundingPins[pin] = frequency;
+    if (!buzzerWiredTo(pin)) return;
+    const ctx = ensureAudioCtx();
     if (!ctx) return;
     try {
       const osc = ctx.createOscillator();
@@ -255,6 +313,7 @@ export function createBoard(svgEl, options = {}) {
   function stopToneOnPin(pin) {
     clearTimeout(toneTimers[pin]);
     delete toneTimers[pin];
+    delete soundingPins[pin];
     const entry = activeTones[pin];
     if (!entry) return;
     try { entry.osc.stop(); entry.osc.disconnect(); entry.gain.disconnect(); } catch { /* already stopped */ }
@@ -262,13 +321,18 @@ export function createBoard(svgEl, options = {}) {
   }
 
   function stopAllTones() {
-    for (const pin of Object.keys(activeTones)) stopToneOnPin(pin);
+    for (const pin of new Set([...Object.keys(activeTones), ...Object.keys(soundingPins), ...Object.keys(toneTimers)])) stopToneOnPin(pin);
   }
 
   // ---------- hardware API used by the interpreter ----------
 
-  function pinMode(pin, mode) {
+  function noteMode(pin, mode) {
     pinModes[pin] = mode;
+    if (lastRunModes) lastRunModes[pin] = mode;
+  }
+
+  function pinMode(pin, mode) {
+    noteMode(pin, mode);
     if (mode === "INPUT_PULLUP") portHigh[pin] = true;
     if (mode === "INPUT") portHigh[pin] = false;
     // OUTPUT keeps the PORT bit, so a pin whose pull-up was on starts out HIGH.
@@ -283,8 +347,8 @@ export function createBoard(svgEl, options = {}) {
     portHigh[pin] = !!value;
     if (pinModes[pin] === "OUTPUT") {
       pinOutputs[pin] = value ? 255 : 0;
-      const buzzer = components.find((c) => c.kind === "buzzer" && wiredPinOf(c.id + "-s") === pin);
-      if (buzzer) {
+      // An active buzzer beeps whenever its pin is HIGH.
+      if (components.some((c) => c.kind === "buzzer" && wiredPinOf(c.id + "-s") === pin)) {
         if (value) playToneOnPin(pin, 1000);
         else stopToneOnPin(pin);
       }
@@ -297,7 +361,7 @@ export function createBoard(svgEl, options = {}) {
   // their duty cycle, and any other pin can only switch fully on (128+) or
   // off. See analogWriteLevel() in uno.js.
   function analogWrite(pin, value) {
-    pinModes[pin] = "OUTPUT";
+    noteMode(pin, "OUTPUT");
     pinOutputs[pin] = analogWriteLevel(pin, value);
     portHigh[pin] = pinOutputs[pin] === 255;
     render();
@@ -385,7 +449,7 @@ export function createBoard(svgEl, options = {}) {
   // tone(pin, frequency, duration) stops by itself after `duration` ms, like
   // the real one; without a duration it plays until noTone().
   function tone(pin, frequency, duration) {
-    pinModes[pin] = "OUTPUT";
+    noteMode(pin, "OUTPUT");
     playToneOnPin(pin, frequency);
     if (duration > 0) toneTimers[pin] = setTimeout(() => { stopToneOnPin(pin); render(); }, duration);
     render();
@@ -525,8 +589,36 @@ export function createBoard(svgEl, options = {}) {
     return false;
   }
 
+  // The Arduino pins (numbers) found in a set of connectors.
+  function pinsIn(set) {
+    const pins = [];
+    for (const id of set) if (id.startsWith("pin-")) pins.push(Number(id.slice(4)));
+    return pins;
+  }
+
+  // How brightly an LED glows (0-255), worked out the way current really
+  // flows through one: from something HIGH on its long leg (+, the anode) -
+  // an OUTPUT pin, or 5V while the board is powered - to something LOW on
+  // its short leg (−, the cathode) - GND, or an OUTPUT pin that's LOW.
+  // Backwards, half-connected, or with both legs on the same connection, it
+  // stays dark - exactly like a real LED. (What it does NOT model is current:
+  // a missing resistor or a 10kΩ one doesn't change the glow here - the
+  // circuit check points that out instead of letting it pass silently.)
+  function ledLevel(anodeId, cathodeId) {
+    const anode = connectedSet(anodeId);
+    if (anode.has(cathodeId)) return 0;
+    const cathode = connectedSet(cathodeId);
+    const outputLevel = (p) => (pinModes[p] === "OUTPUT" ? pinOutputs[p] ?? 0 : null);
+    const sinks = touchesGnd(cathode) || pinsIn(cathode).some((p) => outputLevel(p) === 0);
+    if (!sinks) return 0;
+    let level = running && touches5v(anode) ? 255 : 0;
+    for (const p of pinsIn(anode)) level = Math.max(level, outputLevel(p) ?? 0);
+    return level;
+  }
+
+  // The pin an LED's + leg is wired to (directly or through a resistor), if any.
   function ledConnectedPin(led) {
-    return isWiredToGnd(led.id + "-k") ? wiredPinOf(led.id + "-a") : null;
+    return wiredPinOf(led.id + "-a");
   }
 
   function isTwoLeadWiredToPin(comp, pin, sigSuffix, gndSuffix) {
@@ -584,7 +676,7 @@ export function createBoard(svgEl, options = {}) {
     if (kind === "servo") comp.currentAngle = 90;
 
     components.push(comp);
-    render();
+    circuitChanged();
     return id;
   }
 
@@ -595,7 +687,7 @@ export function createBoard(svgEl, options = {}) {
   function connect(fromId, toId, color) {
     wires.push({ from: fromId, to: toId, color: color || autoColor(fromId, toId) });
     syncAnalogInputs();
-    render();
+    circuitChanged();
   }
 
   function setButtonPressed(id, isPressed) {
@@ -617,7 +709,7 @@ export function createBoard(svgEl, options = {}) {
     wires = wires.filter((w) => !belongsToRemoved(w.from) && !belongsToRemoved(w.to));
     pressed.delete(id);
     irBlocked.delete(id);
-    render();
+    circuitChanged();
   }
 
   function cycleLedColor(led) {
@@ -629,7 +721,7 @@ export function createBoard(svgEl, options = {}) {
   function cycleResistorValue(resistor) {
     const i = RESISTOR_VALUES.findIndex((v) => v.ohms === resistor.ohms);
     resistor.ohms = RESISTOR_VALUES[(i + 1) % RESISTOR_VALUES.length].ohms;
-    render();
+    circuitChanged();
   }
 
   function toggleIr(comp) {
@@ -642,12 +734,12 @@ export function createBoard(svgEl, options = {}) {
     wires = [];
     pending = null;
     signalColorCursor = 0;
-    render();
+    circuitChanged();
   }
 
   function removeWire(wire) {
     wires = wires.filter((w) => w !== wire);
-    render();
+    circuitChanged();
   }
 
   // ---------- dragging (components + sliders) ----------
@@ -724,7 +816,7 @@ export function createBoard(svgEl, options = {}) {
     const color = selectedWireColor === "auto" ? autoColor(pending, id) : selectedWireColor;
     wires.push({ from: pending, to: id, color });
     pending = null;
-    render();
+    circuitChanged();
   }
 
   // A simplified but recognizable Arduino Uno silhouette: PCB body, USB
@@ -946,6 +1038,20 @@ export function createBoard(svgEl, options = {}) {
         const id = comp.id + suffix;
         const p = connectorPoint(id);
         drawConnector(id, p.x, p.y, "", "#e4e6ec", true, 4);
+        const mark = LEAD_LABELS[comp.kind]?.[suffix];
+        if (mark) {
+          // a small light badge, so the mark stays readable over the holes and wires
+          svgEl.appendChild(svgEl_("rect", {
+            x: p.x - 6, y: p.y + 6, width: 12, height: 12, rx: 2,
+            fill: "#fbf6e6", stroke: "#0d2338", "stroke-width": 1, style: "pointer-events:none",
+          }));
+          const t = svgEl_("text", {
+            x: p.x, y: p.y + 15.5, fill: "#0d2338", "font-size": 10, "font-weight": "700",
+            "text-anchor": "middle", "font-family": "monospace", style: "pointer-events:none",
+          });
+          t.textContent = mark;
+          svgEl.appendChild(t);
+        }
       }
     }
   }
@@ -1150,14 +1256,14 @@ export function createBoard(svgEl, options = {}) {
   function drawLed(led) {
     const pin = ledConnectedPin(led);
     // Only a pin set to OUTPUT can power an LED (see digitalWrite above).
-    const isLit = pin !== null && pinModes[pin] === "OUTPUT" && pinOutputs[pin] > 0;
-    const brightness = isLit ? pinOutputs[pin] / 255 : 0;
+    const level = ledLevel(led.id + "-a", led.id + "-k");
     const g = wireGroup(led);
 
-    const hit = drawPixelLedBody(g, led, hexToRgb(led.color || "#ffe066"), isLit ? 0.35 + brightness * 0.65 : 0, [-6, 6]);
+    const hit = drawPixelLedBody(g, led, hexToRgb(led.color || "#ffe066"), level > 0 ? 0.35 + (level / 255) * 0.65 : 0, [-6, 6]);
     hit.addEventListener("mousedown", (e) => startDrag(led, e));
     hit.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleLedColor(led); });
-    g.appendChild(componentLabel(led.x, led.y + 74, pin !== null ? `LED (pin ${pin})` : "LED (unwired)"));
+    const wired = connectedSet(led.id + "-a").size > 1 || connectedSet(led.id + "-k").size > 1;
+    g.appendChild(componentLabel(led.x, led.y + 74, pin !== null ? `LED (pin ${pin})` : wired ? "LED (check wiring)" : "LED (unwired)"));
     g.appendChild(removeGlyph(led.x + 28, led.y - 14, () => removeComponent(led.id)));
     svgEl.appendChild(g);
   }
@@ -1243,7 +1349,7 @@ export function createBoard(svgEl, options = {}) {
 
   function drawBuzzer(comp) {
     const pin = wiredPinOf(comp.id + "-s");
-    const isActive = pin !== null && !!activeTones[pin];
+    const isActive = pin !== null && soundingPins[pin] !== undefined && isWiredToGnd(comp.id + "-g");
     const g = wireGroup(comp);
 
     const body = svgEl_("circle", {
@@ -1421,6 +1527,278 @@ export function createBoard(svgEl, options = {}) {
     svgEl.appendChild(g);
   }
 
+  // ---------- the circuit check ----------
+  // Reads the circuit the way you would with a multimeter and reports what it
+  // finds. Every finding comes from the connections actually on the board -
+  // never a guess about what you meant. Levels:
+  //   problem - this part can't work as wired (here OR on a real board)
+  //   real    - works in the simulator, but a real board would behave
+  //             differently or be damaged: the simulator's simplifications,
+  //             said out loud instead of passed over silently
+  //   info    - worth knowing (not wired yet, always on, ...)
+  //   ok      - wired correctly
+  const LEVEL_ORDER = { problem: 0, real: 1, info: 2, ok: 3 };
+  const pinLabel = (p) => (p >= 14 ? `A${p - 14}` : String(p));
+  const pinList = (pins) => pins.map((p) => `pin ${pinLabel(p)}`).join(" and ");
+
+  function componentName(comp) {
+    return `${KIND_NAMES[comp.kind] || comp.kind} ${comp.id.slice(comp.kind.length + 1)}`;
+  }
+
+  // "down" if a resistor joins the pin to GND, "up" if to 5V, otherwise null.
+  function pullResistor(pin) {
+    const strong = strongNet(`pin-${pin}`);
+    for (const r of components) {
+      if (r.kind !== "resistor") continue;
+      for (const [near, far] of [["-1", "-2"], ["-2", "-1"]]) {
+        if (!strong.has(r.id + near)) continue;
+        const other = strongNet(r.id + far);
+        if (touchesGnd(other)) return "down";
+        if (touches5v(other)) return "up";
+      }
+    }
+    return null;
+  }
+
+  function inspectCircuit() {
+    const findings = [];
+    const add = (level, comp, text, data) =>
+      findings.push({ level, subject: comp ? componentName(comp) : "Circuit", id: comp?.id ?? null, text, ...(data ? { data } : {}) });
+    // undefined = there hasn't been a run yet; null = the last run never set this pin up
+    const modeInLastRun = (p) => (lastRunModes ? lastRunModes[p] ?? null : undefined);
+    const ofKind = (kind) => components.filter((c) => c.kind === kind);
+    const isWired = (id) => connectedSet(id).size > 1;
+
+    if (!components.length && !wires.length) {
+      add("info", null, "The board is empty. Choose a part from the list, press + Add, then wire its legs to the Arduino.");
+    }
+
+    // ---- short circuits ----
+    if (touchesGnd(strongNet("5v"))) {
+      add("problem", null, "5V is wired straight to GND - a short circuit. On a real board this can damage the board or your computer's USB port. Remove the wire that joins them.");
+    }
+    for (let p = 0; p <= 19; p++) {
+      const net = strongNet(`pin-${p}`);
+      if (net.size <= 1 || modeInLastRun(p) !== "OUTPUT") continue;
+      const rail = touchesGnd(net) ? "GND" : touches5v(net) ? "5V" : null;
+      if (rail) {
+        add("problem", null, `Pin ${pinLabel(p)} is an OUTPUT in your sketch but is wired straight to ${rail} with nothing in between - a short circuit whenever the pin drives the opposite way, which can damage a real pin. Put the part (and its resistor) between the pin and ${rail}.`);
+      }
+    }
+
+    // ---- LEDs ----
+    for (const led of ofKind("led")) {
+      const aId = led.id + "-a", kId = led.id + "-k";
+      const a = connectedSet(aId), k = connectedSet(kId);
+      if (a.size <= 1 && k.size <= 1) {
+        add("info", led, "Not wired yet. Its long leg (+) goes toward a pin, its short leg (−) to GND.");
+        continue;
+      }
+      if (a.has(kId)) {
+        add("problem", led, "Both legs are connected to the same point, so no current can flow through the LED. Each leg needs its own connection: + toward a pin, − to GND.");
+        continue;
+      }
+      const aPins = pinsIn(a), kPins = pinsIn(k);
+      const source = aPins.length > 0 || touches5v(a);
+      const sink = touchesGnd(k) || kPins.length > 0;
+      if (touchesGnd(a) && (kPins.length || touches5v(k))) {
+        add("problem", led, `It's in backwards: the long leg (+) goes to GND and the short leg (−) to ${kPins.length ? pinList(kPins) : "5V"}. An LED only lets current through from + to −, so it will never light. Swap its two connections.`);
+        continue;
+      }
+      if (source && !sink) {
+        add("problem", led, k.size > 1
+          ? "The short leg (−) doesn't reach GND, so the circuit isn't complete and no current can flow. Connect it to a GND pin or the − rail."
+          : "The short leg (−) isn't connected to anything, so the circuit isn't complete. Connect it to GND.");
+        continue;
+      }
+      if (!source && touchesGnd(a)) {
+        add("problem", led, "The long leg (+) is connected to GND - that's the wrong way round. The + leg goes toward the pin (through a resistor), the − leg to GND.");
+        continue;
+      }
+      if (!source) {
+        add("problem", led, a.size > 1
+          ? "The long leg (+) doesn't reach a pin or 5V, so nothing can power the LED. Connect it, through a resistor, to the pin your sketch controls."
+          : "The long leg (+) isn't connected to anything. Connect it, through a resistor, to the pin your sketch controls.");
+        continue;
+      }
+
+      // A complete circuit from here on.
+      const where = aPins.length ? pinList(aPins) : "5V";
+      const strongA = strongNet(aId), strongK = strongNet(kId);
+      const noResistor = (pinsIn(strongA).length > 0 || touches5v(strongA)) && (touchesGnd(strongK) || pinsIn(strongK).length > 0);
+      add("ok", led, `Complete circuit: ${where} → ${noResistor ? "" : "resistor → "}LED → GND.`, { pin: aPins[0] ?? null, resistor: !noResistor });
+      if (noResistor) {
+        add("real", led, `No resistor in series. The simulator still lights it, but a real LED wired straight to ${where} draws too much current and burns out (it can damage the pin too). Put a 220Ω resistor between ${where} and the LED.`);
+      } else {
+        const series = components.filter((r) => r.kind === "resistor" && [strongA, strongK].some((s) => s.has(r.id + "-1") || s.has(r.id + "-2")));
+        if (series.some((r) => r.ohms >= 10000)) {
+          add("real", led, "It goes through a 10kΩ resistor. A real LED would be very dim with that much resistance - the simulator doesn't change brightness with resistor values. 220Ω-330Ω is the usual choice for an LED.");
+        }
+      }
+      if (!aPins.length) {
+        add("info", led, "Its + leg goes to 5V rather than a pin, so it's simply on whenever the board is powered - your sketch can't switch it.");
+      } else if (kPins.length && !touchesGnd(k)) {
+        add("info", led, `Its − leg goes to ${pinList(kPins)} instead of GND, so it only lights while that pin is an OUTPUT set LOW.`);
+      } else if (modeInLastRun(aPins[0]) === null || (modeInLastRun(aPins[0]) && modeInLastRun(aPins[0]) !== "OUTPUT")) {
+        add("info", led, `Your last run never made pin ${pinLabel(aPins[0])} an OUTPUT - add pinMode(${pinLabel(aPins[0])}, OUTPUT); to setup() so the pin can power the LED.`);
+      }
+    }
+
+    // ---- RGB LEDs ----
+    for (const rgb of ofKind("rgbled")) {
+      const legs = { R: rgb.id + "-r", G: rgb.id + "-g", B: rgb.id + "-b" };
+      const wiredLegs = Object.entries(legs).filter(([, id]) => isWired(id));
+      if (!wiredLegs.length && !isWired(rgb.id + "-c")) {
+        add("info", rgb, "Not wired yet. Its R, G and B legs go to (PWM) pins through resistors, and the − leg to GND.");
+        continue;
+      }
+      if (!isWiredToGnd(rgb.id + "-c")) {
+        add("problem", rgb, "The common − leg doesn't reach GND, so none of the colors can light. Connect it to GND.");
+        continue;
+      }
+      const pinned = wiredLegs.filter(([, id]) => wiredPinOf(id) !== null);
+      add(pinned.length === 3 ? "ok" : "info", rgb, pinned.length === 3
+        ? `All three colors are wired: ${pinned.map(([c, id]) => `${c} → pin ${pinLabel(wiredPinOf(id))}`).join(", ")}.`
+        : `${pinned.length} of 3 color legs reach a pin.`);
+      if (pinned.some(([, id]) => pinsIn(strongNet(id)).length > 0)) {
+        add("real", rgb, "At least one color leg is wired straight to a pin. The simulator doesn't mind, but on a real board each color needs its own 220Ω resistor.");
+      }
+    }
+
+    // ---- buttons ----
+    for (const btn of ofKind("button")) {
+      const s1 = connectedSet(btn.id + "-1"), s2 = connectedSet(btn.id + "-2");
+      if (s1.size <= 1 && s2.size <= 1) {
+        add("info", btn, "Not wired yet. One leg goes to an input pin, the other to GND (then use INPUT_PULLUP in your sketch).");
+        continue;
+      }
+      if (s1.has(btn.id + "-2")) {
+        add("problem", btn, "Both legs are connected together, so pressing it changes nothing.");
+        continue;
+      }
+      const p1 = pinsIn(s1), p2 = pinsIn(s2);
+      if (!p1.length && !p2.length) {
+        add("problem", btn, "Neither leg reaches a pin, so your sketch can't read it. Connect one leg to an input pin.");
+        continue;
+      }
+      if (p1.length && p2.length) {
+        add("info", btn, `Its legs go to two pins (${pinList([...p1, ...p2])}). Usually one leg goes to a pin and the other to GND.`);
+        continue;
+      }
+      const [pinSide, far] = p1.length ? [p1, s2] : [p2, s1];
+      const p = pinSide[0], P = pinLabel(p);
+      const toGnd = touchesGnd(far), to5v = touches5v(far);
+      if (!toGnd && !to5v) {
+        add("problem", btn, `One leg is on pin ${P}, but the other leg doesn't reach GND or 5V, so pressing it can't change what the pin reads. Connect the other leg to GND (and use INPUT_PULLUP in your sketch).`);
+        continue;
+      }
+      add("ok", btn, toGnd
+        ? `Pin ${P} to GND. With pinMode(${P}, INPUT_PULLUP) it reads HIGH when released and LOW while pressed.`
+        : `Pin ${P} to 5V. It reads HIGH while pressed.`, { pin: p });
+      const m = modeInLastRun(p);
+      const pull = pullResistor(p);
+      if (toGnd && m === "INPUT" && pull !== "up") {
+        add("problem", btn, `Your last run used pinMode(${P}, INPUT) with no pull-up, so while the button is released nothing holds pin ${P} HIGH - it floats and reads random values. Use INPUT_PULLUP.`);
+      }
+      if (to5v && m === "INPUT_PULLUP") {
+        add("problem", btn, `With INPUT_PULLUP, pin ${P} is already held HIGH, so connecting it to 5V changes nothing when you press. Wire the other leg to GND instead.`);
+      } else if (to5v && pull !== "down") {
+        add(m === undefined ? "info" : "problem", btn, `Nothing pulls pin ${P} LOW while the button is released, so it floats and reads random values. Add a 10kΩ resistor from pin ${P} to GND (a pull-down) - or wire the button to GND and use INPUT_PULLUP.`);
+      }
+    }
+
+    // ---- sound, sensors and motors: the parts the simulator simplifies ----
+    for (const bz of ofKind("buzzer")) {
+      const pin = wiredPinOf(bz.id + "-s");
+      if (pin === null && !isWired(bz.id + "-g")) { add("info", bz, "Not wired yet. Its + leg goes to a pin, its − leg to GND."); continue; }
+      if (pin === null) { add("problem", bz, "The + leg doesn't reach a pin, so your sketch can't drive it."); continue; }
+      if (!isWiredToGnd(bz.id + "-g")) { add("problem", bz, "The − leg doesn't reach GND, so no current flows and it stays silent. Connect it to GND."); continue; }
+      add("ok", bz, `Pin ${pinLabel(pin)} → buzzer → GND.`, { pin });
+    }
+    for (const pot of ofKind("potentiometer")) {
+      const pin = wiredPinOf(pot.id + "-w");
+      if (pin === null && !isWired(pot.id + "-v") && !isWired(pot.id + "-g")) { add("info", pot, "Not wired yet. Middle leg (W) to an analog pin (A0-A5), outer legs to 5V and GND."); continue; }
+      if (pin === null) { add("problem", pot, "The middle leg (W, the wiper) doesn't reach a pin, so there's nothing for analogRead() to read."); continue; }
+      if (pin < 14) { add("problem", pot, `The middle leg goes to digital pin ${pin}. analogRead() only works on the analog pins A0-A5.`); continue; }
+      add("ok", pot, `Middle leg (wiper) on ${pinLabel(pin)}.`, { pin });
+      const powered = (isWiredTo5v(pot.id + "-v") && isWiredToGnd(pot.id + "-g")) || (isWiredToGnd(pot.id + "-v") && isWiredTo5v(pot.id + "-g"));
+      if (!powered) add("real", pot, "Its outer legs aren't connected to 5V and GND. The simulator reads the knob anyway, but a real potentiometer needs one outer leg on 5V and the other on GND - otherwise the middle leg has no voltage to measure.");
+    }
+    for (const s of [...ofKind("ldr"), ...ofKind("tempsensor")]) {
+      const pin = wiredPinOf(s.id + "-s");
+      if (pin === null && !isWired(s.id + "-g")) { add("info", s, "Not wired yet. Its S leg goes to an analog pin (A0-A5), its − leg to GND."); continue; }
+      if (pin === null) { add("problem", s, "The S (signal) leg doesn't reach a pin, so there's nothing for analogRead() to read."); continue; }
+      if (pin < 14) { add("problem", s, `The S leg goes to digital pin ${pin}. analogRead() only works on the analog pins A0-A5.`); continue; }
+      add("ok", s, `Signal on ${pinLabel(pin)}.`, { pin });
+      add("real", s, s.kind === "ldr"
+        ? "The simulator turns the light slider straight into a reading. A real LDR needs a partner resistor to make a voltage divider: LDR from 5V to the analog pin, and a 10kΩ resistor from that pin to GND."
+        : "The simulator only needs the signal leg. A real TMP36 has three legs: 5V, signal (to the analog pin) and GND - all three must be connected.");
+    }
+    for (const ir of ofKind("irsensor")) {
+      const pin = wiredPinOf(ir.id + "-s");
+      if (pin === null && !isWired(ir.id + "-g")) { add("info", ir, "Not wired yet. Its S leg goes to a digital pin, its − leg to GND."); continue; }
+      if (pin === null) { add("problem", ir, "The S (signal) leg doesn't reach a pin, so your sketch can't read it."); continue; }
+      if (!isWiredToGnd(ir.id + "-g") && !isWiredTo5v(ir.id + "-g")) { add("problem", ir, "The − leg isn't connected to GND, so the sensor can't change the pin. Connect it to GND."); continue; }
+      add("ok", ir, `Signal on pin ${pinLabel(pin)}. It reads LOW while it sees an obstacle.`, { pin });
+      add("real", ir, "A real IR obstacle module also needs 5V on its VCC pin. The simulated one runs without it.");
+    }
+    for (const us of ofKind("ultrasonic")) {
+      const trig = wiredPinOf(us.id + "-t"), echo = wiredPinOf(us.id + "-e");
+      if (trig === null && echo === null) { add("info", us, "Not wired yet. T (trig) and E (echo) each go to a digital pin."); continue; }
+      if (trig === null || echo === null) { add("problem", us, `The ${trig === null ? "T (trig)" : "E (echo)"} leg doesn't reach a pin. Both need their own pin.`); continue; }
+      add("ok", us, `Trig on pin ${trig}, echo on pin ${echo}.`);
+      add("real", us, "A real HC-SR04 also needs VCC (5V) and GND wires. This simulated one only has its trig and echo legs.");
+    }
+    for (const sv of ofKind("servo")) {
+      const pin = wiredPinOf(sv.id + "-s");
+      if (pin === null) { add("info", sv, "Not wired yet. Its S (signal) leg goes to the pin you attach() in your sketch."); continue; }
+      add("ok", sv, `Signal on pin ${pinLabel(pin)}.`, { pin });
+      add("real", sv, "A real servo has three wires: signal, 5V (red) and GND (brown or black). The simulator only uses the signal wire.");
+    }
+    for (const l of ofKind("lcd")) {
+      add("real", l, "The simulated LCD needs no wires - your sketch's LiquidCrystal lcd(...) line is enough. A real 16x2 LCD needs six signal wires, 5V, GND and a contrast knob.");
+    }
+
+    // ---- the breadboard's power rails ----
+    const touchesWire = (test) => wires.some((w) => test(w.from) || test(w.to));
+    const jumpered = (pins, prefix) => wires.some((w) => (pins.includes(w.from) && w.to.startsWith(prefix)) || (pins.includes(w.to) && w.from.startsWith(prefix)));
+    for (const [prefix, pins, name, sign] of [["gnd-rail", ["gnd", "gnd-pwr2"], "GND", "−"], ["5v-rail", ["5v"], "5V", "+"]]) {
+      if (touchesWire((id) => id.startsWith(prefix)) && !jumpered(pins, prefix)) {
+        add("real", null, `You used the breadboard's ${sign} rail. The simulator treats it as ${name} automatically, but on a real breadboard it's connected to nothing until you run a wire from the Arduino's ${name} pin to the rail.`);
+      }
+    }
+
+    // ---- what the last run did with pins that have nothing on them ----
+    if (lastRunModes) {
+      for (const [p, m] of Object.entries(lastRunModes)) {
+        if (m === "OUTPUT" && connectedSet(`pin-${p}`).size <= 1) {
+          add("info", null, `Your last run used pin ${pinLabel(Number(p))} as an OUTPUT, but nothing is wired to pin ${pinLabel(Number(p))}.`);
+        }
+      }
+    }
+
+    findings.sort((x, y) => LEVEL_ORDER[x.level] - LEVEL_ORDER[y.level]);
+    const count = (level) => findings.filter((f) => f.level === level).length;
+    return { findings, problems: count("problem"), real: count("real") };
+  }
+
+  // A read-only peek at the circuit, for the guided tour and the tests.
+  function areConnected(a, b, throughResistors = true) {
+    return connectedSet(a, throughResistors).has(b);
+  }
+  function listComponents() {
+    return components.map((c) => ({ id: c.id, kind: c.kind, ohms: c.ohms }));
+  }
+  function ledLevels() {
+    return Object.fromEntries(components.filter((c) => c.kind === "led").map((c) => [c.id, ledLevel(c.id + "-a", c.id + "-k")]));
+  }
+  function wireCount() {
+    return wires.length;
+  }
+  function isRunning() {
+    return running;
+  }
+
   render();
 
   return {
@@ -1428,6 +1806,7 @@ export function createBoard(svgEl, options = {}) {
     lcdBegin, lcdPrint, lcdSetCursor, lcdClear, pinStatus,
     addComponent, removeComponent, clearWiring, reset, setRunning, setWireColor,
     connect, setButtonPressed, updateComponent,
+    inspectCircuit, areConnected, listComponents, ledLevels, wireCount, isRunning,
     getWirePalette: () => WIRE_PALETTE,
   };
 }

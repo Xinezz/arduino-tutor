@@ -88,7 +88,25 @@ export function setActiveSidebarLink(container, lessonId) {
   });
 }
 
+// { type: "action", text, label, action } - a call-out with a button, e.g.
+// "build it hands-on in the guided first circuit". app.js wires up the
+// button by its data-action.
+function renderAction(block) {
+  const box = document.createElement("div");
+  box.className = "lesson-action";
+  const text = document.createElement("p");
+  text.textContent = block.text;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-complete";
+  btn.dataset.action = block.action;
+  btn.textContent = block.label;
+  box.append(text, btn);
+  return box;
+}
+
 function renderBlock(block) {
+  if (block.type === "action") return renderAction(block);
   const el = document.createElement(
     block.type === "code" ? "pre" : block.type === "note" ? "div" : "p"
   );

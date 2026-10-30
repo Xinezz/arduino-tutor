@@ -348,6 +348,20 @@ class Parser {
   }
 
   peek(offset = 0) { return this.tokens[Math.min(this.pos + offset, this.tokens.length - 1)]; }
+  // At a '(' : does the matching ')' come straight before a '{'? (a function body)
+  looksLikeFunctionDefinition() {
+    let depth = 0;
+    for (let i = this.pos; i < this.tokens.length; i++) {
+      const t = this.tokens[i];
+      if (t.type !== "OP") continue;
+      if (t.value === "(") depth++;
+      else if (t.value === ")" && --depth === 0) {
+        const next = this.tokens[i + 1];
+        return !!next && next.type === "OP" && next.value === "{";
+      }
+    }
+    return false;
+  }
   advance() { return this.tokens[this.pos++]; }
   check(type, value) {
     const t = this.peek();
@@ -500,7 +514,9 @@ class Parser {
     if (!this.check("OP", "{")) {
       throw new SimError(`Expected '{' to start the body of ${nameTok.value}() but found ${describeToken(this.peek())}`, this.peek().line);
     }
+    this.currentFunction = fn;
     fn.body = this.parseBlock();
+    this.currentFunction = null;
     fn.endLine = this.tokens[this.pos - 1].line;
     return fn;
   }
@@ -518,6 +534,13 @@ class Parser {
     if (this.check("OP", "[")) throw new SimError(ARRAYS_UNSUPPORTED, this.peek().line);
     if (this.check("OP", "(")) {
       if (!LIBRARY_TYPES.has(spec.type) && !spec.type.startsWith("unknown:")) {
+        // void loop() { ... } turning up INSIDE setup() almost always means
+        // setup() is missing its closing } - say that, rather than something
+        // about declarations the learner never meant to write.
+        const outer = this.currentFunction;
+        if (outer && (spec.type === "void" || this.looksLikeFunctionDefinition())) {
+          throw new SimError(`Missing '}' - ${outer.name}() (started on line ${outer.line}) is never closed before ${d.name}() begins here. A function can't be written inside another function: add a } to end ${outer.name}() first.`, nameTok.line);
+        }
         throw new SimError(`To give '${d.name}' a starting value write = (for example int ${d.name} = 5;) - a function can't be declared inside another function`, this.peek().line);
       }
       // Constructor-style declaration, e.g. LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
@@ -1390,9 +1413,43 @@ class Analyzer {
 // Parses AND checks a sketch without running it. Throws a SimError for the
 // first problem; returns { program, warnings } when the sketch is valid.
 export function compile(source) {
-  const program = parse(source);
-  const { functions, warnings } = new Analyzer(program).analyze();
-  return { program, functions, warnings };
+  let program;
+  try {
+    program = parse(source);
+  } catch (e) {
+    if (e instanceof SimError) e.phase = "syntax";
+    throw e;
+  }
+  try {
+    const { functions, warnings } = new Analyzer(program).analyze();
+    return { program, functions, warnings };
+  } catch (e) {
+    if (e instanceof SimError) e.phase = "check";
+    throw e;
+  }
+}
+
+// What kind of mistake an error is - so the learner can tell "I mistyped
+// something" from "this simulator can't run that" from "it broke while
+// running":
+//   syntax      - the code doesn't follow C++'s grammar (a missing ; or })
+//   unsupported - possibly valid Arduino code the simulator can't run
+//   code        - grammatical, but doesn't make sense (unknown name, wrong type, const changed...)
+//   runtime     - the sketch started, then hit something impossible (dividing by zero)
+// Wiring problems never come from here - they come from the circuit check
+// (board.inspectCircuit), which reads the actual board.
+const UNSUPPORTED_PATTERN = /\b(isn't|aren't|is not) supported\b|\bnot supported\b/i;
+
+export function classifyError(e) {
+  const message = e instanceof SimError ? e.message : `Internal simulator error: ${e?.message ?? e}`;
+  const line = e instanceof SimError && e.line ? e.line : null;
+  let kind;
+  if (!(e instanceof SimError)) kind = "internal";
+  else if (UNSUPPORTED_PATTERN.test(message)) kind = "unsupported";
+  else if (e.phase === "syntax") kind = "syntax";
+  else if (e.phase === "check") kind = "code";
+  else kind = "runtime";
+  return { kind, line, message };
 }
 
 // ================================================================= evaluator
@@ -2040,13 +2097,21 @@ const realTiming = {
 // long AND millis() counts twice as fast, so the sketch can't tell the
 // difference). Nothing changes timing unless a caller asks for it.
 //
+// onError(message, { kind, line, message }) - the second argument says what
+// kind of error it was (see classifyError).
+//
 // Returns { stop() }. After stop() - or after an error - nothing scheduled by
 // this run can ever resume it: the pending timer is cancelled, and every
 // callback checks the run's own `stopped` flag first.
 export function startProgram(source, api, { onError, onStopped, onOutput, onWarning } = {}, options = {}) {
   const timing = { ...realTiming, ...(options.timing || {}) };
   const timeScale = options.timeScale > 0 ? options.timeScale : 1;
-  const report = (fn, message) => { try { fn?.(message); } catch (e) { console.error(e); } };
+  const report = (fn, ...args) => { try { fn?.(...args); } catch (e) { console.error(e); } };
+  const reportError = (e) => {
+    if (!(e instanceof SimError)) console.error(e);
+    const details = classifyError(e);
+    report(onError, details.message, details);
+  };
 
   let program;
   let functions;
@@ -2056,8 +2121,7 @@ export function startProgram(source, api, { onError, onStopped, onOutput, onWarn
     functions = compiled.functions;
     for (const w of compiled.warnings) report(onWarning, w);
   } catch (e) {
-    report(onError, e instanceof SimError ? e.message : `Internal simulator error: ${e.message}`);
-    if (!(e instanceof SimError)) console.error(e);
+    reportError(e);
     return { stop() {} };
   }
 
@@ -2093,12 +2157,12 @@ export function startProgram(source, api, { onError, onStopped, onOutput, onWarn
     }, Math.max(0, realMs));
   }
 
-  function finish(callback, message) {
+  function finish(callback, ...args) {
     if (stopped) return;
     stopped = true;
     if (pendingTimer !== null) timing.clearTimer(pendingTimer);
     pendingTimer = null;
-    report(callback, message);
+    report(callback, ...args);
   }
 
   // Resumes the sketch once simulated time reaches `wakeAt`. Browser timers
@@ -2122,7 +2186,8 @@ export function startProgram(source, api, { onError, onStopped, onOutput, onWarn
         result = gen.next();
       } catch (e) {
         if (!(e instanceof SimError)) console.error(e);
-        finish(onError, e instanceof SimError ? e.message : `Internal simulator error: ${e.message}`);
+        const details = classifyError(e);
+        finish(onError, details.message, details);
         return;
       }
       if (result.done) {

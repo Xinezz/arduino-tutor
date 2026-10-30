@@ -74,14 +74,14 @@ export function recordingHardware(clock, inputs = {}) {
 
 // Runs `source` for `ms` of simulated time and returns everything it did.
 export function runSketch(source, { ms = 1000, inputs, timeScale, clock = createFakeTiming(), hardware } = {}) {
-  const result = { output: "", errors: [], warnings: [], stopped: [] };
+  const result = { output: "", errors: [], errorDetails: [], warnings: [], stopped: [] };
   const hw = hardware || recordingHardware(clock, inputs);
   result.controller = startProgram(
     source,
     hw,
     {
       onOutput: (t) => { result.output += t; },
-      onError: (e) => result.errors.push(e),
+      onError: (e, details) => { result.errors.push(e); result.errorDetails.push(details); },
       onWarning: (w) => result.warnings.push(w),
       onStopped: (m) => result.stopped.push(m),
     },

@@ -105,6 +105,15 @@ Undeclared names get a spelling suggestion when one is close:
 
 ## Errors and warnings
 
+Every error is labelled with its **kind**, so a learner can tell a typo from a
+simulator limit: *Syntax error* (the code breaks C++ grammar - a missing `;`
+or `}`), *Code problem* (grammatical, but something doesn't make sense - an
+undeclared name, a type mismatch, a changed `const`), *Not supported in this
+simulator* (possibly valid Arduino code the simulator can't run) or *Runtime
+error* (it broke while running). The line is highlighted in the editor, and
+`js/simulator/feedback.js` adds a hint and how to carry on. Wiring problems
+are never reported as code errors - they come from the circuit check below.
+
 **Errors** stop the sketch (or prevent it starting). They cover syntax mistakes,
 undeclared names, wrong argument counts, type mismatches, assigning to a
 `const` (the message gives the line the constant was declared on),
@@ -168,19 +177,66 @@ match real hardware:
 
 Deliberate simplifications:
 
+- **LEDs** follow the direction of current: one lights when its long leg (+,
+  anode) reaches something HIGH - an `OUTPUT` pin that is HIGH (directly or
+  through a resistor), or 5V while the board is running - and its short leg
+  (−, cathode) reaches something LOW (GND, or an `OUTPUT` pin that is LOW).
+  Backwards, half-wired or with both legs on the same connection, it stays
+  dark. An LED on a pin that only has its pull-up on is drawn as off (on real
+  hardware it glows very faintly).
+- **Stop** is like unplugging the board: every pin powers down, so nothing
+  stays lit or keeps sounding.
+- A **buzzer** only sounds when its − leg reaches GND, and `tone()` on a pin
+  with no buzzer makes no sound - exactly as on a real board.
+
+Deliberate simplifications - each one is pointed out by the **circuit check**
+(Check Circuit) as a "REAL BOARD" note on the learner's own circuit, and listed
+in the in-app **Simulator Limits** window, so none of them is silent:
+
+- No current or voltage is calculated. An LED with no series resistor still
+  lights (a real one would burn out), and a 10kΩ resistor doesn't make it
+  dimmer. The circuit check detects both from the wiring.
 - There is one GND net and one 5V net. Breadboard rails are live without
-  jumpering them to the Arduino first.
-- An LED lights when its long leg (anode) reaches an `OUTPUT` pin that is HIGH
-  (directly or through a resistor) and its short leg (cathode) reaches GND.
-  Currents and voltages aren't calculated, so a **missing current-limiting
-  resistor is not detected**. The lessons teach why it's needed. An LED on a pin
-  that only has its pull-up on is drawn as off (on real hardware it glows very
-  faintly).
+  jumpering them to the Arduino first (top and bottom rails are joined too).
+- Parts don't plug into the breadboard by sitting on it: every leg is
+  connected with a wire. Holes in the same 5-hole column are connected, like a
+  real breadboard.
+- Potentiometers, light sensors, the temperature sensor, IR sensor, servo and
+  ultrasonic module work without their power / GND legs; the LCD needs no
+  wires at all.
+- A pressed button is only read by input pins; current doesn't flow through it
+  to light an LED directly.
 - Sensors produce clean values from their on-screen sliders (no noise), except
   for floating digital pins.
 - Unwired header pins (IOREF, RESET, 3V3, VIN) are drawn but not connected to
   anything.
 - Timers, interrupts, EEPROM, I2C, SPI and sleep modes are not simulated.
+
+## The circuit check
+
+`board.inspectCircuit()` reads the board's real connections (wires, breadboard
+columns, rails, resistors) and returns findings at four levels: **problem**
+(can't work as wired), **real** (works here, but not on a real board),
+**info** and **ok**. It only reports what's on the board - never a guess about
+what the learner meant. It covers:
+
+- LEDs: not wired, backwards, a leg not reaching GND or a pin, both legs
+  joined, no series resistor, a 10kΩ resistor, wired to 5V (always on), and a
+  pin the last run never set to `OUTPUT`.
+- Short circuits: 5V wired straight to GND; an `OUTPUT` pin wired straight to
+  GND or 5V.
+- Buttons: half-wired, both legs joined, floating when released (to 5V with no
+  pull-down, or to GND with `INPUT` and no pull-up), and `INPUT_PULLUP` with a
+  button to 5V.
+- RGB LEDs, buzzers, potentiometers, light/temperature/IR/ultrasonic sensors,
+  servos and the LCD: missing connections, analog sensors on digital pins, and
+  the power legs a real part would need.
+- Breadboard rails used without a jumper from the Arduino's GND / 5V pin.
+- Pins the last run used as outputs with nothing wired to them.
+
+When Run is pressed, any wiring **problems** are also printed in the Serial
+Monitor (labelled "WIRING PROBLEM", in their own color) before the sketch
+starts.
 
 ## Plan: array support
 

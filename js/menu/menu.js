@@ -12,7 +12,8 @@
 // happens next. onStart(name, target, avatarId): name is a freshly-typed
 // string on the new-game form, or null when nothing needs saving; target is
 // undefined (resume the last lesson, the default), "dashboard", "map", "shop",
-// or a specific lesson id to jump straight to; avatarId is the character the
+// "first-circuit" (the guided first build), or a specific lesson id to jump
+// straight to; avatarId is the character the
 // player picked on the new-game form.
 
 import { renderMentorBox, getMenuGreeting } from "../npc/mentor.js";
@@ -114,23 +115,43 @@ function renderFirstTimeScreen(container, progress, onStart, onPoke) {
   card.appendChild(el("div", "menu-input-label", "Pick your character"));
   card.appendChild(buildAvatarPicker(progress, avatarId, (id) => { avatarId = id; }));
 
-  const startBtn = el("button", "btn btn-complete menu-primary-btn", "Start Your Shift");
-  startBtn.disabled = true;
-  startBtn.dataset.sfx = "none";
-  card.appendChild(startBtn);
+  // Two ways in. A complete beginner is steered to the hands-on guided
+  // build first (it explains everything as it goes); the lessons are right
+  // there for anyone who'd rather read first.
+  card.appendChild(el("div", "menu-input-label", "Where do you want to start?"));
+  const startBtn = el("button", "btn btn-complete menu-primary-btn", "Start your first circuit");
+  startBtn.title = "A guided 10-minute build: wire an LED, write the code, make it blink. No hardware or experience needed.";
+  const lessonsBtn = el("button", "btn btn-secondary menu-secondary-btn", "Start with Lesson 1");
+  lessonsBtn.title = "Read the course from the beginning: what an Arduino is, then pins, code and circuits.";
+  for (const b of [startBtn, lessonsBtn]) {
+    b.disabled = true;
+    b.dataset.sfx = "none";
+    card.appendChild(b);
+  }
+  const startNote = el("p", "menu-start-note", "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step. Type your name first.");
+  card.appendChild(startNote);
 
   input.addEventListener("input", () => {
-    startBtn.disabled = input.value.trim().length === 0;
+    const empty = input.value.trim().length === 0;
+    startBtn.disabled = empty;
+    lessonsBtn.disabled = empty;
+    startNote.textContent = empty
+      ? "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step. Type your name first."
+      : "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step.";
   });
 
-  function submit() {
-    if (input.value.trim().length === 0) return;
+  function submit(target) {
+    if (input.value.trim().length === 0) {
+      input.focus();
+      return;
+    }
     playSfx("confirm");
-    onStart?.(input.value, undefined, avatarId);
+    onStart?.(input.value, target, avatarId);
   }
-  startBtn.addEventListener("click", submit);
+  startBtn.addEventListener("click", () => submit("first-circuit"));
+  lessonsBtn.addEventListener("click", () => submit(undefined));
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submit();
+    if (e.key === "Enter") submit("first-circuit");
   });
 
   input.focus();
@@ -228,6 +249,10 @@ function buildHeroText(progress, onStart, onPoke) {
 
   const actions = el("div", "menu-hero-actions");
   actions.appendChild(circleButton({ sprite: "play", label: "Continue", kind: "primary", onClick: () => onStart?.(null) }));
+  // Until it's been done once, the guided first build stays one click away.
+  if (!progress.firstCircuitDone) {
+    actions.appendChild(circleButton({ sprite: "led", label: "First Circuit", kind: "secondary", onClick: () => onStart?.(null, "first-circuit") }));
+  }
   actions.appendChild(circleButton({ sprite: "map", label: "World Map", kind: "secondary", onClick: () => onStart?.(null, "map") }));
   actions.appendChild(circleButton({ sprite: "bag", label: "Shop", kind: "secondary", onClick: () => onStart?.(null, "shop") }));
   actions.appendChild(circleButton({ sprite: "person", label: "Profile", kind: "secondary", badge: pending || null, onClick: () => onStart?.(null, "dashboard") }));

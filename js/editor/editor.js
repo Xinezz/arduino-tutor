@@ -29,10 +29,39 @@ export function createEditor(textareaEl) {
   // has actually loaded, which is exactly when a refresh needs to happen.
   document.fonts.ready.then(() => cm.refresh());
 
+  // The line an error points at gets a red band (and a marker in the gutter)
+  // until the code is edited or run again - so "Line 7" in the Serial Monitor
+  // is never a hunt.
+  let markedLine = null;
+  function clearMark() {
+    if (markedLine === null) return;
+    cm.removeLineClass(markedLine, "background", "cm-error-line");
+    cm.removeLineClass(markedLine, "gutter", "cm-error-gutter");
+    markedLine = null;
+  }
+  function markErrorLine(line) {
+    clearMark();
+    if (!line || line < 1 || line > cm.lineCount()) return;
+    markedLine = cm.getLineHandle(line - 1);
+    cm.addLineClass(markedLine, "background", "cm-error-line");
+    cm.addLineClass(markedLine, "gutter", "cm-error-gutter");
+    cm.scrollIntoView({ line: line - 1, ch: 0 }, 60);
+  }
+  cm.on("change", clearMark);
+
+  const listeners = new Set();
+  cm.on("change", () => listeners.forEach((fn) => fn()));
+
   return {
     getValue: () => cm.getValue(),
     setValue: (text) => cm.setValue(text),
     reset: () => cm.setValue(DEFAULT_TEMPLATE),
     refresh: () => cm.refresh(), // needed if the editor was hidden when created
+    // true when there's nothing worth losing (still the starting template)
+    isTemplate: () => cm.getValue().replace(/\s+/g, "") === DEFAULT_TEMPLATE.replace(/\s+/g, ""),
+    markErrorLine,
+    clearMark,
+    onChange: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+    focus: () => cm.focus(),
   };
 }

@@ -21,6 +21,9 @@ export const level1Lessons = [
       { type: "note", text:
         "As a Mechatronics student, think of Arduino as the \"brain\" you bolt onto a mechanical " +
         "system so it can sense the world (buttons, sensors) and act on it (motors, LEDs, buzzers)." },
+      { type: "action", action: "first-circuit", label: "Start your first circuit", text:
+        "Prefer to learn by doing? Build a blinking LED on the virtual Arduino first - a guided " +
+        "10-minute walkthrough, no hardware needed. These lessons will be right here when you're back." },
     ],
   },
 

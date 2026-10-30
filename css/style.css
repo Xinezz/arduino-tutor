@@ -1122,6 +1122,59 @@ h1, h2, h3 {
    what was meant - amber, so they read as advice rather than a crash. */
 .sim-console .sim-warn { color: var(--yellow); }
 .sim-console .sim-status { color: var(--text-dim); }
+/* An error is a little block: a heading that names the KIND of problem
+   (syntax / code / not supported / runtime), the message, a hint, and how
+   to carry on - each in its own color so it scans at a glance. */
+.sim-console .sim-error-title { font-weight: 700; letter-spacing: 0.04em; }
+.sim-console .sim-hint { color: var(--accent); }
+.sim-console .sim-recovery { color: var(--text); }
+/* Wiring problems come from the circuit check, not the code - a different
+   color (and an "⚠ WIRING PROBLEM" label) so the two are never confused. */
+.sim-console .sim-wiring { color: var(--orange, #ff9f4a); }
+
+/* The line an error points at, in the editor. */
+.CodeMirror .cm-error-line { background: color-mix(in srgb, var(--red) 22%, transparent); }
+.CodeMirror .cm-error-gutter { background: var(--red); }
+.CodeMirror .cm-error-gutter .CodeMirror-linenumber { color: #fff; }
+
+/* ---------- Circuit check report ---------- */
+.circuit-report {
+  margin-top: 12px;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.circuit-report-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.circuit-report-head strong { font-family: var(--font-pixel); font-size: 0.62rem; color: var(--accent); }
+.circuit-report-summary { color: var(--text-dim); font-size: 0.85rem; flex: 1; }
+.circuit-report-close {
+  background: none; border: none; color: var(--text-dim); font-size: 1.3rem; line-height: 1;
+  cursor: pointer; padding: 0 4px;
+}
+.circuit-report-close:hover { color: var(--text); }
+.circuit-report-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.cr-item {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline;
+  padding: 7px 9px; border-radius: var(--radius); border-left: 4px solid var(--border);
+  background: var(--panel-alt);
+}
+.cr-item p { grid-column: 1 / -1; margin: 4px 0 0; font-size: 0.88rem; line-height: 1.45; }
+.cr-tag { font-family: var(--font-pixel); font-size: 0.5rem; padding: 3px 5px; border-radius: 3px; white-space: nowrap; }
+.cr-subject { font-weight: 600; font-size: 0.88rem; }
+.cr-problem { border-left-color: var(--red); }
+.cr-problem .cr-tag { background: var(--red); color: #fff; }
+.cr-real { border-left-color: var(--orange, #ff9f4a); }
+.cr-real .cr-tag { background: var(--orange, #ff9f4a); color: #1a1205; }
+.cr-info { border-left-color: var(--accent-dim, var(--border)); }
+.cr-info .cr-tag { background: var(--panel); color: var(--text-dim); border: 1px solid var(--border); }
+.cr-ok { border-left-color: var(--green); }
+.cr-ok .cr-tag { background: var(--green); color: var(--on-green); }
+.circuit-report-foot { margin: 8px 0 0; font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
+
+/* The Simulator Limits window. */
+.limits-list { margin: 4px 0 12px; padding-left: 18px; display: grid; gap: 6px; line-height: 1.45; font-size: 0.9rem; }
+.limits-body a { color: var(--accent); }
 
 /* ---------- Buttons ---------- */
 /* Two different speeds on purpose: hover eases in like the button is
@@ -1177,6 +1230,17 @@ h1, h2, h3 {
 }
 .btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 15%, transparent); }
 .btn-danger:not(:disabled) { animation: btn-pulse-red 1.6s ease-in-out infinite; }
+
+/* Destructive actions (Reset Code, Clear Wiring - they throw work away and
+   ask first): red text with a DASHED border, so they read as "careful"
+   without looking like Stop's solid pulsing outline. */
+.btn-destructive {
+  background: transparent;
+  color: var(--red);
+  border: 2px dashed color-mix(in srgb, var(--red) 70%, transparent);
+  box-shadow: none;
+}
+.btn-destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 14%, transparent); border-style: solid; }
 
 .btn-complete {
   background: var(--green);
@@ -1707,3 +1771,123 @@ h1, h2, h3 {
   border: 1px solid var(--border);
   padding: 4px 10px;
 }
+
+/* ---------- "Start your first circuit": the guided walkthrough ----------
+   Lives in Free Practice. On a wide screen the guide is a column beside the
+   editor and board (sticky, so the instructions stay in view while you
+   wire); on a narrow one it sits above them. */
+.practice-intro-cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.practice-intro-cta span { color: var(--text-dim); font-size: 0.9rem; line-height: 1.45; flex: 1 1 260px; }
+
+#view-practice .main-panel-wide:has(> .practice-workspace.is-guided) { max-width: 1440px; }
+.practice-workspace.is-guided {
+  display: grid;
+  grid-template-columns: minmax(290px, 370px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.practice-workspace.is-guided .guide-panel {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  margin-top: 28px;
+}
+@media (max-width: 1100px) {
+  .practice-workspace.is-guided { display: block; }
+  .practice-workspace.is-guided .guide-panel { position: static; max-height: none; margin-top: 18px; }
+}
+
+.guide-panel {
+  background: var(--panel);
+  border: 3px solid var(--accent-dim);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+  box-shadow: var(--shadow-card);
+}
+.guide-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.guide-eyebrow { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--accent); letter-spacing: 0.04em; line-height: 1.6; }
+.guide-exit { font-size: 0.5rem; padding: 6px 8px; }
+.guide-dots { display: flex; gap: 4px; margin: 10px 0 2px; }
+.guide-dots span { flex: 1; height: 5px; background: var(--border); }
+.guide-dots span.is-done { background: var(--green); }
+.guide-dots span.is-current { background: var(--accent); }
+.guide-title { font-family: var(--font-pixel); font-size: 0.8rem; line-height: 1.6; margin: 12px 0 6px; }
+.guide-body p { line-height: 1.55; margin: 8px 0; font-size: 0.93rem; }
+.guide-points { padding-left: 18px; margin: 8px 0; display: grid; gap: 7px; line-height: 1.5; font-size: 0.92rem; }
+.guide-points strong { color: var(--accent); }
+.guide-checklist { list-style: none; padding: 0; display: grid; gap: 6px; margin: 10px 0; }
+.guide-checklist li {
+  display: flex; gap: 8px; align-items: baseline; padding: 7px 9px;
+  background: var(--panel-alt); border-radius: var(--radius); font-size: 0.92rem; line-height: 1.4;
+}
+.guide-checklist li.is-done { color: var(--green); }
+.guide-check { width: 1.2em; flex: none; text-align: center; font-weight: 700; }
+.guide-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.guide-finish .btn { flex: 1 1 140px; }
+.guide-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.guide-code { font-size: 0.98rem; white-space: pre; overflow-x: auto; margin: 10px 0; }
+
+.guide-predict { border: 2px solid var(--accent-dim); border-radius: var(--radius); padding: 10px; margin: 12px 0; }
+.guide-predict-q { font-weight: 600; margin-bottom: 8px; line-height: 1.45; }
+.guide-predict-options { display: grid; gap: 6px; }
+.guide-option {
+  text-align: left; background: var(--panel-alt); color: var(--text);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 8px 10px; font: inherit; font-size: 0.9rem; line-height: 1.4; cursor: pointer;
+}
+.guide-option:hover:not(:disabled), .guide-option:focus-visible { border-color: var(--accent); }
+.guide-option:disabled { cursor: default; opacity: 0.6; }
+.guide-option.is-chosen { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt)); }
+.guide-option.is-correct { opacity: 1; border-color: var(--green); }
+.guide-option.is-correct::after { content: "  ✔ what happened"; color: var(--green); font-size: 0.8rem; }
+.guide-predict-note { font-size: 0.85rem; color: var(--text-dim); margin: 8px 0 0; }
+.guide-body .guide-good, .guide-verdict.is-right { color: var(--green); }
+.guide-body .guide-warn, .guide-verdict.is-wrong { color: var(--yellow); }
+.guide-body .guide-dim { color: var(--text-dim); font-size: 0.85rem; }
+.guide-explain {
+  background: color-mix(in srgb, var(--green) 8%, var(--panel-alt));
+  border-left: 4px solid var(--green);
+  padding: 8px 12px; border-radius: var(--radius); margin: 10px 0;
+}
+.guide-explain-title { font-family: var(--font-pixel); font-size: 0.55rem; color: var(--green); margin: 4px 0; line-height: 1.6; }
+
+/* "Show me where": a few pulses of outline around the control or area. */
+.guide-highlight { outline: 3px solid var(--accent); outline-offset: 4px; animation: guide-pulse 0.8s ease-in-out 3; }
+@keyframes guide-pulse { 50% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .guide-highlight { animation: none; } }
+
+/* A call-out inside a lesson's text, with its own button. */
+.lesson-action {
+  border: 2px dashed color-mix(in srgb, var(--green) 70%, transparent);
+  border-radius: var(--radius);
+  padding: 12px 14px; margin: 16px 0;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.lesson-action p { margin: 0; flex: 1 1 280px; line-height: 1.5; }
+
+/* The new-game form's second way in, and its note. */
+.menu-secondary-btn { width: 100%; margin-top: 8px; font-size: 0.7rem; padding: 9px; }
+.menu-start-note { font-size: 0.8rem; color: var(--text-dim); margin: 10px 0 0; text-align: center; line-height: 1.45; }
+
+/* The guide bar: sticks to the bottom of the screen while the guide panel
+   is scrolled out of sight (narrow screens), so the next step is never lost. */
+.guide-minibar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+}
+.guide-minibar[hidden] { display: none; }
+.guide-minibar-text { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.guide-minibar-step { font-family: var(--font-pixel); font-size: 0.48rem; color: var(--accent); line-height: 1.6; }
+.guide-minibar-todo { font-size: 0.88rem; line-height: 1.35; }
+.guide-minibar .btn { flex: none; }
