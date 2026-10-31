@@ -360,12 +360,37 @@ export function createSimulatorPanel({
     emit("stop");
   });
 
+  // Which parts the "+ Add" list offers (null = all of them). Lessons only
+  // offer what the course has introduced so far, so a beginner isn't faced
+  // with twelve unfamiliar parts at once; the list says more are coming.
+  const morePartsOption = document.createElement("option");
+  morePartsOption.disabled = true;
+  morePartsOption.value = "";
+  morePartsOption.textContent = "More parts in later modules";
+  function setParts(parts) {
+    for (const o of componentPickerEl.options) {
+      if (o === morePartsOption) continue;
+      const allowed = !parts || parts.includes(o.value);
+      o.hidden = !allowed;
+      o.disabled = !allowed;
+    }
+    if (parts) componentPickerEl.appendChild(morePartsOption);
+    else morePartsOption.remove();
+    if (!componentPickerEl.selectedOptions[0] || componentPickerEl.selectedOptions[0].disabled) {
+      componentPickerEl.value = [...componentPickerEl.options].find((o) => !o.disabled)?.value ?? "";
+    }
+    componentPickerEl.title = parts
+      ? "Parts introduced so far in the course - every part is available in Free Practice"
+      : "Choose a part to put on the breadboard";
+  }
+
   return {
     editor,
     board,
     stopRun,
     runCode,
     showReport,
+    setParts,
     isRunning: () => activeRun !== null,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };

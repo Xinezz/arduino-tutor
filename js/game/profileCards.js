@@ -46,7 +46,8 @@ export function buildPlayerCard(progress, { onChangeAvatar, animate = true } = {
   else { fill.style.transition = "none"; fill.style.width = `${pct}%`; }
 
   const chips = el("div", "player-chips");
-  const trophyCount = Object.keys(progress.achievements || {}).length;
+  // only trophies that still exist (older saves can hold retired ones)
+  const trophyCount = ACHIEVEMENTS.filter((a) => progress.achievements?.[a.id]).length;
   const chipData = [
     ["coin", `${progress.credits}`, "credits", progress.credits < 0 ? "is-debt" : ""],
     ["flame", `${progress.streak || 0}`, "day streak", ""],

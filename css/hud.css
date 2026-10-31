@@ -188,6 +188,8 @@
 }
 .hud-ico { display: inline-flex; }
 .hud-coins { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 55%, var(--border)); min-width: 74px; }
+.hud-chip-btn:hover { border-color: var(--yellow); }
+.hud-chip-btn:active { transform: translate(2px, 2px); box-shadow: none; }
 .hud-coins.is-debt { color: var(--red); border-color: color-mix(in srgb, var(--red) 60%, var(--border)); }
 .hud-streak { color: var(--text-dim); }
 .hud-streak.is-hot { color: #ff9a3c; border-color: color-mix(in srgb, #ff9a3c 55%, var(--border)); }

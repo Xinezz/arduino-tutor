@@ -39,7 +39,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // getCode() -> the editor's code; getFindings() -> the lesson board's
 // circuit check findings; onCheckError(details) -> a check hit a code error
 // (app.js highlights the line in the editor).
-export function renderChallenge(container, challenge, { onComplete, onSpend, alreadySolved = false, getCode, getFindings, onCheckError }) {
+// onCheck(challengeId, passed) -> every check, for progress tracking.
+export function renderChallenge(container, challenge, { onComplete, onSpend, alreadySolved = false, getCode, getFindings, onCheckError, onCheck }) {
   container.innerHTML = "";
   if (!challenge) return;
 
@@ -328,6 +329,7 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
       result = { status: "error", items: [], error: { title: "Simulator problem", line: null, detail: err.message, hint: null, recovery: "Try again - if it keeps happening, it's a bug in the checker, not your code." } };
     }
     showCheck(result);
+    onCheck?.(challenge.id, result.status === "pass");
     if (result.status === "error") onCheckError?.(result.error);
     if (result.status === "pass") {
       playSfx("correct");

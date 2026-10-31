@@ -18,6 +18,7 @@ import {
   setPlayerName,
   markChallengeCompleted,
   markFirstCircuitDone,
+  recordCheck,
   recordQuizResult,
   markProjectStageDone,
   touchStreak,
@@ -46,7 +47,13 @@ import {
   getChallengeForLesson,
   getFirstLessonId,
   setFlagButton,
+  renderNextStep,
+  sectionHeading,
 } from "./lessons/render.js";
+import { moduleParts } from "./lessons/levels.js";
+import { renderLearnView } from "./learn/learnView.js";
+import { renderLearningProgress } from "./progress/progressView.js";
+import { nextLesson, missingNeeds } from "./progress/learning.js";
 import { renderChallenge } from "./lessons/challenge.js";
 import { getQuizForLesson } from "./quiz/data.js";
 import { renderQuiz } from "./quiz/quiz.js";
@@ -113,6 +120,7 @@ const sidebarCollapseBtn = document.getElementById("sidebar-collapse-btn");
 const layoutEl = document.querySelector(".layout");
 const viewTabsEl = document.getElementById("view-tabs");
 const viewEls = {
+  learn: document.getElementById("view-learn"),
   lessons: document.getElementById("view-lessons"),
   map: document.getElementById("view-map"),
   projects: document.getElementById("view-projects"),
@@ -120,8 +128,13 @@ const viewEls = {
   shop: document.getElementById("view-shop"),
   dashboard: document.getElementById("view-dashboard"),
 };
-// The order the tabs appear in - also what the number-key shortcuts index into.
-const VIEW_ORDER = ["lessons", "map", "projects", "practice", "shop", "dashboard"];
+// The four tabs, in order - also what the number-key shortcuts index into.
+const VIEW_ORDER = ["learn", "projects", "practice", "dashboard"];
+// Which tab is lit for each screen: a lesson and the map belong to Learn,
+// the shop to Progress (it's where your rewards are).
+const TAB_FOR_VIEW = { learn: "learn", lessons: "learn", map: "learn", projects: "projects", practice: "practice", dashboard: "dashboard", shop: "dashboard" };
+const learnPanelEl = document.getElementById("learn-panel");
+const nextStepEl = document.getElementById("next-step-section");
 const projectsPanelEl = document.getElementById("projects-panel");
 const dashboardPanelEl = document.getElementById("dashboard-panel");
 const mapPanelEl = document.getElementById("map-panel");
@@ -178,6 +191,7 @@ let bossActive = false; // is the lesson on screen guarding an unbeaten boss? (p
 const hud = createHud({
   onOpenProfile: () => switchView("dashboard"),
   onOpenSettings: () => openOptions(),
+  onOpenShop: () => switchView("shop"),
 });
 const rewards = createRewardFlow({ getProgress: () => progress, hud });
 hud.update(progress, { animate: false });
@@ -344,12 +358,39 @@ async function tryLessonCode(code) {
   setStatus("Example loaded into the editor - press Run to try it, then change something and run it again.");
 }
 
-// Buttons inside the lesson text (render.js) - one listener for all of them,
-// since some (a prediction's Try it) only appear after the learner answers.
-lessonContentEl.addEventListener("click", (e) => {
+// A lesson's starter circuit ({ type: "circuit" } in the lesson data) goes
+// onto the lesson's own board.
+async function loadLessonCircuit(spec) {
+  const b = lessonsPanel.board;
+  if (b.listComponents().length || b.wireCount()) {
+    const yes = await confirmDialog({
+      title: "REPLACE YOUR CIRCUIT?",
+      body: "This puts the lesson's circuit on the board, replacing the parts and wires that are there now. Your code isn't touched.",
+      confirmLabel: "Replace It",
+    });
+    if (!yes) return;
+  }
+  lessonsPanel.stopRun();
+  editorSectionEl.hidden = false;
+  simulatorSectionEl.hidden = false;
+  editor.refresh();
+  b.loadCircuit(spec);
+  simulatorSectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatus("Circuit loaded onto the board below.");
+}
+
+// Buttons inside a lesson (render.js) - one listener for all of them, since
+// some (a prediction's Try it) only appear after the learner answers, and the
+// "What's next" card sits below the lesson text.
+mainPanelEl.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
-  if (btn?.dataset.action === "first-circuit") startFirstCircuit();
-  else if (btn?.dataset.action === "try-code") tryLessonCode(btn.dataset.code);
+  const action = btn?.dataset.action;
+  if (action === "first-circuit") startFirstCircuit();
+  else if (action === "try-code") tryLessonCode(btn.dataset.code);
+  else if (action === "load-circuit") loadLessonCircuit(JSON.parse(btn.dataset.circuit));
+  else if (action === "open-lesson") goToLesson(btn.dataset.lessonId);
+  else if (action === "open-practice") switchView("practice");
+  else if (action === "open-course") switchView("learn");
 });
 
 // Desktop-only sidebar collapse (separate from the mobile drawer above) -
@@ -400,9 +441,16 @@ function switchView(viewName) {
     el.hidden = name !== viewName;
   }
   viewTabsEl.querySelectorAll(".view-tab").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.view === viewName);
+    btn.classList.toggle("active", btn.dataset.view === TAB_FOR_VIEW[viewName]);
   });
-  if (viewName === "lessons") {
+  if (viewName === "learn") {
+    renderLearnView(learnPanelEl, progress, {
+      onOpenLesson: goToLesson,
+      onOpenMap: () => switchView("map"),
+      onStartFirstCircuit: startFirstCircuit,
+    });
+    learnPanelEl.scrollTop = 0;
+  } else if (viewName === "lessons") {
     editor.refresh(); // CodeMirror needs this after being hidden/shown to size itself correctly
   } else if (viewName === "practice") {
     practicePanel.editor.refresh(); // same deal - was hidden, needs to re-measure now that it's visible
@@ -449,6 +497,7 @@ function renderProjectsView() {
   } else {
     renderProjectList(projectsPanelEl, progress, {
       onSelectProject: (id) => { currentProjectId = id; renderProjectsView(); },
+      onOpenLesson: goToLesson,
     });
   }
   replayFadeIn(projectsPanelEl);
@@ -464,9 +513,33 @@ function renderMapView() {
   });
 }
 
+// The Progress page: what you've learned first (progressView.js), then the
+// rewards side - rank, missions, trophies, and the way to the shop and map.
 function renderDashboardView({ refresh = false } = {}) {
   const top = dashboardPanelEl.scrollTop;
-  renderDashboard(dashboardPanelEl, progress, {
+  dashboardPanelEl.innerHTML = "";
+  const learningEl = document.createElement("div");
+  const rewardsHead = document.createElement("div");
+  rewardsHead.className = "rewards-head";
+  const rewardsTitle = document.createElement("h2");
+  rewardsTitle.className = "dashboard-section-title";
+  rewardsTitle.textContent = "Rewards, missions and trophies";
+  const shopBtn = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-secondary", textContent: "Parts Shop" });
+  shopBtn.addEventListener("click", () => switchView("shop"));
+  const mapBtn = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-secondary", textContent: "World Map" });
+  mapBtn.addEventListener("click", () => switchView("map"));
+  rewardsHead.append(rewardsTitle, shopBtn, mapBtn);
+  const rewardsEl = document.createElement("div");
+  dashboardPanelEl.append(learningEl, rewardsHead, rewardsEl);
+  renderLearningProgress(learningEl, progress, {
+    onOpenLesson: goToLesson,
+    onQuizResult: (quizId, success, topic) => {
+      const before = rewards.snapshot();
+      progress = recordQuizResult(progress, quizId, success, topic);
+      if (success) rewards.settle(before, { kind: "quiz" });
+    },
+  });
+  renderDashboard(rewardsEl, progress, {
     refresh,
     onReviewTopic: (lessonId) => {
       switchView("lessons");
@@ -604,7 +677,7 @@ function openLesson(lessonId) {
   const challengeSolved = challenge ? progress.completedChallenges.includes(challenge.id) : false;
   bossActive = challenge?.difficulty === "boss" && !challengeSolved;
 
-  renderLesson(lessonContentEl, lesson, isCompleted, isFlagged);
+  const sectionCount = renderLesson(lessonContentEl, lesson, isCompleted, isFlagged, progress);
   renderMentorBox(
     mentorBoxEl,
     bossActive
@@ -621,6 +694,10 @@ function openLesson(lessonId) {
     getCode: () => editor.getValue(),
     getFindings: () => lessonsPanel.board?.inspectCircuit().findings ?? null,
     onCheckError: (err) => editor.markErrorLine(err.line),
+    onCheck: (challengeId, passed) => {
+      progress = recordCheck(progress, challengeId, passed);
+      renderNextStep(nextStepEl, lesson, progress);
+    },
     onComplete: (challengeId, { at, isBoss } = {}) => {
       const firstTime = !progress.completedChallenges.includes(challengeId);
       const before = rewards.snapshot();
@@ -662,9 +739,19 @@ function openLesson(lessonId) {
   // in progress keeps running in the background either way (editor.js/board.js
   // are shared singletons, not recreated per lesson) - it's just not shown
   // while you're reading a lesson that doesn't need it.
-  editorSectionEl.hidden = !challenge;
-  simulatorSectionEl.hidden = !challenge;
-  if (challenge) editor.refresh(); // CodeMirror needs this after being unhidden to size itself correctly
+  // Hands-on lessons (a guided activity or a starter circuit) show it too.
+  const handsOn = !!challenge || lesson.body.some((b) => b.type === "guided" || b.type === "circuit");
+  editorSectionEl.hidden = !handsOn;
+  simulatorSectionEl.hidden = !handsOn;
+  if (handsOn) editor.refresh(); // CodeMirror needs this after being unhidden to size itself correctly
+  // A beginner's board only offers the parts the course has introduced so
+  // far (Free Practice always has every part).
+  lessonsPanel.setParts(moduleParts(lesson.module));
+
+  // The template carries on below the lesson text: the challenge and the
+  // checkpoint get the next section numbers.
+  let sectionNumber = sectionCount;
+  if (challenge) challengeSectionEl.prepend(sectionHeading(++sectionNumber, "challenge"));
 
   const quiz = getQuizForLesson(lessonId);
   quizSectionEl.innerHTML = "";
@@ -695,7 +782,9 @@ function openLesson(lessonId) {
       // since it's a bigger moment than a routine correct answer.
       if (result.levelUp || result.rankUp) renderMentorBox(mentorBoxEl, reactionFor(result, ""));
     });
+    quizSectionEl.prepend(sectionHeading(++sectionNumber, "checkpoint"));
   }
+  renderNextStep(nextStepEl, lesson, progress);
 
   // wire up the prev/next/complete buttons that renderLesson just created
   lessonContentEl.querySelector('[data-action="prev"]')?.addEventListener("click", () => {
@@ -724,6 +813,8 @@ function openLesson(lessonId) {
         : `"${lesson.title}" marked as done. +${result.gained} credits!`
     );
     if (!alreadyDone) renderMentorBox(mentorBoxEl, reactionFor(result, getLessonCompleteLine()));
+    // straight to the next step, rather than back to the top of the lesson
+    nextStepEl.scrollIntoView({ behavior: "smooth", block: "center" });
   });
   // A lighter-weight update than the complete button above: flagging is
   // purely cosmetic bookkeeping, not a state change that affects credits,
@@ -742,7 +833,7 @@ function openLesson(lessonId) {
     if (nowFlagged) rewards.settle(before, { kind: "flag" }); // may complete a "flag a lesson" mission
     setStatus(
       nowFlagged
-        ? `"${lesson.title}" flagged for review - you'll see it in the sidebar and on your Profile.`
+        ? `"${lesson.title}" flagged for review - you'll see it in the sidebar and on your Progress page.`
         : `"${lesson.title}" unflagged.`
     );
   });
@@ -786,6 +877,25 @@ function openOptions() {
     },
     onHelp: () => openHelp(),
   });
+}
+
+// Opens a lesson from the course page, a "What's next" card, a review link...
+// If its prerequisites aren't done it says so first - a warning, not a wall.
+async function goToLesson(lessonId) {
+  const lesson = findLesson(lessonId);
+  if (!lesson) return;
+  const missing = missingNeeds(lesson, progress);
+  if (missing.length && !progress.viewedLessons.includes(lessonId)) {
+    const yes = await confirmDialog({
+      title: "BEFORE YOU START",
+      body: `"${lesson.title}" builds on ${missing.map((l) => `"${l.title}"`).join(" and ")}, which you haven't finished yet. You can open it anyway - it may just be harder to follow.`,
+      confirmLabel: "Open Anyway",
+      cancelLabel: "Not Yet",
+    });
+    if (!yes) return;
+  }
+  switchView("lessons");
+  openLesson(lessonId);
 }
 
 function stepLesson(direction) {
@@ -841,14 +951,14 @@ installKonami(() => {
 // "map" or "shop" open that screen, "first-circuit" starts the guided first
 // circuit in Free Practice, and anything else is treated as a lesson
 // id to jump directly into (e.g. the menu's "Review" on a flagged lesson).
-const SCREEN_TARGETS = new Set(["dashboard", "map", "shop", "first-circuit"]);
+const SCREEN_TARGETS = new Set(["learn", "practice", "dashboard", "map", "shop", "first-circuit"]);
 
 function startApp(target) {
   appStarted = true;
   hud.update(progress, { animate: false });
   hud.setProfileBadge(pendingRewardCount(progress));
   renderSidebar(sidebarEl, progress, openLesson);
-  const lessonTarget = target && !SCREEN_TARGETS.has(target) ? target : progress.lastLessonId || getFirstLessonId();
+  const lessonTarget = target && !SCREEN_TARGETS.has(target) ? target : nextLesson(progress)?.id ?? progress.lastLessonId ?? getFirstLessonId();
   openLesson(lessonTarget);
   editor.refresh(); // was created/sized while hidden behind the menu, needs a re-measure now that it's visible
   if (target === "first-circuit") startFirstCircuit();

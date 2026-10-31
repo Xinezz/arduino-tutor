@@ -582,6 +582,77 @@ Object.assign(CHALLENGE_CHECKS, {
   },
 });
 
+// ---- added with the 2.0 curriculum (Modules 1-3) ----
+
+// An LED lit straight from 5V (no pin, so no code), with its resistor.
+const ledFrom5v = (findings) => {
+  const goal = "Circuit: LED powered from 5V, through a resistor, to GND";
+  const led = goodPart(findings, "led", (d) => d.pin === null);
+  if (led && led.data.resistor) return item(true, goal, "", true);
+  if (led) return item(false, goal, "Circuit: the LED lights from 5V, but there's no resistor in the loop - a real LED would burn out. Add one in series.", true);
+  if (goodPart(findings, "led", (d) => d.pin !== null)) return item(false, goal, "Circuit: your LED is wired to a pin. For this one, power it straight from 5V (or the + rail) - no code needed.", true);
+  return item(false, goal, "Circuit: wire 5V → resistor → LED + (long leg), and the LED's − leg → GND. Check Circuit shows what's connected now.", true);
+};
+
+Object.assign(CHALLENGE_CHECKS, {
+  c25: {
+    ms: 6000,
+    circuit: [circuit.led(13)],
+    check(sim) {
+      const s = stretches(sim, 13);
+      const on = s.filter((x) => x.on);
+      const off = s.filter((x) => !x.on);
+      const lateOn = sim.hardware.events.some((e) => e.pin === 13 && e.level > 0 && e.t > 3500);
+      return [
+        outputItem(sim, 13, "LED"),
+        item(on.length === 2 && !lateOn, "It flashes exactly twice",
+          lateOn || on.length > 2 ? "It keeps on flashing - code in loop() repeats forever. Put the flashes in setup(), which runs only once." : on.length === 1 ? "It only flashes once - it needs a second on and off." : "The LED doesn't flash on and off - switch it HIGH, wait, then LOW."),
+        item(on.length >= 1 && on.every((x) => Math.abs(x.to - x.from - 1000) <= 40) && off.length >= 1 && Math.abs(off[0].to - off[0].from - 1000) <= 40,
+          "Each on and off lasts 1 second", "Each on and each off should last exactly 1 second - delay(1000)."),
+        item(sim.hardware.levelAt(13, 5900) === 0, "Then it stays off for good", "After the second flash the LED should end up off - finish with digitalWrite(13, LOW)."),
+      ];
+    },
+  },
+
+  c26: {
+    ms: 200,
+    circuit: [ledFrom5v],
+    check() {
+      return []; // no code to check - it's all wiring
+    },
+  },
+
+  c27: {
+    ms: 500,
+    circuit: [circuit.led(13)],
+    check(sim) {
+      return [
+        outputItem(sim, 13, "LED"),
+        item(sim.hardware.levelAt(13, 400) > 0, "Pin 13 is switched on", "Switch pin 13 on with digitalWrite(13, HIGH) - the lesson's example sketch does it."),
+      ];
+    },
+  },
+
+  c28: {
+    ms: 200,
+    check(sim, code) {
+      const read = (s) => s.printed.map((p) => p.text.match(/(\d+)\s*h\D*?(\d+)\s*min\D*?(\d+)\s*s\b/i)).find(Boolean)?.slice(1).map(Number) ?? null;
+      const first = read(sim);
+      // The same sketch with a different number: a hard-coded answer won't survive this.
+      const other = code.includes("3725") ? simulate(code.replace("3725", "4000"), { ms: 200, yieldCost: 2 }) : null;
+      const second = other && !other.errors.length ? read(other) : null;
+      return [
+        item(first, "It prints hours, minutes and seconds on one line", "Print the result on one line, like: 1 h 2 min 5 s"),
+        item(first?.join() === "1,2,5", "3725 seconds is 1 h 2 min 5 s",
+          first ? `It printed ${first[0]} h ${first[1]} min ${first[2]} s - 3725 seconds should be 1 h 2 min 5 s. An hour is 3600 s; what's left over (%) is split into minutes and seconds.` : "Print the converted time."),
+        item(uses(code, /%/) && uses(code, /\//), "It calculates with / and %", "Use / for how many whole hours or minutes fit, and % for what's left over."),
+        item(second?.join() === "1,6,40", "It works for any number - 4000 seconds gives 1 h 6 min 40 s",
+          !code.includes("3725") ? "Keep int totalSeconds = 3725; at the top, so the check can try a different number." : `With 4000 seconds it printed ${second ? second.join(", ") : "nothing"} - it should be 1 h 6 min 40 s. Calculate from totalSeconds instead of typing the answer in.`),
+      ];
+    },
+  },
+});
+
 export function hasCheck(challengeId) {
   return Object.prototype.hasOwnProperty.call(CHALLENGE_CHECKS, challengeId);
 }

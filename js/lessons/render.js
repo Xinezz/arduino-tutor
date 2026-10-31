@@ -9,6 +9,8 @@ import { levelName, levelTitle, levelIcon, levelNumber } from "./levels.js";
 import { icon } from "../game/sprites.js";
 import { CREDIT_REWARDS } from "../progress/progress.js";
 import { getQuizForLesson } from "../quiz/data.js";
+import { renderDemo } from "./demos.js";
+import { lessonPosition, lessonById, nextLesson, missingNeeds, challengeEvidence } from "../progress/learning.js";
 
 export function renderSidebar(container, progress, onSelect) {
   container.innerHTML = "";
@@ -35,7 +37,7 @@ export function renderSidebar(container, progress, onSelect) {
       const doneInLevel = inLevel.filter((l) => done.has(l.id)).length;
       const heading = document.createElement("div");
       heading.className = "sidebar-level" + (doneInLevel === inLevel.length ? " is-cleared" : "");
-      heading.innerHTML = `<span class="sidebar-level-ico">${icon(levelIcon(currentLevel), 2)}</span><span class="sidebar-level-text"><span class="sidebar-level-eyebrow">LEVEL ${levelNumber(currentLevel)}</span><span class="sidebar-level-name"></span></span><span class="sidebar-level-count">${doneInLevel}/${inLevel.length}</span>`;
+      heading.innerHTML = `<span class="sidebar-level-ico">${icon(levelIcon(currentLevel), 2)}</span><span class="sidebar-level-text"><span class="sidebar-level-eyebrow">MODULE ${levelNumber(currentLevel)}</span><span class="sidebar-level-name"></span></span><span class="sidebar-level-count">${doneInLevel}/${inLevel.length}</span>`;
       heading.querySelector(".sidebar-level-name").textContent = levelTitle(currentLevel);
       container.appendChild(heading);
     }
@@ -192,8 +194,90 @@ function renderPredict(block) {
   return box;
 }
 
+// { type: "list", items }: a plain bulleted list.
+function renderPlainList(block) {
+  const ul = document.createElement("ul");
+  ul.className = "lesson-list";
+  for (const text of block.items) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    ul.appendChild(li);
+  }
+  return ul;
+}
+
+// { type: "example", code } - a runnable worked example (with Try it), or
+// { type: "example", text } - a worked example in words (a calculation, a plan).
+function renderExample(block) {
+  if (block.code) {
+    const wrap = document.createElement("div");
+    wrap.className = "code-with-try";
+    const pre = document.createElement("pre");
+    pre.className = "code-block";
+    typewriterText(pre, block.code);
+    wrap.append(pre, tryItButton(block.code));
+    return wrap;
+  }
+  const pre = document.createElement("pre");
+  pre.className = "example-text";
+  pre.textContent = block.text;
+  return pre;
+}
+
+// { type: "guided", title, steps }: follow-along instructions.
+function renderGuided(block) {
+  const box = document.createElement("div");
+  box.className = "lesson-guided";
+  const h = document.createElement("div");
+  h.className = "lesson-list-heading";
+  h.textContent = block.title || "Follow along";
+  const ol = document.createElement("ol");
+  for (const step of block.steps) {
+    const li = document.createElement("li");
+    li.textContent = step;
+    ol.appendChild(li);
+  }
+  box.append(h, ol);
+  return box;
+}
+
+// { type: "circuit", label, parts, wires }: puts a starter circuit on the
+// lesson's board (app.js handles the button by its data-action).
+function renderCircuitLoader(block) {
+  const box = document.createElement("div");
+  box.className = "lesson-circuit";
+  const p = document.createElement("p");
+  const names = block.parts.map((x) => x.kind === "led" ? "an LED" : `a ${x.kind}`).join(" and ");
+  p.textContent = `Puts ${names} on the board below, already wired - replacing whatever is on it now.`;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-hint";
+  btn.dataset.action = "load-circuit";
+  btn.dataset.circuit = JSON.stringify({ parts: block.parts, wires: block.wires });
+  btn.textContent = block.label || "Load this circuit";
+  box.append(p, btn);
+  return box;
+}
+
+// { type: "experiment", text, code? }: change something and see what happens.
+function renderExperiment(block) {
+  const box = document.createElement("div");
+  box.className = "lesson-experiment";
+  const p = document.createElement("p");
+  p.textContent = block.text;
+  box.appendChild(p);
+  if (block.code) box.appendChild(tryItButton(block.code));
+  return box;
+}
+
 function renderBlock(block) {
   if (block.type === "action") return renderAction(block);
+  if (block.type === "list") return renderPlainList(block);
+  if (block.type === "example") return renderExample(block);
+  if (block.type === "guided") return renderGuided(block);
+  if (block.type === "circuit") return renderCircuitLoader(block);
+  if (block.type === "experiment") return renderExperiment(block);
+  if (block.type === "demo") return renderDemo(block.demo) ?? document.createComment(`unknown demo ${block.demo}`);
   if (block.type === "objectives") return renderList(block, "IN THIS LESSON YOU'LL LEARN TO", "lesson-objectives");
   if (block.type === "mistakes") return renderList(block, "COMMON MISTAKES", "lesson-mistakes");
   if (block.type === "predict") return renderPredict(block);
@@ -254,7 +338,137 @@ function buildQuestMeta(lesson, isCompleted) {
   return row;
 }
 
-export function renderLesson(container, lesson, isCompleted, isFlagged) {
+// The lesson template. Every lesson renders in the same order, and a part
+// only appears when the lesson really has it - no empty headings:
+//   header -> why it matters / before you start / you'll be able to ->
+//   numbered sections (Introduction, Visual explanation, Worked example,
+//   Guided activity, Predict, Experiment, Common mistakes) -> navigation.
+// The challenge ("Independent challenge"), the quiz ("Knowledge checkpoint")
+// and the "What's next" card follow below, rendered by app.js.
+const SECTION_OF_BLOCK = { demo: "visual", example: "example", guided: "guided", predict: "predict", experiment: "experiment", mistakes: "mistakes" };
+export const SECTION_TITLES = {
+  intro: "Introduction",
+  visual: "Visual explanation",
+  example: "Worked example",
+  guided: "Guided activity",
+  predict: "Predict",
+  experiment: "Experiment",
+  mistakes: "Common mistakes",
+  challenge: "Independent challenge",
+  checkpoint: "Knowledge checkpoint",
+};
+
+// Splits a lesson's blocks into template sections. A block that isn't an
+// activity (text, a note, a snippet) belongs to the section it follows.
+export function lessonSections(lesson) {
+  const sections = [];
+  for (const block of lesson.body) {
+    let kind = SECTION_OF_BLOCK[block.type];
+    if (!kind && block.type === "code" && isFullSketch(block.text)) kind = "example";
+    if (!kind) kind = sections.length ? sections[sections.length - 1].kind : "intro";
+    if (!sections.length || sections[sections.length - 1].kind !== kind) sections.push({ kind, blocks: [] });
+    sections[sections.length - 1].blocks.push(block);
+  }
+  return sections;
+}
+
+export function sectionHeading(number, kind) {
+  const h = document.createElement("h2");
+  h.className = "lesson-section-title";
+  const n = document.createElement("span");
+  n.className = "lesson-section-num";
+  n.textContent = String(number);
+  h.append(n, document.createTextNode(SECTION_TITLES[kind]));
+  return h;
+}
+
+// "Why this matters", "Before you start" and "You'll be able to".
+function buildLessonIntro(lesson, progress) {
+  const box = document.createElement("div");
+  box.className = "lesson-intro-box";
+  if (lesson.why) {
+    const why = document.createElement("p");
+    why.className = "lesson-why";
+    why.textContent = lesson.why;
+    box.appendChild(why);
+  }
+  const cols = document.createElement("div");
+  cols.className = "lesson-intro-cols";
+
+  const before = document.createElement("div");
+  before.className = "lesson-before";
+  const bh = document.createElement("div");
+  bh.className = "lesson-list-heading";
+  bh.textContent = "BEFORE YOU START";
+  before.appendChild(bh);
+  const needs = (lesson.needs || []).map(lessonById).filter(Boolean);
+  if (!needs.length) {
+    before.appendChild(Object.assign(document.createElement("p"), { textContent: "Nothing - this is a good place to start." }));
+  } else {
+    const ul = document.createElement("ul");
+    for (const need of needs) {
+      const done = progress?.viewedLessons.includes(need.id);
+      const li = document.createElement("li");
+      li.className = done ? "is-done" : "is-todo";
+      const mark = document.createElement("span");
+      mark.className = "lesson-need-mark";
+      mark.textContent = done ? "✔" : "○";
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "lesson-need-link";
+      link.dataset.action = "open-lesson";
+      link.dataset.lessonId = need.id;
+      link.textContent = `${lessonPosition(need).label} ${need.title}`;
+      li.append(mark, link);
+      ul.appendChild(li);
+    }
+    before.appendChild(ul);
+    if (progress && missingNeeds(lesson, progress).length) {
+      before.appendChild(Object.assign(document.createElement("p"), {
+        className: "lesson-need-warn",
+        textContent: "This lesson builds on the ones marked ○ - doing those first will make it much easier.",
+      }));
+    }
+  }
+  cols.appendChild(before);
+
+  if (lesson.objectives?.length) {
+    const goals = document.createElement("div");
+    goals.className = "lesson-goals";
+    const gh = document.createElement("div");
+    gh.className = "lesson-list-heading";
+    gh.textContent = "YOU'LL BE ABLE TO";
+    const ul = document.createElement("ul");
+    for (const text of lesson.objectives) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      ul.appendChild(li);
+    }
+    goals.append(gh, ul);
+    cols.appendChild(goals);
+  }
+  box.appendChild(cols);
+  return box;
+}
+
+// "In this lesson: 1 Introduction · 2 Worked example · ..." - the map of the
+// lesson, so the structure is visible before you scroll.
+function buildOutline(sections, lesson) {
+  const kinds = sections.map((s) => s.kind);
+  if (lesson.challenge) kinds.push("challenge");
+  if (getQuizForLesson(lesson.id)) kinds.push("checkpoint");
+  const row = document.createElement("div");
+  row.className = "lesson-outline";
+  row.appendChild(Object.assign(document.createElement("span"), { className: "lesson-outline-label", textContent: "In this lesson:" }));
+  kinds.forEach((kind, i) => {
+    row.appendChild(Object.assign(document.createElement("span"), { className: "lesson-outline-item", textContent: `${i + 1} ${SECTION_TITLES[kind]}` }));
+  });
+  return row;
+}
+
+// Returns how many numbered sections it drew, so the challenge and the
+// checkpoint below can carry on the numbering.
+export function renderLesson(container, lesson, isCompleted, isFlagged, progress) {
   container.innerHTML = "";
 
   const topRow = document.createElement("div");
@@ -263,7 +477,8 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   const eyebrow = document.createElement("div");
   eyebrow.className = "lesson-eyebrow";
   eyebrow.innerHTML = `${icon(levelIcon(lesson.level), 2)}<span></span>`;
-  eyebrow.querySelector("span").textContent = levelName(lesson.level);
+  const pos = lessonPosition(lesson);
+  eyebrow.querySelector("span").textContent = `${levelName(lesson.level)} · Lesson ${pos.index} of ${pos.count}`;
   topRow.appendChild(eyebrow);
 
   // A quick way to bookmark "I struggled here" the moment it happens, rather
@@ -283,10 +498,14 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   heading.textContent = lesson.title;
   container.appendChild(heading);
   container.appendChild(buildQuestMeta(lesson, isCompleted));
+  container.appendChild(buildLessonIntro(lesson, progress));
 
-  for (const block of lesson.body) {
-    container.appendChild(renderBlock(block));
-  }
+  const sections = lessonSections(lesson);
+  container.appendChild(buildOutline(sections, lesson));
+  sections.forEach((section, i) => {
+    container.appendChild(sectionHeading(i + 1, section.kind));
+    for (const block of section.blocks) container.appendChild(renderBlock(block));
+  });
 
   // simple prev/next navigation between lessons, plus an explicit "mark done"
   // button - viewing a lesson no longer marks it complete automatically, you
@@ -327,6 +546,76 @@ export function renderLesson(container, lesson, isCompleted, isFlagged) {
   nav.appendChild(prev);
   nav.appendChild(navRight);
   container.appendChild(nav);
+  return sections.length;
+}
+
+// "What's next": after every lesson, one clear next step - finish what's
+// left here first (the challenge, the checkpoint), then the next lesson, with
+// why it matters. Buttons work by data-action (app.js).
+export function renderNextStep(container, lesson, progress) {
+  container.innerHTML = "";
+  const card = document.createElement("div");
+  card.className = "next-step-card hud-frame";
+  const h = document.createElement("div");
+  h.className = "lesson-list-heading";
+  h.textContent = "WHAT'S NEXT";
+  card.appendChild(h);
+
+  const todo = [];
+  const challenge = challengeEvidence(lesson, progress);
+  if (challenge && !challenge.passed) todo.push(`Try the challenge above - Check My Solution tells you whether you've really got it.`);
+  const quiz = getQuizForLesson(lesson.id);
+  if (quiz && !progress.quizzes[quiz.id]?.solved) todo.push("Answer the knowledge checkpoint above.");
+  const done = progress.viewedLessons.includes(lesson.id);
+  if (!done) todo.push("When you're happy with it, press \"Mark Lesson as Done\".");
+  if (todo.length) {
+    const ul = document.createElement("ul");
+    ul.className = "next-step-todo";
+    for (const t of todo) ul.appendChild(Object.assign(document.createElement("li"), { textContent: t }));
+    card.appendChild(ul);
+  } else {
+    card.appendChild(Object.assign(document.createElement("p"), { className: "next-step-done", textContent: "✔ Lesson complete." }));
+  }
+
+  const index = lessons.indexOf(lesson);
+  const next = lessons[index + 1];
+  if (next) {
+    const newModule = next.module !== lesson.module;
+    const p = document.createElement("p");
+    p.className = "next-step-lesson";
+    p.textContent = newModule
+      ? `That's the end of Module ${lesson.module}! Next up is Module ${next.module} · ${levelTitle(next.module)}, starting with "${next.title}": ${next.why ?? ""}`
+      : `Next: ${lessonPosition(next).label} ${next.title} - ${next.why ?? ""}`;
+    card.appendChild(p);
+  } else {
+    card.appendChild(Object.assign(document.createElement("p"), { className: "next-step-lesson", textContent: "That's the last lesson in the course - time for a project of your own!" }));
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "next-step-actions";
+  if (next) {
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = done ? "btn btn-complete" : "btn btn-primary";
+    go.dataset.action = "open-lesson";
+    go.dataset.lessonId = next.id;
+    go.textContent = done ? `Start ${lessonPosition(next).label}: ${next.title}` : `Go to ${lessonPosition(next).label} anyway`;
+    actions.appendChild(go);
+  }
+  const practice = document.createElement("button");
+  practice.type = "button";
+  practice.className = "btn btn-secondary";
+  practice.dataset.action = "open-practice";
+  practice.textContent = "Practise freely";
+  practice.title = "Free Practice: the editor and every part, no lesson";
+  const course = document.createElement("button");
+  course.type = "button";
+  course.className = "btn btn-secondary";
+  course.dataset.action = "open-course";
+  course.textContent = "Course overview";
+  actions.append(practice, course);
+  card.appendChild(actions);
+  container.appendChild(card);
 }
 
 export function getAdjacentLessonId(lessonId, direction) {

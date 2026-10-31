@@ -4,7 +4,6 @@
 export const level4Lessons = [
   {
     id: "l4-1",
-    level: 4,
     title: "analogWrite() and PWM Explained",
     body: [
       { type: "p", text:
@@ -18,6 +17,7 @@ export const level4Lessons = [
         "it just perceives the average, which looks and behaves like a real in-between voltage." },
       { type: "code", text:
         "analogWrite(9, 128);  // pin 9 spends about 50% of each cycle HIGH (128 is roughly half of 255)" },
+      { type: "demo", demo: "pwm" },
       { type: "note", text:
         "analogWrite() takes a value from 0 (always LOW - 0% duty cycle) to 255 (always HIGH - 100% duty " +
           "cycle) - NOT 0-1023 like analogRead(). Reading and writing analog values use different ranges " +
@@ -54,7 +54,6 @@ export const level4Lessons = [
 
   {
     id: "l4-2",
-    level: 4,
     title: "Fading an LED",
     body: [
       { type: "p", text:
@@ -103,7 +102,6 @@ export const level4Lessons = [
 
   {
     id: "l4-3",
-    level: 4,
     title: "Buzzers and Making Sound",
     body: [
       { type: "p", text:
@@ -152,7 +150,6 @@ export const level4Lessons = [
 
   {
     id: "l4-4",
-    level: 4,
     title: "RGB LEDs and Mixing Color",
     body: [
       { type: "p", text:
@@ -206,7 +203,6 @@ export const level4Lessons = [
 
   {
     id: "l4-5",
-    level: 4,
     title: "Servo Motors",
     body: [
       { type: "p", text:
@@ -257,14 +253,13 @@ export const level4Lessons = [
 
   {
     id: "l4-6",
-    level: 4,
     title: "Basic DC Motor Concepts",
     body: [
       { type: "p", text:
         "Unlike a servo, a plain DC motor just spins continuously when powered, at a speed roughly " +
         "proportional to the voltage across it - there's no built-in \"go to this angle\" behavior." },
       { type: "p", text:
-        "Recall from Level 1: a digital pin can only safely supply about 20-40mA. A small DC motor can " +
+        "Recall from the Current lesson in Module 1: a digital pin can only safely supply about 20-40mA. A small DC motor can " +
         "easily demand hundreds of mA to amps, especially when starting up - wiring one directly to an " +
         "Arduino pin will not spin it properly, and can permanently damage the pin." },
       { type: "note", text:

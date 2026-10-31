@@ -4,7 +4,6 @@
 export const level6Lessons = [
   {
     id: "l6-1",
-    level: 6,
     title: "Ultrasonic Distance Sensors",
     body: [
       { type: "p", text:
@@ -53,7 +52,6 @@ export const level6Lessons = [
 
   {
     id: "l6-2",
-    level: 6,
     title: "IR / Obstacle Sensors",
     body: [
       { type: "p", text:
@@ -75,11 +73,10 @@ export const level6Lessons = [
 
   {
     id: "l6-3",
-    level: 6,
     title: "Automation with a Light Sensor",
     body: [
       { type: "p", text:
-        "You met the LDR back in Analog Input as a raw analog reading. Now let's actually DO something with " +
+        "You met the LDR a couple of lessons ago as a raw analog reading. Now let's actually DO something with " +
         "it: instead of just printing a light level, use it to automatically control an output - the " +
         "core idea behind an automatic night light." },
       { type: "code", text:
@@ -121,7 +118,6 @@ export const level6Lessons = [
 
   {
     id: "l6-4",
-    level: 6,
     title: "Temperature Sensors",
     body: [
       { type: "p", text:
@@ -143,7 +139,6 @@ export const level6Lessons = [
 
   {
     id: "l6-5",
-    level: 6,
     title: "Combining Sensors and Outputs",
     body: [
       { type: "p", text:
@@ -154,8 +149,7 @@ export const level6Lessons = [
         "int trigPin = 6, echoPin = 5;\nint ledPin = 13, buzzerPin = 8;\n\nvoid loop() {\n  // ... trigger + measure distance as before ...\n  float distanceCm = duration / 58.0;\n\n  if (distanceCm < 10) {\n    digitalWrite(ledPin, HIGH);\n    tone(buzzerPin, 1000);\n  } else {\n    digitalWrite(ledPin, LOW);\n    noTone(buzzerPin);\n  }\n}" },
       { type: "note", text:
         "This is exactly the shape of a parking sensor: closer than some threshold -> warn with a light " +
-        "and a sound. Try the Smart Parking Sensor boss challenge below once you've worked through the " +
-        "rest of this level." },
+        "and a sound - exactly what you'll build in the Distance Warning System project in Module 7." },
     ],
     challenge: {
       id: "c16",
@@ -186,8 +180,7 @@ export const level6Lessons = [
 
   {
     id: "l6-6",
-    level: 6,
-    title: "Challenge Lab: Smart Parking Sensor",
+    title: "Project: Distance Warning System",
     body: [
       { type: "p", text:
         "This boss challenge combines everything from this level into one realistic mechatronics build: " +

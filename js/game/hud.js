@@ -10,7 +10,7 @@ import { tweenNumber, bump } from "./fx.js";
 import { getSettings, setSetting, onSettingsChange } from "./settings.js";
 import { playSfx } from "./audio.js";
 
-export function createHud({ onOpenProfile, onOpenSettings } = {}) {
+export function createHud({ onOpenProfile, onOpenSettings, onOpenShop } = {}) {
   const $ = (id) => document.getElementById(id);
   const els = {
     root: $("hud"),
@@ -52,6 +52,7 @@ export function createHud({ onOpenProfile, onOpenSettings } = {}) {
   });
   els.settings.addEventListener("click", () => onOpenSettings?.());
   els.avatar.addEventListener("click", () => onOpenProfile?.());
+  els.coins.addEventListener("click", () => onOpenShop?.());
 
   let lastProgress = null;
 
@@ -77,7 +78,7 @@ export function createHud({ onOpenProfile, onOpenSettings } = {}) {
     els.coins.classList.toggle("is-debt", display < 0);
     els.coins.title = display < 0
       ? "You're in the red - finish a lesson or challenge to earn it back."
-      : "Your credits. Earn them by finishing work; spend them on hints and in the shop.";
+      : "Your credits. Earn them by finishing work; spend them on hints and in the shop (click to open it).";
 
     // streak
     const streak = progress.streak || 0;

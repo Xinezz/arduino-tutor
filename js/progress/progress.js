@@ -45,6 +45,7 @@ function defaultProgress() {
     flaggedLessons: [],      // lesson ids the learner marked "I struggled with this" - a personal bookmark, not an achievement
     playerName: null,        // set on the main menu - null means "never signed in," not just "empty string"
     firstCircuitDone: false, // finished the guided "Start your first circuit" walkthrough
+    checks: {},              // challengeId -> { attempts, passed, independent } from "Check My Solution"
 
     // ---- the game layer ----
     achievements: {},        // achievement id -> ISO timestamp it was unlocked (presence = unlocked, so it can never pay out twice)
@@ -183,6 +184,7 @@ function normalize(saved) {
   merged.daily.counters = { ...base.daily.counters, ...(saved.daily?.counters || {}) };
   merged.achievements = saved.achievements && typeof saved.achievements === "object" ? saved.achievements : {};
   merged.hintUses = saved.hintUses && typeof saved.hintUses === "object" ? saved.hintUses : {};
+  merged.checks = saved.checks && typeof saved.checks === "object" ? saved.checks : {};
   // Starter cosmetics are always owned, even if an old/imported save lacks them.
   merged.inventory = [...new Set([...STARTER_ITEMS, ...(Array.isArray(saved.inventory) ? saved.inventory : [])])];
   return merged;
@@ -287,6 +289,22 @@ export function markFirstCircuitDone(progress) {
     progress.firstCircuitDone = true;
     applyXp(progress, CREDIT_REWARDS.challenge);
   }
+  saveProgress(progress);
+  return progress;
+}
+
+// A "Check My Solution" attempt. What matters for learning isn't just that a
+// challenge was solved but how: `independent` records that it passed before
+// any hint or the solution was revealed. (Rewards are paid separately, by
+// markChallengeCompleted.)
+export function recordCheck(progress, challengeId, passed) {
+  const entry = progress.checks[challengeId] || { attempts: 0, passed: false, independent: false };
+  entry.attempts += 1;
+  if (passed && !entry.passed) {
+    entry.passed = true;
+    entry.independent = !(progress.hintUses[challengeId] > 0);
+  }
+  progress.checks[challengeId] = entry;
   saveProgress(progress);
   return progress;
 }

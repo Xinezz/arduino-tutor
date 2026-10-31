@@ -362,6 +362,137 @@ Object.assign(quizzes, {
   },
 });
 
+// ---- Checkpoints for the lessons added in the 2.0 curriculum (foundations.js) ----
+Object.assign(quizzes, {
+  "m0-3": {
+    id: "quiz-match-input-output",
+    type: "match",
+    topic: "Inputs and Outputs",
+    title: "Match the Pairs",
+    prompt: "Match each idea to what it means in an Arduino project.",
+    pairs: [
+      { left: "Input", right: "How the Arduino senses the world (a button, a sensor)" },
+      { left: "Decision", right: "Your code choosing what to do" },
+      { left: "Output", right: "How the Arduino acts on the world (an LED, a buzzer)" },
+      { left: "A night light", right: "Light sensor → is it dark? → switch an LED on" },
+    ],
+  },
+
+  "m0-5": {
+    id: "quiz-match-simulator",
+    type: "match",
+    topic: "The Simulator",
+    title: "Match the Pairs",
+    prompt: "Match each part of the simulator to what it does.",
+    pairs: [
+      { left: "Run", right: "Checks your code and starts it" },
+      { left: "Stop", right: "Powers the board down" },
+      { left: "Serial Monitor", right: "Shows your sketch's messages, and explains mistakes" },
+      { left: "Check Circuit", right: "Says what's connected and spots wiring mistakes" },
+    ],
+  },
+
+  "m1-2": {
+    id: "quiz-match-current",
+    type: "match",
+    topic: "Current",
+    title: "Match the Pairs",
+    prompt: "Match each term to what it means.",
+    pairs: [
+      { left: "Current", right: "How much electricity actually flows" },
+      { left: "1 mA", right: "A thousandth of an amp" },
+      { left: "About 20 mA", right: "What one Arduino pin can safely supply" },
+      { left: "A 200 mA motor on a pin", right: "Far too much - it can damage the pin" },
+    ],
+  },
+
+  "m1-3": {
+    id: "quiz-fill-ohms-law",
+    type: "fill",
+    topic: "Ohm's Law",
+    title: "Fill in the Blank",
+    prompt: "Complete Ohm's law.",
+    codeBefore: "current = voltage ",
+    codeAfter: " resistance",
+    choices: ["÷", "×", "+", "−"],
+    correctChoice: "÷",
+    explanation:
+      "current = voltage ÷ resistance. With 3V across a 220Ω resistor that's 3 ÷ 220 = 0.0136 A, about 13.6 mA. " +
+      "A bigger resistance divides the voltage by more, so less current flows.",
+  },
+
+  "m1-4": {
+    id: "quiz-match-ground",
+    type: "match",
+    topic: "Ground",
+    title: "Match the Pairs",
+    prompt: "Match each idea to what it means.",
+    pairs: [
+      { left: "GND", right: "The 0-volt point every circuit returns to" },
+      { left: "5V", right: "Pushes current out into the circuit" },
+      { left: "A complete loop", right: "What current needs before it can flow at all" },
+      { left: "Two power sources", right: "Their GNDs must be connected together" },
+    ],
+  },
+
+  "m1-6": {
+    id: "quiz-match-led-resistor",
+    type: "match",
+    topic: "LEDs and Resistors",
+    title: "Match the Pairs",
+    prompt: "Match each part of an LED circuit to its job.",
+    pairs: [
+      { left: "Long leg (+)", right: "Faces the power side" },
+      { left: "Short leg (−)", right: "Goes toward GND" },
+      { left: "220Ω resistor", right: "Limits the current to a safe level" },
+      { left: "In series", right: "In the same loop, one after the other" },
+    ],
+  },
+
+  "m1-7": {
+    id: "quiz-match-polarity",
+    type: "match",
+    topic: "Polarity",
+    title: "Match the Pairs",
+    prompt: "Match each part or situation to what's true about it.",
+    pairs: [
+      { left: "An LED", right: "Polarized - it only works one way round" },
+      { left: "A resistor", right: "Not polarized - either way round works" },
+      { left: "An LED in backwards", right: "Blocks the current, so it stays dark" },
+      { left: "A dark LED, no error", right: "Check the wiring first - wiring mistakes show no error" },
+    ],
+  },
+
+  "m2-8": {
+    id: "quiz-fill-delay",
+    type: "fill",
+    topic: "delay()",
+    title: "Fill in the Blank",
+    prompt: "Complete the sketch so the LED stays on for 2 seconds.",
+    codeBefore: "digitalWrite(13, HIGH);\ndelay(",
+    codeAfter: ");  // wait 2 seconds\ndigitalWrite(13, LOW);",
+    choices: ["2", "20", "200", "2000"],
+    correctChoice: "2000",
+    explanation:
+      "delay() counts in milliseconds, and 1000 ms is one second - so two seconds is delay(2000). delay(2) " +
+      "would be 2 milliseconds, far too short to see.",
+  },
+
+  "m3-4": {
+    id: "quiz-predict-remainder",
+    type: "predict",
+    topic: "Operators",
+    title: "Predict the Output",
+    prompt: "What will this print?",
+    code: "int x = 17;\nSerial.println(x % 5);",
+    options: ["3", "2", "3.4", "17"],
+    correctIndex: 1,
+    explanation:
+      "% gives the remainder: 5 goes into 17 three times (15), with 2 left over. 17 / 5 would print 3, the " +
+      "number of whole times it fits - and with two ints there are never any decimals.",
+  },
+});
+
 export function getQuizForLesson(lessonId) {
   return quizzes[lessonId] || null;
 }

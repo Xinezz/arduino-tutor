@@ -76,20 +76,18 @@
     </div>
   </div>
   <nav class="view-tabs" id="view-tabs">
-    <button class="view-tab active" data-view="lessons" data-sprite-icon="book" data-sfx="select"><span class="tab-label">Lessons</span></button>
-    <button class="view-tab" data-view="map" data-sprite-icon="map" data-sfx="select"><span class="tab-label">Map</span></button>
-    <button class="view-tab" data-view="projects" data-sprite-icon="chip" data-sfx="select"><span class="tab-label">Projects</span></button>
-    <button class="view-tab" data-view="practice" data-sprite-icon="led" data-sfx="select"><span class="tab-label">Practice</span></button>
-    <button class="view-tab" data-view="shop" data-sprite-icon="bag" data-sfx="select"><span class="tab-label">Shop</span></button>
-    <button class="view-tab" data-view="dashboard" data-sprite-icon="person" data-sfx="select"><span class="tab-label">Profile</span><span class="tab-badge" id="profile-badge" hidden>0</span></button>
+    <button class="view-tab active" data-view="learn" data-sprite-icon="book" data-sfx="select" title="The course: every module and lesson, and what to do next (1)"><span class="tab-label">Learn</span></button>
+    <button class="view-tab" data-view="projects" data-sprite-icon="chip" data-sfx="select" title="Bigger builds that combine what you've learned (2)"><span class="tab-label">Projects</span></button>
+    <button class="view-tab" data-view="practice" data-sprite-icon="led" data-sfx="select" title="Free Practice: the editor and every part, no lesson (3)"><span class="tab-label">Practice</span></button>
+    <button class="view-tab" data-view="dashboard" data-sprite-icon="person" data-sfx="select" title="What you've learned, what to revise, and your rewards (4)"><span class="tab-label">Progress</span><span class="tab-badge" id="profile-badge" hidden>0</span></button>
   </nav>
   <div class="hud" id="hud">
-    <button class="hud-avatar" id="hud-avatar" aria-label="Open your profile"></button>
+    <button class="hud-avatar" id="hud-avatar" aria-label="Open your progress"></button>
     <div class="hud-level" id="hud-level">
       <span class="hud-lv"><span class="hud-lv-label">LV</span><span class="hud-lv-num" id="hud-lv-num">1</span></span>
       <span class="hud-xp-track"><span class="hud-xp-fill" id="hud-xp-fill"></span></span>
     </div>
-    <div class="hud-chip hud-coins" id="hud-coins"><span class="hud-ico"></span><span class="hud-num" id="hud-coins-num">25</span></div>
+    <button type="button" class="hud-chip hud-chip-btn hud-coins" id="hud-coins" aria-label="Your credits - open the Parts Shop"><span class="hud-ico"></span><span class="hud-num" id="hud-coins-num">25</span></button>
     <div class="hud-chip hud-streak" id="hud-streak"><span class="hud-ico"></span><span class="hud-num" id="hud-streak-num">1</span></div>
     <button class="icon-btn" id="hud-mute" aria-label="Mute or unmute sound" data-sfx="none"></button>
     <button class="icon-btn" id="hud-settings" aria-label="Open options" title="Options (S)"></button>
@@ -183,9 +181,19 @@
     <section class="quiz-section" id="quiz-section">
       <!-- filled in when a lesson has a quiz game attached -->
     </section>
+
+    <section class="next-step-section" id="next-step-section">
+      <!-- "What's next" - filled in by render.js renderNextStep -->
+    </section>
   </main>
 
 </div>
+</div>
+
+<div class="view" id="view-learn" hidden>
+  <main class="main-panel main-panel-wide" id="learn-panel">
+    <!-- the course overview - filled in by js/learn/learnView.js -->
+  </main>
 </div>
 
 <div class="view" id="view-map" hidden>

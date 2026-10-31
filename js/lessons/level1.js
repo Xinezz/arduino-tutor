@@ -6,7 +6,6 @@
 export const level1Lessons = [
   {
     id: "l1-1",
-    level: 1,
     title: "What is Arduino?",
     body: [
       { type: "p", text:
@@ -29,8 +28,7 @@ export const level1Lessons = [
 
   {
     id: "l1-2",
-    level: 1,
-    title: "Arduino Boards & Microcontrollers",
+    title: "What is a Microcontroller?",
     body: [
       { type: "p", text:
         "There are many Arduino boards (Uno, Nano, Mega, Leonardo...). We'll use the Arduino Uno as " +
@@ -50,7 +48,6 @@ export const level1Lessons = [
 
   {
     id: "l1-3",
-    level: 1,
     title: "The Arduino IDE",
     body: [
       { type: "p", text:
@@ -68,7 +65,6 @@ export const level1Lessons = [
 
   {
     id: "l1-4",
-    level: 1,
     title: "Structure of an Arduino Program",
     body: [
       { type: "p", text:
@@ -87,7 +83,6 @@ export const level1Lessons = [
 
   {
     id: "l1-5",
-    level: 1,
     title: "setup() in Depth",
     body: [
       { type: "p", text:
@@ -103,7 +98,6 @@ export const level1Lessons = [
 
   {
     id: "l1-6",
-    level: 1,
     title: "loop() in Depth",
     body: [
       { type: "p", text:
@@ -120,7 +114,6 @@ export const level1Lessons = [
 
   {
     id: "l1-7",
-    level: 1,
     title: "Comments",
     body: [
       { type: "p", text:
@@ -136,7 +129,6 @@ export const level1Lessons = [
 
   {
     id: "l1-8",
-    level: 1,
     title: "Variables",
     body: [
       { type: "p", text:
@@ -185,7 +177,6 @@ export const level1Lessons = [
 
   {
     id: "l1-9",
-    level: 1,
     title: "Data Types",
     body: [
       { type: "p", text:
@@ -211,7 +202,6 @@ export const level1Lessons = [
 
   {
     id: "l1-10",
-    level: 1,
     title: "The Serial Monitor",
     body: [
       { type: "p", text:
@@ -257,7 +247,6 @@ export const level1Lessons = [
 
   {
     id: "l1-11",
-    level: 1,
     title: "Constants: const and #define",
     body: [
       { type: "p", text:
@@ -279,8 +268,7 @@ export const level1Lessons = [
 
   {
     id: "l1-12",
-    level: 1,
-    title: "Arduino Uno Pinout Overview",
+    title: "Understanding the Arduino Board",
     body: [
       { type: "p", text:
         "Before wiring anything up, it helps to know what each group of pins on the Uno is for." },
@@ -298,22 +286,25 @@ export const level1Lessons = [
 
   {
     id: "l1-13",
-    level: 1,
-    title: "Power, Voltage and Current Basics",
+    title: "Voltage",
     body: [
       { type: "p", text:
-        "The Uno's logic runs at 5V - every pin, when HIGH, outputs roughly 5V; when LOW, roughly 0V. " +
-        "This is important for mechatronics: mixing a 5V board with 3.3V sensors, or connecting it " +
-        "directly to a 12V motor, will damage something." },
+        "Voltage is the \"push\" that makes electricity flow - a bit like water pressure in a pipe. It's " +
+        "measured in volts (V). An AA battery pushes with 1.5V; a USB port with 5V." },
       { type: "p", text:
-        "Just as important: each digital pin can only safely supply a small amount of current - about " +
-        "20mA continuous, 40mA absolute maximum on the Uno. An LED alone is fine. A motor is not - it " +
-        "will try to pull far more current than the pin can provide, which can permanently damage the " +
-        "board." },
-      { type: "note", text:
-        "This is why later lessons on motors always involve a driver circuit or module in between - the " +
-        "Arduino pin tells the motor driver what to do, but the driver (powered separately) supplies the " +
-        "actual current. Never wire a motor straight to a digital pin." },
+        "The Arduino Uno works at 5 volts. When your code sets a pin HIGH, the pin pushes out about 5V; when " +
+        "it's LOW, about 0V. That's all a digital pin can do: 5V or 0V, nothing in between." },
+      { type: "p", text:
+        "A voltage is always measured between two points. \"The pin is at 5V\" means 5V compared to GND - the " +
+        "0V point of the circuit (it gets its own lesson soon)." },
+      { type: "predict",
+        question: "Your code sets a pin HIGH. What voltage does it push out?",
+        options: ["About 0V", "About 1.5V", "About 5V", "About 12V"],
+        answer: 2,
+        explain: "The Uno is a 5V board: HIGH is about 5 volts, LOW is about 0 volts." },
+      { type: "mistakes", items: [
+        "Mixing voltages: a sensor made for 3.3V can be damaged by 5V, and a 12V supply connected to a pin will destroy it. Always check what voltage a part needs before you wire it.",
+      ] },
     ],
   },
 
@@ -321,14 +312,8 @@ export const level1Lessons = [
   // change (saved progress uses them); the position in this list is the order.
   {
     id: "l1-16",
-    level: 1,
     title: "Breadboards and Complete Circuits",
     body: [
-      { type: "objectives", items: [
-        "Explain what a complete circuit is, and why a break anywhere stops it",
-        "Know which holes of a breadboard are connected to each other",
-        "Build a circuit on the simulator's board, and know where it differs from a real one",
-      ] },
       { type: "p", text:
         "Electricity only flows around a complete loop: out of a power source (5V, or a pin set HIGH), " +
         "through the parts, and back to GND. If the loop is broken anywhere - a loose wire, a part in " +
@@ -345,6 +330,7 @@ export const level1Lessons = [
         "In the middle, holes are joined in short columns of 5. Two legs in the same column are connected " +
         "- no wire needed. Columns are NOT joined to their neighbours, and the trench down the middle " +
         "separates the top half from the bottom half." },
+      { type: "demo", demo: "breadboard" },
       { type: "predict",
         question: "An LED's two legs are pushed into holes in the SAME 5-hole column. What happens when its circuit is powered?",
         options: [
@@ -375,7 +361,6 @@ export const level1Lessons = [
 
   {
     id: "l1-14",
-    level: 1,
     title: "Compiling and Uploading: What Actually Happens",
     body: [
       { type: "p", text:
@@ -395,7 +380,6 @@ export const level1Lessons = [
 
   {
     id: "l1-15",
-    level: 1,
     title: "Reading Compiler Errors",
     body: [
       { type: "p", text:

@@ -86,7 +86,7 @@ export function renderWorldMap(container, progress, { onOpenLesson, onPoke } = {
     zico.innerHTML = icon(levelIcon(levelNum), 3);
     zhead.appendChild(zico);
     const ztext = el("div", "zone-text");
-    ztext.appendChild(el("div", "zone-world", `WORLD ${levelNumber(levelNum)}`));
+    ztext.appendChild(el("div", "zone-world", `MODULE ${levelNumber(levelNum)}`));
     ztext.appendChild(el("div", "zone-name", levelTitle(levelNum)));
     zhead.appendChild(ztext);
     const zprog = el("div", "zone-progress");

@@ -3,20 +3,20 @@
 export const level2Lessons = [
   {
     id: "l2-1",
-    level: 2,
     title: "Digital Signals: HIGH and LOW",
     body: [
       { type: "p", text:
         "A digital pin only ever has two possible states: HIGH (roughly 5V) or LOW (roughly 0V). " +
         "There is no \"halfway\" - this is what makes it \"digital\" rather than \"analog\" (which we " +
-        "cover in Analog Input, Level 4)." },
+        "cover in Module 5)." },
       { type: "code", text:
         "HIGH   // on, about 5V\nLOW    // off, about 0V" },
       { type: "p", text:
         "HIGH and LOW are just built-in names for the numbers 1 and 0 - Arduino defines them for " +
         "readability, but digitalWrite(pin, 1) and digitalWrite(pin, HIGH) do the exact same thing." },
+      { type: "demo", demo: "high-low" },
       { type: "note", text:
-        "Everything in Digital I/O is about controlling and reading these two states through pins - it's the " +
+        "Almost everything you do with pins is controlling and reading these two states - it's the " +
         "simplest possible interaction between code and the physical world, and almost every project " +
         "builds on it." },
     ],
@@ -24,7 +24,6 @@ export const level2Lessons = [
 
   {
     id: "l2-2",
-    level: 2,
     title: "pinMode(): Configuring a Pin's Job",
     body: [
       { type: "p", text:
@@ -44,7 +43,6 @@ export const level2Lessons = [
 
   {
     id: "l2-3",
-    level: 2,
     title: "digitalWrite(): Driving an Output",
     body: [
       { type: "p", text:
@@ -60,25 +58,40 @@ export const level2Lessons = [
 
   {
     id: "l2-4",
-    level: 2,
-    title: "LEDs and Resistors: Safe Wiring Basics",
+    title: "Making an LED Blink",
     body: [
       { type: "p", text:
-        "An LED only works one direction (it has a longer leg - the anode/positive side - and a " +
-        "shorter leg - the cathode/negative side) and it has almost no internal resistance. Connected " +
-        "directly to 5V with nothing else in the circuit, it will pull far too much current and burn out " +
-        "almost instantly." },
+        "You now know every piece: how to wire an LED safely (Module 1), how to set a pin up with pinMode(), " +
+        "switch it with digitalWrite(), and wait with delay(). Put them together and you get the most famous " +
+        "sketch in electronics: Blink." },
+      { type: "guided", title: "Wire the LED", steps: [
+        "Add an LED and a resistor from the parts list under the code editor.",
+        "Wire pin 13 (top edge of the Arduino) to one leg of the resistor.",
+        "Wire the resistor's other leg to the LED's + leg (the long one).",
+        "Wire the LED's − leg to GND.",
+        "Press Check Circuit - it should report a complete circuit: pin 13 → resistor → LED → GND.",
+      ] },
+      { type: "example", code:
+        "void setup() {\n  pinMode(13, OUTPUT);     // pin 13 will power the LED\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);  // on\n  delay(1000);             // stay on for 1 second\n  digitalWrite(13, LOW);   // off\n  delay(1000);             // stay off for 1 second\n}" },
       { type: "p", text:
-        "A resistor (typically 220Ω-330Ω for a standard LED at 5V) placed in series with the LED limits " +
-        "the current to a safe level. The basic circuit is: Arduino pin -> resistor -> LED (long leg " +
-        "first) -> LED short leg -> GND." },
-      { type: "note", text:
-        "Ohm's law preview: current = voltage / resistance. A bigger resistor means less current means a " +
-        "dimmer (but safer) LED. You'll use this relationship more deliberately once we reach PWM in " +
-        "Level 5." },
+        "setup() makes pin 13 an output, once. Then loop() switches it on, waits a second, switches it off, " +
+        "waits another second - and starts again from the top, forever." },
+      { type: "predict",
+        question: "How long does one complete blink - on and then off - take?",
+        options: ["1 second", "2 seconds", "Half a second", "It depends on the board"],
+        answer: 1,
+        explain:
+          "1000 ms on plus 1000 ms off is 2000 ms - two seconds - before loop() starts the next blink." },
+      { type: "experiment", text:
+        "Change both delays to 100, then try 1000 on and 100 off. Can you make it look like a heartbeat - two " +
+        "quick flashes, then a pause?" },
+      { type: "mistakes", items: [
+        "Only one delay: the LED switches off and straight back on again, so it looks permanently lit.",
+        "Forgetting pinMode(13, OUTPUT): the pin can't power the LED, so it stays dark (the simulator warns you).",
+      ] },
       { type: "action", action: "first-circuit", label: "Open the guided first circuit", text:
-        "Never wired an LED before? The guided first circuit builds exactly this circuit - pin 13 -> " +
-        "resistor -> LED -> GND - one wire at a time, in Free Practice." },
+        "Prefer to be walked through it? The guided first circuit builds exactly this, one wire at a time, " +
+        "in Free Practice." },
     ],
     challenge: {
       id: "c3",
@@ -115,7 +128,6 @@ export const level2Lessons = [
 
   {
     id: "l2-5",
-    level: 2,
     title: "digitalRead(): Sensing an Input",
     body: [
       { type: "p", text:
@@ -126,13 +138,12 @@ export const level2Lessons = [
       { type: "p", text:
         "Notice digitalRead() returns a value rather than taking an action - you almost always store " +
         "that value in a variable, then decide what to do with it - usually with an if, exactly as in " +
-        "Program Flow (Level 2)." },
+        "Module 3 (Programming Fundamentals)." },
     ],
   },
 
   {
     id: "l2-6",
-    level: 2,
     title: "Push Buttons: Wiring and Reading",
     body: [
       { type: "p", text:
@@ -150,7 +161,6 @@ export const level2Lessons = [
 
   {
     id: "l2-7",
-    level: 2,
     title: "Pull-up and Pull-down Resistors: The Floating Pin Problem",
     body: [
       { type: "p", text:
@@ -171,7 +181,6 @@ export const level2Lessons = [
 
   {
     id: "l2-8",
-    level: 2,
     title: "INPUT_PULLUP: Using Arduino's Built-in Pull-up Resistor",
     body: [
       { type: "p", text:
@@ -201,7 +210,7 @@ export const level2Lessons = [
           "need to read that pin's state, store it, and then decide what to do based on the value you " +
           "stored.",
         "Function hint: digitalRead() gives you the button's state as a variable; an if statement (see " +
-          "Program Flow) then compares that variable to a value and runs code only when it matches.",
+          "Module 3) then compares that variable to a value and runs code only when it matches.",
         "Example hint: if (digitalRead(buttonPin) == LOW) { /* pressed, since INPUT_PULLUP is inverted */ }. " +
           "What would you put inside that block, and what should happen in the else case?",
       ],
@@ -220,8 +229,7 @@ export const level2Lessons = [
 
   {
     id: "l2-9",
-    level: 2,
-    title: "Challenge Lab: Traffic Light",
+    title: "Project: Traffic Light System",
     body: [
       { type: "p", text:
         "This challenge combines everything from this level so far: multiple OUTPUT pins, digitalWrite, " +
@@ -266,8 +274,7 @@ export const level2Lessons = [
 
   {
     id: "l2-10",
-    level: 2,
-    title: "Challenge Lab: Button Counter",
+    title: "Counting Button Presses",
     body: [
       { type: "p", text:
         "This challenge introduces a new idea by combination rather than a new function: counting " +

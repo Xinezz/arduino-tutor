@@ -156,7 +156,7 @@ export function renderDashboard(container, progress, { onReviewTopic, onClaimMis
       row.appendChild(el("span", null, lesson.title));
 
       const right = el("div", "weak-topic-row-right");
-      right.appendChild(el("span", "tag", `Level ${lesson.level}`));
+      right.appendChild(el("span", "tag", `Module ${lesson.level}`));
 
       if (onReviewTopic) {
         const reviewBtn = document.createElement("button");

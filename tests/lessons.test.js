@@ -16,6 +16,12 @@ import { runSketch } from "./helpers/sim.js";
 
 const isFullSketch = (code) => /\bvoid\s+setup\s*\(/.test(code) && /\bvoid\s+loop\s*\(/.test(code);
 // The bare "setup() + loop()" skeleton (lesson l1-4) has nothing to do.
+// The runnable sketch in a lesson block, if it has one: a complete sketch in
+// a code block or a worked example.
+const sketchOf = (block) => {
+  const code = block.type === "code" ? block.text : block.type === "example" ? block.code : null;
+  return code && isFullSketch(code) ? code : null;
+};
 const isEmptySkeleton = (code) => /^\s*void setup\(\) \{\s*\}\s*void loop\(\) \{\s*\}\s*$/.test(code.replace(/\/\/.*$/gm, ""));
 
 // Neutral inputs: buttons read HIGH (released, INPUT_PULLUP style), sensors
@@ -28,7 +34,8 @@ for (const lesson of lessons) {
     sketches.push({ name: `challenge ${lesson.challenge.id} "${lesson.challenge.title}" (lesson ${lesson.id})`, code: lesson.challenge.solution });
   }
   lesson.body.forEach((block, i) => {
-    if (block.type === "code" && isFullSketch(block.text)) sketches.push({ name: `lesson ${lesson.id} example #${i + 1}`, code: block.text });
+    const code = sketchOf(block);
+    if (code) sketches.push({ name: `lesson ${lesson.id} example #${i + 1}`, code });
   });
 }
 for (const project of projects) {
@@ -39,7 +46,7 @@ for (const project of projects) {
 
 test("there is course content to check", () => {
   assert.ok(sketches.length >= 30, `found only ${sketches.length} sketches`);
-  assert.equal(lessons.filter((l) => l.challenge).length, 24, "all 24 challenge solutions are included");
+  assert.equal(lessons.filter((l) => l.challenge).length, 28, "all 28 challenge solutions are included");
 });
 
 for (const s of sketches) {
@@ -60,7 +67,7 @@ const FRAGMENTS_NOT_EXPECTED_TO_COMPILE = new Map([
   ["l1-15#2", "deliberately missing ';' - the lesson is about reading that compiler error"],
   ["l2-1#2", "shows the words HIGH and LOW with comments, not statements"],
   ["l6-5#2", "an excerpt: '... trigger + measure distance as before ...' stands in for the code that declares duration"],
-  ["l5-2#3", "a reference table of the six comparison operators, not statements"],
+  ["l5-2#2", "a reference table of the six comparison operators, not statements"],
 ]);
 
 test("every lesson code fragment compiles once wrapped into a sketch", () => {
@@ -96,7 +103,7 @@ test("every lesson prediction's answer is what the simulator really prints", () 
       if (block.type !== "predict") return;
       assert.ok(block.options[block.answer] !== undefined, `${lesson.id}: the answer is one of the options`);
       if (block.output === undefined) return;
-      const code = block.code ?? [...lesson.body.slice(0, i)].reverse().find((b) => b.type === "code" && isFullSketch(b.text))?.text;
+      const code = block.code ?? [...lesson.body.slice(0, i)].reverse().map(sketchOf).find(Boolean);
       assert.ok(code, `${lesson.id}: a prediction with an output needs a sketch to run`);
       const r = runSketch(code, { ms: 3000 });
       assert.deepEqual(r.errors, [], `${lesson.id}: ${r.errors}`);

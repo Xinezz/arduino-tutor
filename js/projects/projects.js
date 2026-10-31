@@ -9,13 +9,45 @@ import { getProjectProgress } from "../progress/progress.js";
 import { typewriterText } from "../utils/typewriter.js";
 import { icon } from "../game/sprites.js";
 import { centerOf } from "../game/fx.js";
+import { MODULES } from "../lessons/curriculum.js";
+import { lessonById, lessonPosition } from "../progress/learning.js";
 
-export function renderProjectList(container, progress, { onSelectProject }) {
+// A small button that opens a lesson, marked done or not.
+function lessonLink(lesson, progress, onOpenLesson) {
+  const done = progress.viewedLessons.includes(lesson.id);
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = `project-lesson-link${done ? " is-done" : ""}`;
+  btn.textContent = `${done ? "✔" : "○"} ${lessonPosition(lesson).label} ${lesson.title}`;
+  btn.title = done ? "Done - open it again" : "Open this lesson";
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation(); // inside a clickable project card
+    onOpenLesson?.(lesson.id);
+  });
+  return btn;
+}
+
+export function renderProjectList(container, progress, { onSelectProject, onOpenLesson }) {
   container.innerHTML = "";
 
   const intro = document.createElement("div");
   intro.className = "projects-intro";
-  intro.innerHTML = `<h1>Mini Projects</h1><p>Combine everything you've learned so far into a real, working build. Each project unlocks once you've completed enough lessons to have the tools for it.</p>`;
+  intro.innerHTML = `<h1>Mini Projects</h1><p>Longer builds, in stages, that combine several lessons into one working gadget. Each one opens once you've finished the lesson it builds on - the lessons are linked on each card.</p>`;
+  // The course's own project lessons (Module 7) are projects too - say where.
+  const projectModule = MODULES.find((m) => m.title === "Practical Projects");
+  const courseProjects = projectModule?.lessons.map((meta) => lessonById(meta.id)).filter(Boolean) ?? [];
+  if (courseProjects.length) {
+    const box = document.createElement("div");
+    box.className = "project-course-box";
+    const label = document.createElement("div");
+    label.className = "lesson-list-heading";
+    label.textContent = `PROJECT LESSONS IN THE COURSE (MODULE ${projectModule.number})`;
+    const links = document.createElement("div");
+    links.className = "project-lesson-links";
+    for (const lesson of courseProjects) links.appendChild(lessonLink(lesson, progress, onOpenLesson));
+    box.append(label, links);
+    intro.appendChild(box);
+  }
   container.appendChild(intro);
 
   const grid = document.createElement("div");
@@ -42,6 +74,18 @@ export function renderProjectList(container, progress, { onSelectProject }) {
     p.textContent = project.description;
     card.appendChild(p);
 
+    const needed = project.requiredLessons.map(lessonById).filter(Boolean);
+    if (needed.length) {
+      const builds = document.createElement("div");
+      builds.className = "project-builds-on";
+      const label = document.createElement("span");
+      label.className = "project-builds-label";
+      label.textContent = "Builds on:";
+      builds.appendChild(label);
+      for (const lesson of needed) builds.appendChild(lessonLink(lesson, progress, onOpenLesson));
+      card.appendChild(builds);
+    }
+
     if (isUnlocked) {
       const progressBar = document.createElement("div");
       progressBar.className = "project-progress-bar";
@@ -64,7 +108,8 @@ export function renderProjectList(container, progress, { onSelectProject }) {
       const lockNote = document.createElement("div");
       lockNote.className = "project-lock-note";
       lockNote.innerHTML = icon("lock", 1);
-      lockNote.appendChild(document.createTextNode(" " + project.requiredLabel));
+      const missing = needed.filter((l) => !progress.viewedLessons.includes(l.id));
+      lockNote.appendChild(document.createTextNode(` Finish ${missing.map((l) => `${lessonPosition(l).label} "${l.title}"`).join(" and ")} to unlock`));
       card.appendChild(lockNote);
     }
 

@@ -1028,6 +1028,7 @@ export function createBoard(svgEl, options = {}) {
     for (const pin of DIGITAL_PINS) drawConnector(`pin-${pin}`, PIN_X_START + pin * PIN_X_STEP, DIGITAL_PIN_Y, "", "#4fc3f7", true);
     for (const pin of ANALOG_PINS) { const p = pinPosition(pin); drawConnector(`pin-${pin}`, p.x, p.y, "", "#b48ce8", true); }
 
+    drawPinStates();
     for (const comp of components) drawComponent(comp);
 
     // ...but a component's OWN leads still need to redraw on top of its own
@@ -1053,6 +1054,41 @@ export function createBoard(svgEl, options = {}) {
           svgEl.appendChild(t);
         }
       }
+    }
+  }
+
+  // While a sketch runs, every pin it has set up shows what it's doing, right
+  // under the pin: an output reads HIGH, LOW or its PWM level (%); an input
+  // reads what it currently sees (IN H / IN L, or IN ? when it's floating);
+  // an analog pin shows its reading. Makes HIGH and LOW - and inputs versus
+  // outputs - visible instead of something to imagine.
+  function drawPinStates() {
+    if (!running) return;
+    const badge = (x, y, text, fill) => {
+      const w = text.length * 5.2 + 6;
+      svgEl.appendChild(svgEl_("rect", { x: x - w / 2, y: y - 7, width: w, height: 11, rx: 2, fill: "#0b1d17", stroke: fill, "stroke-width": 1, style: "pointer-events:none" }));
+      const t = svgEl_("text", { x, y: y + 1.5, fill, "font-size": 8.5, "font-weight": "700", "text-anchor": "middle", "font-family": "monospace", style: "pointer-events:none" });
+      t.textContent = text;
+      svgEl.appendChild(t);
+    };
+    for (const pin of DIGITAL_PINS) {
+      const mode = pinModes[pin];
+      if (!mode) continue;
+      const x = PIN_X_START + pin * PIN_X_STEP, y = DIGITAL_PIN_Y + 15;
+      if (mode === "OUTPUT") {
+        const level = pinOutputs[pin] ?? 0;
+        if (level === 255) badge(x, y, "HIGH", "#57d38c");
+        else if (level === 0) badge(x, y, "LOW", "#9aa0b4");
+        else badge(x, y, `${Math.round((level / 255) * 100)}%`, "#f5c542");
+      } else {
+        const { level } = inputLevel(pin);
+        badge(x, y, level === null ? "IN ?" : level ? "IN H" : "IN L", level === null ? "#ef6461" : "#4fc3f7");
+      }
+    }
+    for (const pin of ANALOG_PINS) {
+      if (pinAnalogInputs[pin] === undefined) continue;
+      const p = pinPosition(pin);
+      badge(p.x, p.y + 14, String(pinAnalogInputs[pin]), "#b48ce8");
     }
   }
 
@@ -1783,6 +1819,33 @@ export function createBoard(svgEl, options = {}) {
     return { findings, problems: count("problem"), real: count("real") };
   }
 
+  // Replaces the whole circuit with a lesson's starter circuit:
+  //   { parts: [{ key: "r", kind: "resistor" }, ...],
+  //     wires: [["5v", "r.1"], ["r.2", "led.a"], ...] }
+  // "r.1" means lead -1 of the part with key r; anything else ("5v", "gnd",
+  // "pin-13") is a board connector. Returns { key: componentId }.
+  function loadCircuit({ parts = [], wires: wireSpec = [] } = {}) {
+    components = [];
+    wires = [];
+    pressed = new Set();
+    irBlocked = new Set();
+    pending = null;
+    nextComponentNum = {};
+    signalColorCursor = 0;
+    const ids = {};
+    for (const part of parts) ids[part.key] = addComponent(part.kind);
+    const resolve = (ref) => {
+      const m = /^(\w+)\.(\w+)$/.exec(ref);
+      return m && ids[m[1]] ? `${ids[m[1]]}-${m[2]}` : ref;
+    };
+    for (const [a, b] of wireSpec) {
+      const from = resolve(a), to = resolve(b);
+      wires.push({ from, to, color: autoColor(from, to) });
+    }
+    circuitChanged();
+    return ids;
+  }
+
   // A read-only peek at the circuit, for the guided tour and the tests.
   function areConnected(a, b, throughResistors = true) {
     return connectedSet(a, throughResistors).has(b);
@@ -1807,7 +1870,7 @@ export function createBoard(svgEl, options = {}) {
     lcdBegin, lcdPrint, lcdSetCursor, lcdClear, pinStatus,
     addComponent, removeComponent, clearWiring, reset, setRunning, setWireColor,
     connect, setButtonPressed, updateComponent,
-    inspectCircuit, areConnected, listComponents, ledLevels, wireCount, isRunning,
+    inspectCircuit, areConnected, listComponents, ledLevels, wireCount, isRunning, loadCircuit,
     getWirePalette: () => WIRE_PALETTE,
   };
 }

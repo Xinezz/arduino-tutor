@@ -25,6 +25,7 @@ import { icon } from "../game/sprites.js";
 import { AVATARS, itemKey, avatarSpriteName } from "../game/shop.js";
 import { getDailyBoard } from "../game/missions.js";
 import { playSfx } from "../game/audio.js";
+import { nextLesson, lessonPosition } from "../progress/learning.js";
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -168,14 +169,16 @@ function renderReturningScreen(container, progress, onStart, onPoke) {
   page.appendChild(buildHeader(progress, container, onStart, onPoke));
 
   const hero = el("div", "menu-hero");
-  const lastLesson = lessons.find((l) => l.id === progress.lastLessonId);
-  hero.appendChild(buildHeroText(progress, onStart, onPoke));
-  hero.appendChild(buildIllustration(progress, lastLesson));
+  // What "Continue" opens: the lesson you're part-way through, or the next
+  // one in the course.
+  const upNext = nextLesson(progress);
+  hero.appendChild(buildHeroText(progress, upNext, onStart, onPoke));
+  hero.appendChild(buildIllustration(progress, upNext));
   page.appendChild(hero);
 
   const cardRow = el("div", "menu-card-row");
   cardRow.appendChild(buildProgressCard(progress));
-  cardRow.appendChild(buildNextCard(progress, lastLesson, onStart));
+  cardRow.appendChild(buildNextCard(progress, upNext, onStart));
   cardRow.appendChild(buildMissionsCard(progress, onStart));
   page.appendChild(cardRow);
 }
@@ -230,7 +233,7 @@ function circleButton({ sprite, label, kind, onClick, badge }) {
   return wrap;
 }
 
-function buildHeroText(progress, onStart, onPoke) {
+function buildHeroText(progress, upNext, onStart, onPoke) {
   const heroText = el("div", "menu-hero-text");
 
   const mentorSlot = el("div", "mentor-box hud-frame menu-hero-mentor");
@@ -241,21 +244,25 @@ function buildHeroText(progress, onStart, onPoke) {
   heroText.appendChild(el(
     "p",
     "menu-hero-sub",
-    "Pick up exactly where you left off, or jump straight to the map, the shop, or your profile."
+    upNext
+      ? `Up next: ${lessonPosition(upNext).label} ${upNext.title}. Press Continue to go straight there.`
+      : "You've finished every lesson - try a project, or plan one of your own."
   ));
 
   const board = getDailyBoard(progress);
   const pending = board.claimable.length + (board.chestReady ? 1 : 0);
 
   const actions = el("div", "menu-hero-actions");
+  // The same four places as the tabs inside: Learn, Practice, Progress (and
+  // Continue, which is "Learn, straight to the next lesson").
   actions.appendChild(circleButton({ sprite: "play", label: "Continue", kind: "primary", onClick: () => onStart?.(null) }));
   // Until it's been done once, the guided first build stays one click away.
   if (!progress.firstCircuitDone) {
     actions.appendChild(circleButton({ sprite: "led", label: "First Circuit", kind: "secondary", onClick: () => onStart?.(null, "first-circuit") }));
   }
-  actions.appendChild(circleButton({ sprite: "map", label: "World Map", kind: "secondary", onClick: () => onStart?.(null, "map") }));
-  actions.appendChild(circleButton({ sprite: "bag", label: "Shop", kind: "secondary", onClick: () => onStart?.(null, "shop") }));
-  actions.appendChild(circleButton({ sprite: "person", label: "Profile", kind: "secondary", badge: pending || null, onClick: () => onStart?.(null, "dashboard") }));
+  actions.appendChild(circleButton({ sprite: "book", label: "Course", kind: "secondary", onClick: () => onStart?.(null, "learn") }));
+  actions.appendChild(circleButton({ sprite: "monitor", label: "Practice", kind: "secondary", onClick: () => onStart?.(null, "practice") }));
+  actions.appendChild(circleButton({ sprite: "person", label: "Progress", kind: "secondary", badge: pending || null, onClick: () => onStart?.(null, "dashboard") }));
   heroText.appendChild(actions);
   return heroText;
 }
@@ -265,7 +272,7 @@ function buildHeroText(progress, onStart, onPoke) {
 // all move in lockstep, and your character standing on the bench - all
 // respect prefers-reduced-motion via CSS alone (see .menu-illustration rules),
 // so there's no JS branching needed here for that.
-function buildIllustration(progress, lastLesson) {
+function buildIllustration(progress, upNext) {
   const box = el("div", "menu-illustration hud-frame");
 
   const icons = el("div", "menu-illustration-icons");
@@ -283,7 +290,7 @@ function buildIllustration(progress, lastLesson) {
 
   const label = el("div", "menu-illustration-label");
   label.innerHTML = icon("led", 1);
-  label.appendChild(document.createTextNode(lastLesson ? ` RESUME: ${lastLesson.title}` : " READY WHEN YOU ARE"));
+  label.appendChild(document.createTextNode(upNext ? ` NEXT: ${upNext.title}` : " READY WHEN YOU ARE"));
   box.appendChild(label);
 
   return box;
@@ -331,7 +338,7 @@ function buildProgressCard(progress) {
   return card;
 }
 
-function buildNextCard(progress, lastLesson, onStart) {
+function buildNextCard(progress, upNext, onStart) {
   const card = el("div", "menu-next-card hud-frame");
   const flagged = (progress.flaggedLessons || [])
     .map((id) => lessons.find((l) => l.id === id))
@@ -357,13 +364,11 @@ function buildNextCard(progress, lastLesson, onStart) {
     eyebrow.innerHTML = icon("target", 1);
     eyebrow.appendChild(document.createTextNode(" KEEP GOING"));
     card.appendChild(eyebrow);
-    card.appendChild(el("div", "menu-card-heading", lastLesson ? lastLesson.title : "Getting Started"));
+    card.appendChild(el("div", "menu-card-heading", upNext ? `${lessonPosition(upNext).label} ${upNext.title}` : "All lessons done"));
     card.appendChild(el(
       "p",
       "menu-card-body",
-      lastLesson
-        ? "Right where you left off - pick back up whenever you're ready."
-        : "Your very first lesson is waiting on the other side."
+      upNext?.why ?? "Every lesson is done - the Projects tab and Module 7 are waiting."
     ));
     const btn = el("button", "btn btn-complete menu-card-btn", "Continue");
     btn.addEventListener("click", () => onStart?.(null));

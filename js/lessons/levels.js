@@ -1,41 +1,20 @@
-// The names of the course's levels (a.k.a. "worlds" on the map). Lives in its
-// own tiny module so the sidebar, the world map and the achievements can all
-// agree on them without any of those importing each other.
-//
-// A level has two numbers:
-//  - its ID (the `level` field on every lesson, and the key below), which
-//    never changes, because saved progress and trophies ("clear-2") use it;
-//  - its POSITION in the course, which is what the learner sees ("Level 2").
-// Program Flow has ID 5 but is taught second, straight after the basics:
-// every later level leans on if/else and loops. LEVEL_ORDER is the teaching
-// order, and must match the order data.js lists the lessons in.
+// Names and icons for the course's modules, for the sidebar, the course map
+// and the trophies - so none of those has to import the others. Everything
+// comes from curriculum.js. (The functions are still called level* because a
+// lesson's module number is kept in its `level` field, which the older
+// modules group by.)
 
-export const LEVEL_TITLES = {
-  1: "Arduino Basics",
-  5: "Program Flow",
-  2: "Digital I/O",
-  3: "Analog Input",
-  4: "PWM & Outputs",
-  6: "Sensors",
-};
+import { MODULES } from "./curriculum.js";
 
-export const LEVEL_ORDER = [1, 5, 2, 3, 4, 6];
+const byNumber = new Map(MODULES.map((m) => [m.number, m]));
 
-// One sprite per world, used by the sidebar headings and the world map.
-export const LEVEL_ICONS = {
-  1: "book",
-  5: "puzzle",
-  2: "led",
-  3: "chart",
-  4: "bolt",
-  6: "chip",
-};
+// The teaching order of the modules.
+export const LEVEL_ORDER = MODULES.map((m) => m.number);
 
-// The number the learner sees for a level (its place in the course).
-export const levelNumber = (id) => {
-  const i = LEVEL_ORDER.indexOf(id);
-  return i === -1 ? id : i + 1;
-};
-export const levelTitle = (n) => LEVEL_TITLES[n] ?? `Level ${levelNumber(n)}`;
-export const levelName = (n) => `Level ${levelNumber(n)} · ${levelTitle(n)}`;
-export const levelIcon = (n) => LEVEL_ICONS[n] ?? "map";
+export const levelNumber = (n) => n;
+export const levelTitle = (n) => byNumber.get(n)?.title ?? `Module ${n}`;
+export const levelName = (n) => `Module ${n} · ${levelTitle(n)}`;
+export const levelIcon = (n) => byNumber.get(n)?.icon ?? "map";
+export const moduleSummary = (n) => byNumber.get(n)?.summary ?? "";
+// The parts a module's lesson board offers (null = every part).
+export const moduleParts = (n) => byNumber.get(n)?.parts ?? null;

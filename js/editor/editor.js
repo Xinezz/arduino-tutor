@@ -3,7 +3,10 @@
 // back simple getValue()/setValue() helpers. If we ever swap editors later,
 // only this file needs to change.
 
+import { glossaryAt } from "./glossary.js";
+
 const DEFAULT_TEMPLATE = "void setup() {\n  \n}\n\nvoid loop() {\n  \n}\n";
+const HELP_IDLE = "Click on a command (like digitalWrite) to see what it does here.";
 
 export function createEditor(textareaEl) {
   const cm = CodeMirror.fromTextArea(textareaEl, {
@@ -48,6 +51,42 @@ export function createEditor(textareaEl) {
     cm.scrollIntoView({ line: line - 1, ch: 0 }, 60);
   }
   cm.on("change", clearMark);
+
+  // "What does this do?": the command under the cursor is explained in a line
+  // below the editor (works from the keyboard too), and hovering over one
+  // shows the same explanation as a tooltip. Comments and text in quotes are
+  // left alone.
+  const commandAt = (pos) => {
+    const type = cm.getTokenTypeAt({ line: pos.line, ch: pos.ch + 1 }) || cm.getTokenTypeAt(pos) || "";
+    if (/comment|string/.test(type)) return null;
+    return glossaryAt(cm.getLine(pos.line) ?? "", pos.ch);
+  };
+  const helpEl = document.createElement("div");
+  helpEl.className = "editor-help";
+  helpEl.setAttribute("aria-live", "polite");
+  cm.getWrapperElement().after(helpEl);
+  let shownHelp = null; // not undefined: that's "idle", and the first render must still happen
+  const showHelp = () => {
+    const entry = cm.hasFocus() ? commandAt(cm.getCursor()) : null;
+    if (entry?.name === shownHelp) return;
+    shownHelp = entry?.name;
+    helpEl.classList.toggle("is-idle", !entry);
+    helpEl.innerHTML = "";
+    if (!entry) { helpEl.textContent = HELP_IDLE; return; }
+    const code = document.createElement("code");
+    code.textContent = entry.usage;
+    helpEl.append(code, document.createTextNode(` ${entry.text}`));
+  };
+  cm.on("cursorActivity", showHelp);
+  cm.on("focus", showHelp);
+  showHelp();
+  cm.getWrapperElement().addEventListener("mouseover", (e) => {
+    const span = e.target.closest(".CodeMirror-line span");
+    if (!span) return;
+    const entry = commandAt(cm.coordsChar({ left: e.clientX, top: e.clientY }, "window"));
+    if (entry) span.title = `${entry.usage} - ${entry.text}`;
+    else span.removeAttribute("title");
+  });
 
   const listeners = new Set();
   cm.on("change", () => listeners.forEach((fn) => fn()));

@@ -3,11 +3,10 @@
 export const level3Lessons = [
   {
     id: "l3-1",
-    level: 3,
     title: "Analog vs Digital Signals",
     body: [
       { type: "p", text:
-        "Everything in Digital I/O was digital: a pin was either HIGH or LOW, on or off, 5V or 0V - nothing " +
+        "Everything so far has been digital: a pin was either HIGH or LOW, on or off, 5V or 0V - nothing " +
         "in between. Most of the real world isn't like that. A room isn't just \"light\" or \"dark\" - " +
         "it has a brightness. A knob isn't just \"turned\" or \"not turned\" - it has a position." },
       { type: "p", text:
@@ -15,6 +14,7 @@ export const level3Lessons = [
         "computer like the Arduino work with these in-between values, it needs a circuit that converts " +
         "a continuously-variable voltage into a number - that circuit is called an ADC (Analog-to-Digital " +
         "Converter), and the Uno has one built in." },
+      { type: "demo", demo: "analog-digital" },
       { type: "note", text:
         "Engineering analogy: a digital signal is a light switch (on/off). An analog signal is a dimmer " +
         "knob (anywhere from fully off to fully on, and everywhere in between)." },
@@ -23,7 +23,6 @@ export const level3Lessons = [
 
   {
     id: "l3-2",
-    level: 3,
     title: "analogRead() and the 0-1023 Range",
     body: [
       { type: "p", text:
@@ -43,7 +42,6 @@ export const level3Lessons = [
 
   {
     id: "l3-3",
-    level: 3,
     title: "Potentiometers",
     body: [
       { type: "p", text:
@@ -87,7 +85,6 @@ export const level3Lessons = [
 
   {
     id: "l3-4",
-    level: 3,
     title: "The map() Function",
     body: [
       { type: "p", text:
@@ -132,7 +129,6 @@ export const level3Lessons = [
 
   {
     id: "l3-5",
-    level: 3,
     title: "Light Sensors (LDR)",
     body: [
       { type: "p", text:
@@ -147,14 +143,13 @@ export const level3Lessons = [
         "int ldrPin = A0;\n\nvoid loop() {\n  int brightness = analogRead(ldrPin);\n  if (brightness < 300) {\n    Serial.println(\"It's dark\");\n  } else {\n    Serial.println(\"It's bright\");\n  }\n  delay(200);\n}" },
       { type: "note", text:
         "This lesson introduces the pattern behind almost every \"smart\" sensor project: read an analog " +
-        "value, then use if/else (from Program Flow) to decide what that value MEANS and what to do " +
+        "value, then use if/else (from Module 3) to decide what that value MEANS and what to do " +
         "about it." },
     ],
   },
 
   {
     id: "l3-6",
-    level: 3,
     title: "From Reading to Meaning",
     body: [
       { type: "p", text:

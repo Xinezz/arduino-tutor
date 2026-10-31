@@ -16,14 +16,8 @@
 export const level5Lessons = [
   {
     id: "l5-1",
-    level: 5,
     title: "Making Decisions: if and else",
     body: [
-      { type: "objectives", items: [
-        "Explain what a condition is: a question whose answer is true or false",
-        "Use if to run code only when a condition is true",
-        "Use else and else if to choose between options",
-      ] },
       { type: "p", text:
         "So far, every line of a sketch runs every time. Real programs need to make decisions: turn the " +
         "fan on only if it's hot, sound the alarm only if a door opens. That's what if is for." },
@@ -81,14 +75,8 @@ export const level5Lessons = [
 
   {
     id: "l5-2",
-    level: 5,
     title: "Comparisons and Logic: ==, <, &&, ||",
     body: [
-      { type: "objectives", items: [
-        "Compare values with ==, !=, <, >, <= and >=",
-        "Combine conditions with && (and), || (or) and ! (not)",
-        "Read a combined condition step by step, the way the Arduino does",
-      ] },
       { type: "p", text: "Every condition is built from comparisons. There are six:" },
       { type: "code", text:
         "a == b   // equal to (two = signs!)\na != b   // not equal to\na <  b   // less than\na <= b   // less than or equal to\na >  b   // greater than\na >= b   // greater than or equal to" },
@@ -140,14 +128,8 @@ export const level5Lessons = [
 
   {
     id: "l5-3",
-    level: 5,
     title: "Repeating with for Loops",
     body: [
-      { type: "objectives", items: [
-        "Repeat code an exact number of times with a for loop",
-        "Name the three parts of a for loop: start, condition and step",
-        "Use the loop's counter variable inside the loop",
-      ] },
       { type: "p", text:
         "loop() repeats forever - but often you want something to happen an exact number of times: blink 3 " +
         "times, count to 10, sweep a servo from 0° to 180°. That's what a for loop does." },
@@ -201,14 +183,8 @@ export const level5Lessons = [
 
   {
     id: "l5-4",
-    level: 5,
     title: "while Loops: Repeat Until Something Happens",
     body: [
-      { type: "objectives", items: [
-        "Repeat code for as long as a condition stays true",
-        "Choose between a for loop and a while loop",
-        "Spot a loop that can never end",
-      ] },
       { type: "p", text:
         "A for loop is for \"do this N times\". A while loop is for \"keep going until something happens\" - " +
         "when you don't know in advance how many passes it will take." },
@@ -260,14 +236,8 @@ export const level5Lessons = [
 
   {
     id: "l5-5",
-    level: 5,
     title: "Writing Your Own Functions",
     body: [
-      { type: "objectives", items: [
-        "Group steps into a function with a name you choose",
-        "Pass information into a function with parameters",
-        "Send a result back with return",
-      ] },
       { type: "p", text:
         "You've been calling functions all along: pinMode(), digitalWrite(), delay(). You can write your own " +
         "too - it turns a block of steps into one command with a meaningful name, and you can use it as often " +
@@ -325,14 +295,8 @@ export const level5Lessons = [
 
   {
     id: "l5-6",
-    level: 5,
     title: "Doing Two Things at Once with millis()",
     body: [
-      { type: "objectives", items: [
-        "Explain why delay() stops everything else from happening",
-        "Use millis() to check how much time has passed",
-        "Run two timed jobs side by side without delay()",
-      ] },
       { type: "p", text:
         "delay(1000) freezes the whole sketch for a second. While it waits, the Arduino can't read a button, " +
         "check a sensor or do anything else. One timed job is fine - but two at once, each with its own " +
