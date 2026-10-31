@@ -853,17 +853,14 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   flex: 1;
   overflow-y: auto;
   padding: 24px 32px 60px;
-  max-width: 1400px;
   display: flex;
   flex-direction: column;
   justify-content: safe center;
 }
 
-/* The lesson prose itself stays at a readable line length even though its
-   container (.main-panel, above) now stretches much wider - only the code
-   editor and circuit board actually benefit from the extra width. */
+/* The lesson fills the space beside the lesson list, like the editor and
+   board below it (a narrow fixed column left most of a wide screen empty). */
 .lesson-content {
-  max-width: 760px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2116,7 +2113,7 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .demo-breadboard circle:focus-visible { outline: none; stroke: var(--accent); stroke-width: 2; }
 
 /* ---------- "What's next" after every lesson ---------- */
-.next-step-section { margin-top: 28px; max-width: 760px; }
+.next-step-section { margin-top: 28px; }
 .next-step-card {
   background: var(--panel);
   border: 2px solid var(--green);
