@@ -26,7 +26,7 @@ import { explainError } from "../simulator/feedback.js";
 // on"); `text` is what to show now - the goal when met, otherwise what went
 // wrong. Independent goals (the circuit) are always explained; the code's
 // goals build on each other, so only the first unmet one is (see the UI).
-const item = (ok, okText, failText, independent = false) => ({ ok: !!ok, text: ok ? okText : failText, goal: okText, independent });
+export const item = (ok, okText, failText, independent = false) => ({ ok: !!ok, text: ok ? okText : failText, goal: okText, independent });
 const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 const average = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const gaps = (ts) => ts.slice(1).map((t, i) => t - ts[i]);
@@ -38,7 +38,7 @@ const rangeWarning = (sim) => sim.warnings.find((w) => /has to be between 0 and 
 
 // Is this pin driven as an output? The most common beginner slip is
 // switching a pin that was never set up with pinMode(pin, OUTPUT).
-function outputItem(sim, pin, what) {
+export function outputItem(sim, pin, what) {
   const writes = writesTo(sim, pin);
   if (!writes.length) return item(false, `Pin ${pin} (${what}) is an OUTPUT`, `Your sketch never switches pin ${pin} (${what}) - use digitalWrite(${pin}, ...) to turn it on and off.`);
   return item(sim.hardware.modes[pin] === "OUTPUT", `Pin ${pin} (${what}) is an OUTPUT`,
@@ -47,7 +47,7 @@ function outputItem(sim, pin, what) {
 
 // The stretches of time an output pin spent on and off: [{ from, to, on }].
 // Only stretches that both start and end with a change are "complete".
-function stretches(sim, pin) {
+export function stretches(sim, pin) {
   const changes = sim.hardware.events.filter((e) => e.pin === pin);
   const out = [];
   for (let i = 1; i < changes.length; i++) {
@@ -63,7 +63,7 @@ function goodPart(findings, kind, test = () => true) {
   return findings.find((f) => f.level === "ok" && f.id?.startsWith(`${kind}-`) && !problemIds.has(f.id) && test(f.data || {}));
 }
 
-const circuit = {
+export const circuit = {
   led: (pin) => (findings) => {
     const led = goodPart(findings, "led", (d) => d.pin === pin);
     const goal = `Circuit: LED on pin ${pin}, with its resistor`;
@@ -101,7 +101,7 @@ const circuit = {
 
 // pressed(windows): a digitalRead input that reads LOW (pressed, with
 // INPUT_PULLUP) on `pin` during each [from, to) window, HIGH otherwise.
-const lowDuring = (pin, windows) => (p, t) => (p === pin && windows.some(([a, b]) => t >= a && t < b) ? 0 : 1);
+export const lowDuring = (pin, windows) => (p, t) => (p === pin && windows.some(([a, b]) => t >= a && t < b) ? 0 : 1);
 // phases([[from, to, value], ...], otherwise): an analogRead input that
 // returns `value` during each window (whatever the pin).
 const phases = (list, fallback) => (pin, t) => (list.find(([a, b]) => t >= a && t < b)?.[2] ?? fallback);
@@ -661,12 +661,18 @@ export function hasCheck(challengeId) {
 // to skip the circuit part (the tests check behaviour on its own).
 export function runChallengeCheck(challengeId, code, findings = null) {
   const spec = CHALLENGE_CHECKS[challengeId];
-  if (!spec) return null;
+  return spec ? runCheck(spec, code, findings) : null;
+}
+
+// Runs any check spec - a challenge's, or a project step's (projects/) -
+// against the learner's code and (when given) the board's circuit findings.
+// A spec with no `check` checks only the circuit.
+export function runCheck(spec, code, findings = null) {
   const sim = simulate(code, { ms: spec.ms, inputs: { digitalRead: () => 1, ...spec.inputs }, yieldCost: 2 });
   if (sim.errors.length) {
     return { status: "error", items: [], error: explainError(sim.errorDetails[0]), circuitChecked: false };
   }
-  const items = spec.check(sim, code);
+  const items = spec.check ? spec.check(sim, code) : [];
   const circuitChecked = !!findings && !!spec.circuit;
   if (circuitChecked) for (const rule of spec.circuit) items.push(rule(findings));
   return { status: items.every((i) => i.ok) ? "pass" : "fail", items, error: null, circuitChecked };

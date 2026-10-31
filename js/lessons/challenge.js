@@ -243,63 +243,7 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
   let solved = alreadySolved;
 
   function showCheck(result) {
-    checkArea.hidden = false;
-    checkArea.innerHTML = "";
-    checkArea.className = `check-result is-${result.status}`;
-    const head = document.createElement("div");
-    head.className = "check-result-head";
-    head.textContent = result.status === "pass"
-      ? "✔ Every goal met!"
-      : result.status === "error"
-        ? `✖ ${result.error.title}${result.error.line ? ` on line ${result.error.line}` : ""} - the check couldn't run`
-        : `Not yet: ${result.items.filter((i) => i.ok).length} of ${result.items.length} goals met`;
-    checkArea.appendChild(head);
-    if (result.status === "error") {
-      for (const [cls, text] of [["check-detail", result.error.detail], ["check-hint", result.error.hint && `Hint: ${result.error.hint}`], ["check-hint", result.error.recovery]]) {
-        if (!text) continue;
-        const p = document.createElement("p");
-        p.className = cls;
-        p.textContent = text;
-        checkArea.appendChild(p);
-      }
-      return;
-    }
-    // One problem at a time: the first unmet goal of the CODE is explained,
-    // later ones usually depend on it ("never turns off" means nothing while
-    // it never turns on), so they're listed as goals still to come. Circuit
-    // goals are independent and always explained.
-    const list = document.createElement("ul");
-    list.className = "check-list";
-    let explained = false;
-    for (const it of result.items) {
-      const li = document.createElement("li");
-      const mark = document.createElement("span");
-      mark.className = "check-mark";
-      const text = document.createElement("span");
-      if (it.ok) {
-        li.className = "is-ok";
-        mark.textContent = "✔";
-        text.textContent = it.text;
-      } else if (!explained || it.independent) {
-        li.className = "is-todo";
-        mark.textContent = "✖";
-        text.textContent = it.text;
-        if (!it.independent) explained = true;
-      } else {
-        li.className = "is-pending";
-        mark.textContent = "○";
-        text.textContent = it.goal;
-      }
-      li.append(mark, text);
-      list.appendChild(li);
-    }
-    checkArea.appendChild(list);
-    if (result.status === "fail") {
-      const p = document.createElement("p");
-      p.className = "check-hint";
-      p.textContent = "Fix the first ✖, then check again. Stuck? The hints above get more specific each time.";
-      checkArea.appendChild(p);
-    }
+    renderCheckResult(checkArea, result);
   }
 
   async function complete(at) {
@@ -352,4 +296,66 @@ export function renderChallenge(container, challenge, { onComplete, onSpend, alr
 
   updateHintButton();
   container.appendChild(card);
+}
+
+// The result of a check (Check My Solution, or a project step): one problem
+// explained at a time, circuit problems always.
+export function renderCheckResult(checkArea, result) {
+  checkArea.hidden = false;
+  checkArea.innerHTML = "";
+  checkArea.className = `check-result is-${result.status}`;
+  const head = document.createElement("div");
+  head.className = "check-result-head";
+  head.textContent = result.status === "pass"
+    ? "✔ Every goal met!"
+    : result.status === "error"
+      ? `✖ ${result.error.title}${result.error.line ? ` on line ${result.error.line}` : ""} - the check couldn't run`
+      : `Not yet: ${result.items.filter((i) => i.ok).length} of ${result.items.length} goals met`;
+  checkArea.appendChild(head);
+  if (result.status === "error") {
+    for (const [cls, text] of [["check-detail", result.error.detail], ["check-hint", result.error.hint && `Hint: ${result.error.hint}`], ["check-hint", result.error.recovery]]) {
+      if (!text) continue;
+      const p = document.createElement("p");
+      p.className = cls;
+      p.textContent = text;
+      checkArea.appendChild(p);
+    }
+    return;
+  }
+  // One problem at a time: the first unmet goal of the CODE is explained,
+  // later ones usually depend on it ("never turns off" means nothing while
+  // it never turns on), so they're listed as goals still to come. Circuit
+  // goals are independent and always explained.
+  const list = document.createElement("ul");
+  list.className = "check-list";
+  let explained = false;
+  for (const it of result.items) {
+    const li = document.createElement("li");
+    const mark = document.createElement("span");
+    mark.className = "check-mark";
+    const text = document.createElement("span");
+    if (it.ok) {
+      li.className = "is-ok";
+      mark.textContent = "✔";
+      text.textContent = it.text;
+    } else if (!explained || it.independent) {
+      li.className = "is-todo";
+      mark.textContent = "✖";
+      text.textContent = it.text;
+      if (!it.independent) explained = true;
+    } else {
+      li.className = "is-pending";
+      mark.textContent = "○";
+      text.textContent = it.goal;
+    }
+    li.append(mark, text);
+    list.appendChild(li);
+  }
+  checkArea.appendChild(list);
+  if (result.status === "fail") {
+    const p = document.createElement("p");
+    p.className = "check-hint";
+    p.textContent = "Fix the first ✖, then check again. Stuck? The hints above get more specific each time.";
+    checkArea.appendChild(p);
+  }
 }

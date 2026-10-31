@@ -11,6 +11,7 @@
 import { lessons } from "../lessons/data.js";
 import { SKILLS } from "../lessons/curriculum.js";
 import { getQuizForLesson } from "../quiz/data.js";
+import { BEGINNER_PROJECTS } from "../projects/beginner.js";
 
 export const lessonById = (id) => lessons.find((l) => l.id === id) ?? null;
 
@@ -72,7 +73,9 @@ export function skillReport(progress) {
     let status = "not-started";
     if (doneCount > 0) status = "learning";
     if (doneCount === teaching.length) status = "learned";
-    if (challenges.some((c) => c.passed)) status = "practised";
+    // a completed project that applies this skill counts as practising it
+    const appliedInProject = BEGINNER_PROJECTS.some((p) => p.concepts.includes(id) && Object.keys(progress.projects?.[p.id]?.completed ?? {}).length);
+    if (challenges.some((c) => c.passed) || appliedInProject) status = "practised";
     if (challenges.length && challenges.every((c) => c.passed && c.independent) && quizzes.every((q) => !q || q.solved)) status = "mastered";
 
     const revision = [];

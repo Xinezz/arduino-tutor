@@ -393,6 +393,38 @@ export function getProjectProgress(progress, projectId) {
   return progress.projects[projectId] || { stagesDone: [] };
 }
 
+// Project-library extras on the same entry: which modes you've completed it
+// in (and with how many hints - recorded, never penalised), and your own
+// project log (plan, problems met, improvements made). Old entries without
+// them keep working.
+export function recordProjectHint(progress, projectId) {
+  const entry = progress.projects[projectId] || { stagesDone: [] };
+  entry.hints = (entry.hints || 0) + 1;
+  progress.projects[projectId] = entry;
+  progress.stats.hintsUsed++;
+  saveProgress(progress);
+  return progress;
+}
+
+export function recordProjectComplete(progress, projectId, mode, hints = 0) {
+  const entry = progress.projects[projectId] || { stagesDone: [] };
+  entry.completed = entry.completed || {};
+  const first = !entry.completed[mode];
+  if (first) entry.completed[mode] = { hints };
+  if (first) applyXp(progress, CREDIT_REWARDS.projectStage * 2);
+  progress.projects[projectId] = entry;
+  saveProgress(progress);
+  return progress;
+}
+
+export function saveProjectLog(progress, projectId, field, text) {
+  const entry = progress.projects[projectId] || { stagesDone: [] };
+  entry.log = { ...(entry.log || {}), [field]: text };
+  progress.projects[projectId] = entry;
+  saveProgress(progress);
+  return progress;
+}
+
 // =========================================================================
 // Game layer mutators. Same rules as everything above: all state changes
 // live here, each one guarded so replaying it (a double-click, a re-render,

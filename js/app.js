@@ -19,6 +19,9 @@ import {
   markChallengeCompleted,
   markFirstCircuitDone,
   markOnboarded,
+  recordProjectHint,
+  recordProjectComplete,
+  saveProjectLog,
   recordCheck,
   recordPrediction,
   recordQuizResult,
@@ -64,6 +67,9 @@ import { getQuizForLesson } from "./quiz/data.js";
 import { renderQuiz } from "./quiz/quiz.js";
 import { findProject } from "./projects/data.js";
 import { renderProjectList, renderProjectDetail } from "./projects/projects.js";
+import { BEGINNER_PROJECTS } from "./projects/beginner.js";
+import { renderProjectPage, renderProjectBuilder, MODES } from "./projects/projectView.js";
+import { runCheck } from "./lessons/checks.js";
 import { renderDashboard } from "./dashboard/dashboard.js";
 import {
   renderMentorBox,
@@ -319,6 +325,7 @@ const firstCircuitGuide = createFirstCircuitGuide({
 async function startFirstCircuit() {
   if (currentView !== "practice") switchView("practice");
   document.getElementById("practice-beginner-note").hidden = true; // the guide is the instructions now
+  document.getElementById("project-guide").hidden = true; // one guide at a time
   if (!firstCircuitGuide.isActive()) {
     const b = practicePanel.board;
     const hasWork = b.listComponents().length > 0 || b.wireCount() > 0 || !practicePanel.editor.isTemplate();
@@ -487,8 +494,62 @@ viewTabsEl.querySelectorAll(".view-tab").forEach((btn) => {
   btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 
+// A project from the library (projects/beginner.js): its page on the Projects
+// tab, and its builder beside the editor and board in Free Practice.
+const libraryProject = (id) => BEGINNER_PROJECTS.find((p) => p.id === id);
+const projectGuideEl = document.getElementById("project-guide");
+
+function startProjectBuild(project, mode) {
+  if (firstCircuitGuide.isActive()) firstCircuitGuide.stop();
+  switchView("practice");
+  practiceIntroEl.hidden = true;
+  document.getElementById("first-circuit-guide").hidden = true;
+  projectGuideEl.hidden = false;
+  practiceWorkspaceEl.classList.add("is-guided");
+  practicePanel.editor.refresh();
+  const exit = () => {
+    projectGuideEl.hidden = true;
+    projectGuideEl.innerHTML = "";
+    practiceWorkspaceEl.classList.remove("is-guided");
+    practiceIntroEl.hidden = false;
+    practicePanel.editor.refresh();
+  };
+  renderProjectBuilder(projectGuideEl, project, mode, progress, {
+    runCheck: (spec) => runCheck(spec, practicePanel.editor.getValue(), practicePanel.board.inspectCircuit().findings),
+    onStepPassed: (stepId) => {
+      const before = rewards.snapshot();
+      progress = markProjectStageDone(progress, project.id, stepId);
+      rewards.settle(before, { kind: "stage", label: project.title });
+    },
+    onHint: () => { progress = recordProjectHint(progress, project.id); },
+    onComplete: (doneMode, hintsUsed) => {
+      const before = rewards.snapshot();
+      progress = recordProjectComplete(progress, project.id, doneMode, hintsUsed);
+      rewards.settle(before, { kind: "stage", label: project.title });
+      playSfx("correct");
+      setStatus(`"${project.title}" complete (${MODES[doneMode].label} mode) - your own code and circuit passed every check.`);
+    },
+    onExit: () => { exit(); setStatus("Project closed - your circuit and code are still in Free Practice."); },
+    onBackToPage: () => { exit(); currentProjectId = project.id; switchView("projects"); },
+  });
+  setStatus(`Building "${project.title}" (${MODES[mode].label}) - the project is beside the editor and board.`);
+}
+
 function renderProjectsView() {
-  if (currentProjectId) {
+  const library = currentProjectId && libraryProject(currentProjectId);
+  if (library) {
+    renderProjectPage(projectsPanelEl, library, progress, {
+      onBack: () => { currentProjectId = null; renderProjectsView(); },
+      onStart: (mode) => startProjectBuild(library, mode),
+      onOpenLesson: goToLesson,
+      onQuizResult: (quizId, success, topic) => {
+        const before = rewards.snapshot();
+        progress = recordQuizResult(progress, quizId, success, topic);
+        if (success) rewards.settle(before, { kind: "quiz" });
+      },
+      onSaveLog: (field, text) => { progress = saveProjectLog(progress, library.id, field, text); },
+    });
+  } else if (currentProjectId) {
     const project = findProject(currentProjectId);
     renderProjectDetail(projectsPanelEl, project, progress, {
       onBack: () => { currentProjectId = null; renderProjectsView(); },

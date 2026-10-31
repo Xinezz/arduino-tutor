@@ -11,6 +11,8 @@ import { icon } from "../game/sprites.js";
 import { centerOf } from "../game/fx.js";
 import { MODULES } from "../lessons/curriculum.js";
 import { lessonById, lessonPosition } from "../progress/learning.js";
+import { BEGINNER_PROJECTS } from "./beginner.js";
+import { SKILLS } from "../lessons/curriculum.js";
 
 // A small button that opens a lesson, marked done or not.
 function lessonLink(lesson, progress, onOpenLesson) {
@@ -32,7 +34,7 @@ export function renderProjectList(container, progress, { onSelectProject, onOpen
 
   const intro = document.createElement("div");
   intro.className = "projects-intro";
-  intro.innerHTML = `<h1>Mini Projects</h1><p>Longer builds, in stages, that combine several lessons into one working gadget. Each one opens once you've finished the lesson it builds on - the lessons are linked on each card.</p>`;
+  intro.innerHTML = `<h1>Projects</h1><p>Combine what you've learned into a complete, working build - planned, built, tested and improved the way engineers do it. Start with a beginner project; each one lists the lessons it builds on.</p>`;
   // The course's own project lessons (Module 7) are projects too - say where.
   const projectModule = MODULES.find((m) => m.title === "Practical Projects");
   const courseProjects = projectModule?.lessons.map((meta) => lessonById(meta.id)).filter(Boolean) ?? [];
@@ -49,6 +51,43 @@ export function renderProjectList(container, progress, { onSelectProject, onOpen
     intro.appendChild(box);
   }
   container.appendChild(intro);
+
+  // Beginner projects (the library): every step checked against your own
+  // code and circuit, in guided, challenge or independent mode.
+  const level = (title, note) => {
+    const h = document.createElement("h2");
+    h.className = "dashboard-section-title";
+    h.textContent = title;
+    container.appendChild(h);
+    if (note) container.appendChild(Object.assign(document.createElement("p"), { className: "learning-legend", textContent: note }));
+  };
+  level("Beginner projects", "For after Modules 2-4. Each one: plan it, build it in guided, challenge or independent mode, test it - every step is checked against your own code and circuit.");
+  const beginners = document.createElement("div");
+  beginners.className = "project-grid";
+  for (const p of BEGINNER_PROJECTS) {
+    const entry = progress.projects?.[p.id] ?? {};
+    const modesDone = Object.keys(entry.completed ?? {});
+    const card = document.createElement("div");
+    card.className = "project-card hud-frame";
+    const ico = document.createElement("div");
+    ico.className = "project-card-icon";
+    ico.innerHTML = icon(p.sprite, 5);
+    const h3 = document.createElement("h3");
+    h3.textContent = p.title;
+    const desc = document.createElement("p");
+    desc.textContent = p.summary;
+    const tags = document.createElement("div");
+    tags.className = "project-concepts";
+    for (const c of p.concepts) tags.appendChild(Object.assign(document.createElement("span"), { className: "learn-tag", textContent: SKILLS[c] }));
+    const status = document.createElement("div");
+    status.className = "project-lock-note";
+    status.textContent = modesDone.length ? `✔ Completed: ${modesDone.join(", ")}` : "✔ Fully simulated · not started";
+    card.append(ico, h3, desc, tags, status);
+    card.addEventListener("click", () => onSelectProject(p.id));
+    beginners.appendChild(card);
+  }
+  container.appendChild(beginners);
+  level("Intermediate projects", "Longer staged builds. These older projects use self-checked stages (you mark each one done) - they haven't been moved to checked steps yet.");
 
   const grid = document.createElement("div");
   grid.className = "project-grid";
