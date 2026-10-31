@@ -72,8 +72,11 @@ const STEPS = [
         el("p", null, "Every lesson follows the same order: an explanation first, then - where the lesson has them - something to see, an example, something to try, a challenge you check and a short quiz, and a summary to finish."),
         list([
           "Learn - the course. Your next lesson is always marked ▶.",
-          "Progress - what you've learned, and what's worth revising.",
           "Projects and Practice - bigger builds, and free play once you know the basics.",
+          "Pathways - further topics, like electronics engineering, after the core course.",
+          "Progress - what you've learned, what's worth practising (a question you miss comes back a day later), and what to do next - with the reason why.",
+          "Portfolio - your finished projects with their code, circuit and your own notes. Private to this browser.",
+          "Ask Sam (the ? button) - explanations, and help when something won't work.",
         ]),
       ];
     },
@@ -114,6 +117,12 @@ export function openWelcomeTour({ firstCircuitDone = false, onFirstCircuit, onSt
       buttons.appendChild(back);
     }
     if (!s.last) {
+      // skippable at any point - it's always there again on the Learn page
+      const skip = el("button", "btn btn-secondary", "Skip tour");
+      skip.type = "button";
+      skip.title = "You can reopen it any time: Learn page → How this course works";
+      skip.addEventListener("click", () => { choice = "course"; handle.close(); });
+      buttons.appendChild(skip);
       const next = el("button", "btn btn-primary", "Next");
       next.type = "button";
       next.addEventListener("click", () => { step++; show(); });

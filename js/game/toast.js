@@ -23,7 +23,8 @@ export function showToast({ iconHtml = "", title = "", text = "", kind = "info",
   const host = getRoot();
   const el = document.createElement("div");
   el.className = `toast toast-${kind}`;
-  el.setAttribute("role", "status");
+  // a warning interrupts a screen reader; everything else waits its turn
+  el.setAttribute("role", kind === "warn" ? "alert" : "status");
 
   const ico = document.createElement("div");
   ico.className = "toast-icon";

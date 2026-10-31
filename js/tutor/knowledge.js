@@ -59,7 +59,7 @@ export const TOPICS = [
     keys: { led: 2, resistor: 3, "220": 2, "burn": 2, "burns out": 3, "need a resistor": 6, "needs a resistor": 6 },
     all: ["led", "resistor"],
     steps: [
-      "An LED has almost no resistance of its own once it starts to light - so on its own, it would let as much current through as the supply could push.",
+      "An LED doesn't limit its own current: below about 2V almost nothing flows, but a little above that the current shoots up - so on its own, at 5V, it would let far more current through than it (or the pin) can take.",
       "That much current overheats the LED and burns it out - and can damage the Arduino pin driving it (pins are only good for about 20 mA).",
       "A resistor in series (in the same loop) limits the current to a safe amount. 220Ω-330Ω is the usual choice for an LED on 5V: about 10-14 mA.",
       "It doesn't matter which side of the LED the resistor goes - the same current flows through the whole loop.",

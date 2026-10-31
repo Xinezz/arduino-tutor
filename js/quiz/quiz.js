@@ -352,7 +352,7 @@ function renderPredictQuiz(container, quiz, onResult) {
 // option i - why it's right, or exactly why it's wrong. A wrong pick says why
 // and leaves the question open, so the learner can think again; the set
 // counts as passed only if every question was right first time (anything
-// else goes on the revision list, and comes back in a revision round).
+// else goes on the revision list, and comes back in a revision session).
 
 function renderQuestionsQuiz(container, quiz, onResult) {
   const card = document.createElement("div");
@@ -365,7 +365,7 @@ function renderQuestionsQuiz(container, quiz, onResult) {
     const result = document.createElement("div");
     result.className = "quiz-result " + (missed ? "failure" : "success");
     result.textContent = missed
-      ? `All answered - ${missed === 1 ? "one question" : `${missed} questions`} needed another try. They'll come back in your revision round; try the set again to clear it now.`
+      ? `All answered - ${missed === 1 ? "one question" : `${missed} questions`} needed another try. They'll come back for revision (Progress page) from tomorrow - or try the set again now.`
       : "All right first time - you've got this.";
     card.appendChild(result);
     onResult(quiz.id, missed === 0, quiz.topic, {

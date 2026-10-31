@@ -259,7 +259,7 @@ export const level4Lessons = [
         "Unlike a servo, a plain DC motor just spins continuously when powered, at a speed roughly " +
         "proportional to the voltage across it - there's no built-in \"go to this angle\" behavior." },
       { type: "p", text:
-        "Recall from the Current lesson in Module 1: a digital pin can only safely supply about 20-40mA. A small DC motor can " +
+        "Recall from the Current lesson in Module 1: a digital pin can only safely supply about 20 mA (40 mA is the absolute maximum, where damage starts). A small DC motor can " +
         "easily demand hundreds of mA to amps, especially when starting up - wiring one directly to an " +
         "Arduino pin will not spin it properly, and can permanently damage the pin." },
       { type: "note", text:

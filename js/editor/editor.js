@@ -8,8 +8,28 @@ import { glossaryAt } from "./glossary.js";
 const DEFAULT_TEMPLATE = "void setup() {\n  \n}\n\nvoid loop() {\n  \n}\n";
 const HELP_IDLE = "Click on a command (like digitalWrite) to see what it does here.";
 
-export function createEditor(textareaEl) {
+// Focus the next (dir 1) or previous (dir -1) visible control outside the editor.
+function leave(ed, dir) {
+  const wrapper = ed.getWrapperElement();
+  const all = [...document.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+    .filter((n) => !n.disabled && n.offsetParent !== null && !wrapper.contains(n));
+  const after = all.filter((n) => wrapper.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const before = all.filter((n) => wrapper.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_PRECEDING);
+  (dir > 0 ? after[0] : before[before.length - 1])?.focus();
+}
+
+export function createEditor(textareaEl, { label = "Arduino code editor" } = {}) {
+  // Tab indents code - so, for keyboard users, Escape first and THEN Tab (or
+  // Shift+Tab) moves focus out of the editor instead of being a trap.
+  let escaped = false;
   const cm = CodeMirror.fromTextArea(textareaEl, {
+    extraKeys: {
+      Esc: () => { escaped = true; },
+      // (CodeMirror.Pass would only fall through to the default Tab = indent,
+      // so after Escape the focus is moved here, to the next/previous control)
+      Tab: (ed) => (escaped ? leave(ed, 1) : CodeMirror.commands.defaultTab(ed)),
+      "Shift-Tab": (ed) => (escaped ? leave(ed, -1) : CodeMirror.commands.indentLess(ed)),
+    },
     mode: "text/x-c++src", // closest built-in mode to Arduino's C++ syntax
     theme: "dracula",
     lineNumbers: true,
@@ -21,6 +41,10 @@ export function createEditor(textareaEl) {
   });
 
   cm.setValue(DEFAULT_TEMPLATE);
+  cm.on("keydown", (_ed, e) => { if (!["Escape", "Tab", "Shift"].includes(e.key)) escaped = false; });
+  cm.on("blur", () => { escaped = false; });
+  // the hidden field CodeMirror types into is what a screen reader announces
+  cm.getInputField().setAttribute("aria-label", `${label} - press Escape, then Tab, to leave it`);
 
   // CodeMirror measures character widths (to know where the cursor and each
   // character go) as soon as it's created - but the custom web font almost

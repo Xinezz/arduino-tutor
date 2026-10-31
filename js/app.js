@@ -37,6 +37,8 @@ import {
   markPathwayLessonDone,
   awardPathwayCertificate,
   touchStreak,
+  storageStatus,
+  onSaveProblem,
   spendCredits,
   recordHintUse,
   recordRun,
@@ -1340,8 +1342,29 @@ function showWelcomeTour() {
   });
 }
 
+// Storage problems are always said out loud - progress that silently fails to
+// save, or a save that couldn't be read, is the worst kind of surprise.
+onSaveProblem((kind) => {
+  showToast({ iconHtml: icon("cross", 3), title: "PROGRESS NOT SAVED",
+    text: kind === "QuotaExceededError" ? "This browser's storage for the site is full. Back up your portfolio, then remove records you don't need." : "This browser isn't letting the site save (private mode or blocked storage). You can keep learning, but progress won't be remembered.",
+    kind: "warn", duration: 9000 });
+  setStatus("Warning: progress isn't being saved in this browser right now.");
+});
+function reportStorageOnStart() {
+  if (storageStatus.loadProblem === "corrupt") {
+    confirmDialog({
+      title: "YOUR SAVE COULDN'T BE READ",
+      body: `The saved progress in this browser was damaged, so you're starting fresh. The original wasn't deleted: it's kept as "${storageStatus.backupKey ?? "(no room to keep a copy)"}" in this browser's storage. If you have a save code (Options → Save file), you can restore it there.`,
+      confirmLabel: "OK", cancelLabel: "Close",
+    });
+  } else if (storageStatus.loadProblem === "unavailable") {
+    setStatus("This browser isn't letting the site store anything - progress won't be remembered after you close the page.");
+  }
+}
+
 function startApp(target) {
   appStarted = true;
+  reportStorageOnStart();
   hud.update(progress, { animate: false });
   hud.setProfileBadge(pendingRewardCount(progress));
   renderSidebar(sidebarEl, progress, openLesson);

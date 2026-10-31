@@ -324,7 +324,8 @@ export const foundationLessons = [
         "goes toward GND. The simulator marks them + and − under the legs." },
       { type: "diagram", diagram: "led-parts" },
       { type: "p", section: "theory", text:
-        "An LED has almost no resistance of its own. Connected straight to 5V, it would let far too much " +
+        "An LED doesn't limit its own current. Below about 2V almost nothing flows, but once the voltage " +
+        "goes a little above that, the current shoots up - so connected straight to 5V, it would let far too much " +
         "current through and burn out in moments. A resistor in series - in the same loop - limits the " +
         "current to a safe level. 220Ω or 330Ω is the usual choice at 5V." },
       { type: "p", text:

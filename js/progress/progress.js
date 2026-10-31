@@ -202,6 +202,15 @@ function normalize(saved) {
     if (!isObject(entry) || !Array.isArray(entry.stagesDone)) delete merged.projects[id];
   }
   for (const key of ["credits", "xp", "streak"]) if (!Number.isFinite(merged[key])) merged[key] = base[key];
+  merged.streak = Math.max(0, Math.floor(merged.streak));
+  merged.xp = Math.max(0, merged.xp);
+  // single values: the right type, or the default (a hand-edited or shared
+  // save code must never be able to stop the app from starting)
+  const name = typeof saved.playerName === "string" ? saved.playerName.trim().slice(0, 40) : "";
+  merged.playerName = name || null;
+  merged.lastLessonId = typeof saved.lastLessonId === "string" ? saved.lastLessonId : null;
+  merged.lastVisitDate = typeof saved.lastVisitDate === "string" ? saved.lastVisitDate : null;
+  for (const key of ["firstCircuitDone", "onboarded"]) merged[key] = typeof saved[key] === "boolean" ? saved[key] : base[key];
   // the learner profile: anything malformed is dropped, the rest kept
   merged.answers = Object.fromEntries(Object.entries(isObject(saved.answers) ? saved.answers : {})
     .filter(([, a]) => isObject(a) && Number.isFinite(a.n) && typeof a.last === "boolean"));
@@ -215,31 +224,59 @@ function normalize(saved) {
   merged.pathways = Object.fromEntries(Object.entries(isObject(saved.pathways) ? saved.pathways : {})
     .filter(([, e]) => isObject(e))
     .map(([id, e]) => [id, { ...e, lessonsDone: Array.isArray(e.lessonsDone) ? e.lessonsDone.filter((x) => typeof x === "string") : [] }]));
-  merged.stats = { ...base.stats, ...(saved.stats || {}) };
-  merged.equipped = { ...base.equipped, ...(saved.equipped || {}) };
-  merged.daily = { ...base.daily, ...(saved.daily || {}) };
-  merged.daily.counters = { ...base.daily.counters, ...(saved.daily?.counters || {}) };
-  merged.achievements = saved.achievements && typeof saved.achievements === "object" ? saved.achievements : {};
-  merged.hintUses = saved.hintUses && typeof saved.hintUses === "object" ? saved.hintUses : {};
-  merged.checks = saved.checks && typeof saved.checks === "object" ? saved.checks : {};
-  merged.predictions = saved.predictions && typeof saved.predictions === "object" ? saved.predictions : {};
+  // each counter keeps its default's type (a number stays a number)
+  const sameType = (value, fallback) => (typeof value === typeof fallback && (typeof value !== "number" || Number.isFinite(value)) ? value : fallback);
+  merged.stats = Object.fromEntries(Object.entries(base.stats).map(([k, v]) => [k, sameType(saved.stats?.[k], v)]));
+  merged.equipped = Object.fromEntries(Object.entries(base.equipped).map(([k, v]) => [k, sameType(saved.equipped?.[k], v)]));
+  const daily = isObject(saved.daily) && typeof saved.daily.date === "string" ? saved.daily : base.daily;
+  merged.daily = {
+    date: daily.date,
+    counters: Object.fromEntries(Object.entries(base.daily.counters).map(([k, v]) => [k, sameType(daily.counters?.[k], v)])),
+    claimed: Array.isArray(daily.claimed) ? daily.claimed.filter((x) => typeof x === "string") : [],
+    chestClaimed: daily.chestClaimed === true,
+  };
+  const entriesOf = (obj, ok) => Object.fromEntries(Object.entries(isObject(obj) ? obj : {}).filter(([, v]) => ok(v)));
+  merged.achievements = entriesOf(saved.achievements, (v) => typeof v === "string");
+  merged.hintUses = entriesOf(saved.hintUses, (v) => Number.isFinite(v));
+  merged.checks = entriesOf(saved.checks, (v) => isObject(v) && Number.isFinite(v.attempts));
+  merged.predictions = entriesOf(saved.predictions, (v) => isObject(v));
+  merged.quizzes = entriesOf(merged.quizzes, (v) => isObject(v) && Number.isFinite(v.attempts));
   // A save from before the welcome tour existed belongs to someone who has
   // already found their way around - don't send them on it.
   if (saved.onboarded === undefined) merged.onboarded = (saved.viewedLessons?.length ?? 0) > 0 || !!saved.firstCircuitDone;
   // Starter cosmetics are always owned, even if an old/imported save lacks them.
-  merged.inventory = [...new Set([...STARTER_ITEMS, ...(Array.isArray(saved.inventory) ? saved.inventory : [])])];
+  merged.inventory = [...new Set([...STARTER_ITEMS, ...(Array.isArray(saved.inventory) ? saved.inventory.filter((x) => typeof x === "string") : [])])];
   return merged;
 }
 
+// What happened when progress was last loaded or saved, for app.js to tell
+// the learner: loadProblem is "corrupt" (the save couldn't be read - it was
+// kept under a backup key, not thrown away) or "unavailable" (the browser
+// won't give us storage at all); saveProblem is set when a save fails.
+export const storageStatus = { loadProblem: null, backupKey: null, saveProblem: null };
+let saveListener = null;
+export function onSaveProblem(fn) { saveListener = fn; }
+
 export function loadProgress() {
+  let raw;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultProgress();
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    storageStatus.loadProblem = "unavailable";
+    return defaultProgress();
+  }
+  if (!raw) return defaultProgress();
+  try {
     return normalize(JSON.parse(raw));
   } catch {
-    // If the saved data is corrupted - or the browser won't let us read
-    // storage at all (some private windows) - don't crash the app, just
-    // start fresh instead.
+    // Unreadable. Starting fresh would overwrite it on the next save, so the
+    // original text is copied aside first - it may still be recoverable.
+    storageStatus.loadProblem = "corrupt";
+    try {
+      const key = `${STORAGE_KEY}.unreadable-${todayString()}`;
+      localStorage.setItem(key, raw);
+      storageStatus.backupKey = key;
+    } catch { /* no room to keep a copy */ }
     return defaultProgress();
   }
 }
@@ -247,9 +284,13 @@ export function loadProgress() {
 export function saveProgress(progress) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch {
-    // Storage full or blocked: the session still works, it just won't be
-    // remembered next time.
+    if (storageStatus.saveProblem) storageStatus.saveProblem = null;
+  } catch (error) {
+    // Storage full or blocked: the session keeps working, but this progress
+    // won't be remembered - the learner is told (app.js), never left guessing.
+    const first = !storageStatus.saveProblem;
+    storageStatus.saveProblem = String(error?.name ?? "error");
+    if (first) saveListener?.(storageStatus.saveProblem);
   }
 }
 

@@ -43,6 +43,10 @@ import {
   isValidPin, isAnalogPin, pinName,
 } from "./uno.js";
 
+// #include lines that need nothing: libraries the simulator has built in, and
+// standard headers whose functions it provides (or that only declare types).
+const SUPPORTED_HEADERS = new Set(["servo", "liquidcrystal", "arduino", "math", "stdint", "stdlib", "string", "avr/pgmspace"]);
+
 export class SimError extends Error {
   constructor(message, line) {
     super(line ? `Line ${line}: ${message}` : message);
@@ -270,7 +274,16 @@ export function tokenize(source) {
     const m = text.match(/^\s*([A-Za-z_]\w*)([\s\S]*)$/);
     if (!m) throw new SimError("A line starting with # needs a directive such as #define or #include", line);
     const [, directive, rest] = m;
-    if (directive === "include") return; // Servo and LiquidCrystal are built in - nothing to load
+    if (directive === "include") {
+      // Servo and LiquidCrystal are built in, and the standard headers need
+      // nothing loading. Any other library is named as unsupported HERE -
+      // otherwise its first use reads as "not declared - check your
+      // spelling", which blames the learner for the simulator's limit.
+      const header = (rest.match(/^\s*[<"]([^>"]+)[>"]/)?.[1] ?? "").trim();
+      const lib = header.replace(/\.h$/i, "");
+      if (!header || SUPPORTED_HEADERS.has(lib.toLowerCase())) return;
+      throw new SimError(`The ${lib} library isn't supported in this simulator - it can only run Arduino's core commands, Servo and LiquidCrystal. Open "Simulator Limits" to see what's available; on a real board, the Arduino IDE can use it (some libraries need installing first, through its Library Manager).`, line);
+    }
     if (directive === "define") {
       const dm = rest.match(/^\s+([A-Za-z_]\w*)(\()?/);
       if (!dm) throw new SimError("#define needs a name, like #define LED_PIN 13", line);

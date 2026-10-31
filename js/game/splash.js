@@ -79,7 +79,8 @@ export function runSplash({ progress, onStart }) {
   function reveal() {
     if (ready) return;
     ready = true;
-    bootEl.innerHTML = lines.map((l) => `<div>&gt; ${l}</div>`).join("");
+    // built as text, never HTML: the last line contains the saved player name
+    bootEl.replaceChildren(...lines.map((l) => Object.assign(document.createElement("div"), { textContent: `> ${l}` })));
     startBtn.hidden = false;
     footer.hidden = false;
     startBtn.focus({ preventScroll: true });

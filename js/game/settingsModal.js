@@ -191,6 +191,7 @@ const SHORTCUTS = [
   ["M", "Mute or unmute sound"],
   ["S", "Open Options"],
   ["T", "Ask Sam, the tutor"],
+  ["Esc, Tab", "Leave the code editor (Tab on its own indents code)"],
   ["?", "Show this cheat sheet"],
   ["Esc", "Pause menu (Options) - or close a window"],
 ];
