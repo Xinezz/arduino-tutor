@@ -64,6 +64,7 @@ export function renderLearningProgress(container, progress, { onOpenLesson, onQu
     tile(`${s.challengesPassed}/${s.challengesTotal}`, "challenges passed their check"),
     tile(`${s.challengesIndependent}`, "of those with no hints"),
     tile(`${s.checkpointsPassed}/${s.checkpointsTotal}`, "checkpoints answered correctly"),
+    tile(s.predictionsMade ? `${s.predictionsRight}/${s.predictionsMade}` : "-", "predictions right first time"),
     tile(`${skills.filter((k) => k.status === "mastered").length}/${skills.length}`, "skills mastered"),
   );
   section.appendChild(tiles);

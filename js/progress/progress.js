@@ -47,6 +47,7 @@ function defaultProgress() {
     firstCircuitDone: false, // finished the guided "Start your first circuit" walkthrough
     onboarded: false,        // has seen the welcome tour (js/learn/welcomeTour.js)
     checks: {},              // challengeId -> { attempts, passed, independent } from "Check My Solution"
+    predictions: {},         // "<lessonId>#p<n>" -> { right } - whether the FIRST prediction was right
 
     // ---- the game layer ----
     achievements: {},        // achievement id -> ISO timestamp it was unlocked (presence = unlocked, so it can never pay out twice)
@@ -186,6 +187,7 @@ function normalize(saved) {
   merged.achievements = saved.achievements && typeof saved.achievements === "object" ? saved.achievements : {};
   merged.hintUses = saved.hintUses && typeof saved.hintUses === "object" ? saved.hintUses : {};
   merged.checks = saved.checks && typeof saved.checks === "object" ? saved.checks : {};
+  merged.predictions = saved.predictions && typeof saved.predictions === "object" ? saved.predictions : {};
   // A save from before the welcome tour existed belongs to someone who has
   // already found their way around - don't send them on it.
   if (saved.onboarded === undefined) merged.onboarded = (saved.viewedLessons?.length ?? 0) > 0 || !!saved.firstCircuitDone;
@@ -307,6 +309,15 @@ export function markFirstCircuitDone(progress) {
 // challenge was solved but how: `independent` records that it passed before
 // any hint or the solution was revealed. (Rewards are paid separately, by
 // markChallengeCompleted.)
+// Only a prediction's first answer counts: it measures how the learner
+// reasoned before seeing anything, and trying again later can't lower it.
+export function recordPrediction(progress, key, right) {
+  if (progress.predictions[key]) return progress;
+  progress.predictions[key] = { right };
+  saveProgress(progress);
+  return progress;
+}
+
 export function recordCheck(progress, challengeId, passed) {
   const entry = progress.checks[challengeId] || { attempts: 0, passed: false, independent: false };
   entry.attempts += 1;

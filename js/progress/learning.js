@@ -105,6 +105,8 @@ export function learningSummary(progress) {
     challengesTotal: withChallenge.length,
     checkpointsPassed: quizLessons.filter((l) => progress.quizzes[getQuizForLesson(l.id).id]?.solved).length,
     checkpointsTotal: quizLessons.length,
+    predictionsMade: Object.keys(progress.predictions ?? {}).length,
+    predictionsRight: Object.values(progress.predictions ?? {}).filter((p) => p.right).length,
   };
 }
 

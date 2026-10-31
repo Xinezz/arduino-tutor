@@ -12,6 +12,7 @@ import { getQuizForLesson } from "../quiz/data.js";
 import { renderDemo } from "./demos.js";
 import { withTerms } from "./terms.js";
 import { renderDiagram } from "./diagrams.js";
+import { simulate } from "../simulator/headless.js";
 import { lessonPosition, lessonById, nextLesson, missingNeeds, challengeEvidence } from "../progress/learning.js";
 
 export function renderSidebar(container, progress, onSelect) {
@@ -165,7 +166,17 @@ function renderList(block, heading, className) {
 // options, answer, explain, and optionally why[i] - why option i is wrong.
 // A wrong pick says why and lets you think again; "Show the answer" is there
 // for when you're stuck.
-function renderPredict(block, label = "PREDICT FIRST") {
+// Every first prediction is reported (app.js records it as prediction
+// accuracy - a measure of reasoning, never a penalty).
+let predictionListener = null;
+export function onPrediction(fn) { predictionListener = fn; }
+
+function renderPredict(block, label = "PREDICT FIRST", ctx = {}) {
+  const isPrediction = block.type === "predict";
+  const key = isPrediction ? `${ctx.lessonId}#p${(ctx.predictions = (ctx.predictions ?? 0) + 1)}` : null;
+  // the sketch this prediction is about: its own, or the one just above it
+  const sketch = block.code && isFullSketch(block.code) ? block.code : ctx.lastSketch;
+  let firstPick = null;
   const box = document.createElement("div");
   box.className = block.type === "question" ? "lesson-predict lesson-question" : "lesson-predict";
   const eyebrow = document.createElement("div");
@@ -181,12 +192,29 @@ function renderPredict(block, label = "PREDICT FIRST") {
     pre.textContent = block.code;
     box.appendChild(pre);
   }
+  // Thinking it through first, in your own words, is the point of predicting.
+  let reasoning = null;
+  if (isPrediction) {
+    const lab = document.createElement("label");
+    lab.className = "lesson-reasoning";
+    lab.append("Why do you think so? Write your reasoning first (optional - just for you):");
+    reasoning = document.createElement("textarea");
+    reasoning.rows = 2;
+    reasoning.className = "lesson-reasoning-box";
+    lab.appendChild(reasoning);
+    box.appendChild(lab);
+  }
   const options = document.createElement("div");
   options.className = "lesson-predict-options";
   const reveal = document.createElement("div");
   reveal.className = "lesson-predict-reveal";
   reveal.hidden = true;
   const buttons = [];
+  const notePick = (i) => {
+    if (firstPick !== null) return;
+    firstPick = i;
+    if (key) predictionListener?.(key, i === block.answer);
+  };
 
   const showAnswer = (chosen) => {
     buttons.forEach((x, j) => {
@@ -202,7 +230,14 @@ function renderPredict(block, label = "PREDICT FIRST") {
     const explain = document.createElement("p");
     explain.textContent = block.explain;
     reveal.replaceChildren(verdict, explain);
-    if (block.code && isFullSketch(block.code)) reveal.appendChild(tryItButton(block.code));
+    if (reasoning?.value.trim()) {
+      reveal.appendChild(Object.assign(document.createElement("p"), {
+        className: "lesson-reasoning-echo",
+        textContent: `Your reasoning: "${reasoning.value.trim()}" - does the explanation agree with it?`,
+      }));
+    }
+    if (block.output !== undefined && sketch) reveal.appendChild(compareButton(sketch, block, firstPick));
+    else if (block.code && isFullSketch(block.code)) reveal.appendChild(tryItButton(block.code));
     reveal.hidden = false;
   };
 
@@ -212,6 +247,7 @@ function renderPredict(block, label = "PREDICT FIRST") {
     b.className = "guide-option";
     b.textContent = text;
     b.addEventListener("click", () => {
+      notePick(i);
       if (i === block.answer) {
         showAnswer(i);
         return;
@@ -235,6 +271,42 @@ function renderPredict(block, label = "PREDICT FIRST") {
   });
   box.append(options, reveal);
   return box;
+}
+
+// "Run it and compare": runs the real sketch (the same interpreter as the
+// board, on a simulated clock) and shows what it printed, and when, beside
+// what the learner first predicted. Then Try it, to run it on the board.
+function compareButton(sketch, block, firstPick) {
+  const wrap = document.createElement("div");
+  wrap.className = "lesson-compare";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-complete";
+  btn.textContent = "Run it and compare";
+  btn.addEventListener("click", () => {
+    const ms = block.ms ?? 3000;
+    const r = simulate(sketch, { ms });
+    const out = document.createElement("div");
+    out.className = "lesson-compare-result";
+    out.appendChild(Object.assign(document.createElement("div"), { className: "lesson-list-heading", textContent: `WHAT IT REALLY DID (first ${ms / 1000} s)` }));
+    const pre = document.createElement("pre");
+    pre.className = "code-block";
+    pre.textContent = r.errors.length ? r.errors.join("\n")
+      : r.printed.length ? r.printed.map((l) => `${String(Math.round(l.t)).padStart(5)} ms  ${l.text}`).join("\n")
+      : "(nothing printed)";
+    out.appendChild(pre);
+    const matched = firstPick === block.answer;
+    out.appendChild(Object.assign(document.createElement("p"), {
+      className: matched ? "guide-verdict is-right" : "guide-verdict is-wrong",
+      textContent: matched
+        ? `You predicted "${block.options[firstPick]}" - and that's what happened.`
+        : `Your first prediction was "${block.options[firstPick]}". Compare it with the real output above: which line shows the difference?`,
+    }));
+    out.appendChild(tryItButton(sketch));
+    wrap.replaceChildren(out);
+  });
+  wrap.appendChild(btn);
+  return wrap;
 }
 
 // { type: "diagram", diagram, caption }: a labelled drawing (diagrams.js).
@@ -475,8 +547,8 @@ function renderBlock(block, terms) {
   if (block.type === "demo") return renderDemo(block.demo) ?? document.createComment(`unknown demo ${block.demo}`);
   if (block.type === "objectives") return renderList(block, "IN THIS LESSON YOU'LL LEARN TO", "lesson-objectives");
   if (block.type === "mistakes") return renderList(block, "COMMON MISTAKES", "lesson-mistakes");
-  if (block.type === "predict") return renderPredict(block);
-  if (block.type === "question") return renderPredict(block, "CHECK YOUR UNDERSTANDING");
+  if (block.type === "predict") return renderPredict(block, "PREDICT FIRST", terms);
+  if (block.type === "question") return renderPredict(block, "CHECK YOUR UNDERSTANDING", terms);
   if (block.type === "diagram") return renderDiagramBlock(block);
   if (block.type === "table") return renderTable(block, terms);
   if (block.type === "annotated") return renderAnnotated(block);
@@ -714,7 +786,12 @@ export function renderLesson(container, lesson, isCompleted, isFlagged, progress
   const terms = { seen: new Set(), lessonId: lesson.id };
   sections.forEach((section, i) => {
     container.appendChild(sectionHeading(i + 1, section.kind));
-    for (const block of section.blocks) container.appendChild(renderBlock(block, terms));
+    for (const block of section.blocks) {
+      container.appendChild(renderBlock(block, terms));
+      const shown = block.type === "code" ? block.text : block.type === "example" ? block.code : null;
+      if (shown && isFullSketch(shown)) terms.lastSketch = shown;
+      if (block.type === "annotated") terms.lastSketch = annotatedSketch(block);
+    }
   });
 
   // simple prev/next navigation between lessons, plus an explicit "mark done"

@@ -20,6 +20,7 @@ import {
   markFirstCircuitDone,
   markOnboarded,
   recordCheck,
+  recordPrediction,
   recordQuizResult,
   markProjectStageDone,
   touchStreak,
@@ -50,6 +51,7 @@ import {
   setFlagButton,
   renderNextStep,
   sectionHeading,
+  onPrediction,
 } from "./lessons/render.js";
 import { moduleParts } from "./lessons/levels.js";
 import { lessons } from "./lessons/data.js";
@@ -1015,6 +1017,8 @@ function startApp(target) {
   // Catches anything a save from before trophies existed has already earned.
   rewards.checkAchievements({ delay: shown ? 600 : 2200 });
 }
+
+onPrediction((key, right) => { progress = recordPrediction(progress, key, right); });
 
 document.getElementById("practice-to-course-btn").addEventListener("click", () => switchView("learn"));
 

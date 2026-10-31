@@ -2424,3 +2424,11 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   .lesson-diagram .diagram { min-width: 480px; }
   .lesson-content h1 { overflow-wrap: anywhere; font-size: 1.15rem; }
 }
+
+/* Predictions: reasoning first, then run it and compare */
+.lesson-reasoning { display: grid; gap: 4px; margin: 0 0 10px; font-size: 0.86rem; color: var(--text-dim); }
+.lesson-reasoning-box { width: 100%; padding: 6px 8px; font: inherit; font-size: 0.92rem; color: var(--text); background: var(--code-bg); border: 1px solid var(--border); resize: vertical; }
+.lesson-reasoning-echo { color: var(--text-dim); font-style: italic; }
+.lesson-compare { margin-top: 8px; }
+.lesson-compare-result { margin-top: 8px; padding: 8px 10px; background: var(--panel); border-left: 3px solid var(--green); }
+.lesson-compare-result .code-block { margin: 6px 0; }
