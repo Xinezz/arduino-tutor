@@ -11,6 +11,7 @@ import { CREDIT_REWARDS } from "../progress/progress.js";
 import { getQuizForLesson } from "../quiz/data.js";
 import { renderDemo } from "./demos.js";
 import { withTerms } from "./terms.js";
+import { renderDiagram } from "./diagrams.js";
 import { lessonPosition, lessonById, nextLesson, missingNeeds, challengeEvidence } from "../progress/learning.js";
 
 export function renderSidebar(container, progress, onSelect) {
@@ -159,12 +160,17 @@ function renderList(block, heading, className) {
 // commit to a guess first, THEN see why. Not graded - choosing reveals the
 // explanation. `output` is what the sketch really prints; the tests check it
 // against the simulator so the "right" answer can never be wrong.
-function renderPredict(block) {
+// { type: "predict" } - "predict first" (before running something), or
+// { type: "question" } - a quick check of understanding. Both: question,
+// options, answer, explain, and optionally why[i] - why option i is wrong.
+// A wrong pick says why and lets you think again; "Show the answer" is there
+// for when you're stuck.
+function renderPredict(block, label = "PREDICT FIRST") {
   const box = document.createElement("div");
-  box.className = "lesson-predict";
+  box.className = block.type === "question" ? "lesson-predict lesson-question" : "lesson-predict";
   const eyebrow = document.createElement("div");
   eyebrow.className = "lesson-list-heading";
-  eyebrow.textContent = "PREDICT FIRST";
+  eyebrow.textContent = label;
   const q = document.createElement("p");
   q.className = "lesson-predict-q";
   q.textContent = block.question;
@@ -180,29 +186,184 @@ function renderPredict(block) {
   const reveal = document.createElement("div");
   reveal.className = "lesson-predict-reveal";
   reveal.hidden = true;
+  const buttons = [];
+
+  const showAnswer = (chosen) => {
+    buttons.forEach((x, j) => {
+      x.disabled = true;
+      if (j === chosen) x.classList.add("is-chosen");
+      if (j === block.answer) x.classList.add("is-correct");
+    });
+    const verdict = document.createElement("p");
+    verdict.className = chosen === block.answer ? "guide-verdict is-right" : "guide-verdict is-wrong";
+    verdict.textContent = chosen === block.answer
+      ? (block.type === "question" ? "Right. Here's why:" : "Your prediction was right. Here's why:")
+      : `It's "${block.options[block.answer]}". Here's why:`;
+    const explain = document.createElement("p");
+    explain.textContent = block.explain;
+    reveal.replaceChildren(verdict, explain);
+    if (block.code && isFullSketch(block.code)) reveal.appendChild(tryItButton(block.code));
+    reveal.hidden = false;
+  };
+
   block.options.forEach((text, i) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "guide-option";
     b.textContent = text;
     b.addEventListener("click", () => {
-      options.querySelectorAll("button").forEach((x, j) => {
-        x.disabled = true;
-        if (j === i) x.classList.add("is-chosen");
-        if (j === block.answer) x.classList.add("is-correct");
-      });
+      if (i === block.answer) {
+        showAnswer(i);
+        return;
+      }
+      // wrong: say why, cross this one out, and let them think again
+      b.disabled = true;
+      b.classList.add("is-crossed");
       const verdict = document.createElement("p");
-      verdict.className = i === block.answer ? "guide-verdict is-right" : "guide-verdict is-wrong";
-      verdict.textContent = i === block.answer ? "Your prediction was right. Here's why:" : `Not quite - it's "${block.options[block.answer]}". Here's why:`;
-      const explain = document.createElement("p");
-      explain.textContent = block.explain;
-      reveal.replaceChildren(verdict, explain);
-      if (block.code) reveal.appendChild(tryItButton(block.code));
+      verdict.className = "guide-verdict is-wrong";
+      verdict.textContent = `Not quite. ${block.why?.[i] ?? ""}`.trim() + " Try another answer.";
+      const show = document.createElement("button");
+      show.type = "button";
+      show.className = "btn btn-hint lesson-show-answer";
+      show.textContent = "Show the answer";
+      show.addEventListener("click", () => showAnswer(i));
+      reveal.replaceChildren(verdict, show);
       reveal.hidden = false;
     });
+    buttons.push(b);
     options.appendChild(b);
   });
   box.append(options, reveal);
+  return box;
+}
+
+// { type: "diagram", diagram, caption }: a labelled drawing (diagrams.js).
+function renderDiagramBlock(block) {
+  const art = renderDiagram(block.diagram);
+  if (!art) return document.createComment(`unknown diagram ${block.diagram}`);
+  const fig = document.createElement("figure");
+  fig.className = "lesson-diagram";
+  fig.appendChild(art);
+  if (block.caption) fig.appendChild(Object.assign(document.createElement("figcaption"), { textContent: block.caption }));
+  return fig;
+}
+
+// { type: "table", head: [...], rows: [[...]] }: a comparison table. The
+// first cell of each row is its label.
+function renderTable(block, terms) {
+  const wrap = document.createElement("div");
+  wrap.className = "lesson-table-wrap";
+  const table = document.createElement("table");
+  table.className = "lesson-table";
+  if (block.head) {
+    const thead = document.createElement("thead");
+    const tr = document.createElement("tr");
+    for (const h of block.head) tr.appendChild(Object.assign(document.createElement("th"), { textContent: h, scope: "col" }));
+    thead.appendChild(tr);
+    table.appendChild(thead);
+  }
+  const tbody = document.createElement("tbody");
+  for (const row of block.rows) {
+    const tr = document.createElement("tr");
+    row.forEach((cell, i) => {
+      const td = document.createElement(i === 0 ? "th" : "td");
+      if (i === 0) td.scope = "row";
+      td.appendChild(withTerms(cell, terms));
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// { type: "annotated", lines: [[code, note], ...] }: code with a plain-words
+// note beside each line (and Try it, when it's a whole sketch).
+function renderAnnotated(block) {
+  const wrap = document.createElement("div");
+  wrap.className = "lesson-annotated";
+  const scroll = document.createElement("div");
+  scroll.className = "annotated-scroll";
+  const table = document.createElement("table");
+  table.className = "annotated-code";
+  for (const [code, note] of block.lines) {
+    const tr = document.createElement("tr");
+    const c = document.createElement("td");
+    c.className = "annotated-line";
+    c.textContent = code;
+    const n = document.createElement("td");
+    n.className = "annotated-note";
+    n.textContent = note ?? "";
+    tr.append(c, n);
+    table.appendChild(tr);
+  }
+  scroll.appendChild(table);
+  wrap.appendChild(scroll);
+  const sketch = annotatedSketch(block);
+  if (isFullSketch(sketch)) wrap.appendChild(tryItButton(sketch));
+  return wrap;
+}
+export const annotatedSketch = (block) => block.lines.map(([code]) => code).join("\n");
+
+// { type: "exercise", kind: "modify" | "debug" | "independent", task, code?,
+//   hint?, expected, solution? }: something to do on your own. The expected
+// result is always there to check against; the hint and a solution sit
+// behind buttons, so trying comes first.
+const EXERCISE_LABELS = { modify: "MODIFY IT", debug: "DEBUG IT", independent: "YOUR TURN" };
+function renderExercise(block, terms) {
+  const box = document.createElement("div");
+  box.className = `lesson-exercise is-${block.kind ?? "independent"}`;
+  box.appendChild(Object.assign(document.createElement("div"), { className: "lesson-list-heading", textContent: EXERCISE_LABELS[block.kind] ?? "YOUR TURN" }));
+  const task = document.createElement("p");
+  task.appendChild(withTerms(block.task, terms));
+  box.appendChild(task);
+  if (block.code) {
+    const wrap = document.createElement("div");
+    wrap.className = "code-with-try";
+    const pre = document.createElement("pre");
+    pre.className = "code-block";
+    pre.textContent = block.code;
+    wrap.appendChild(pre);
+    if (isFullSketch(block.code)) wrap.appendChild(tryItButton(block.code));
+    box.appendChild(wrap);
+  }
+  const buttons = document.createElement("div");
+  buttons.className = "exercise-buttons";
+  const panel = document.createElement("div");
+  panel.className = "exercise-reveal";
+  const reveals = [
+    block.hint && ["Hint", "HINT", block.hint, false],
+    ["Expected result", "WHAT YOU SHOULD SEE", block.expected, false],
+    block.solution && ["Show a solution", "ONE WAY TO DO IT", block.solution, true],
+  ].filter(Boolean);
+  for (const [label, heading, content, isCode] of reveals) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn btn-hint";
+    b.textContent = label;
+    b.setAttribute("aria-expanded", "false");
+    const part = document.createElement("div");
+    part.className = "exercise-part";
+    part.hidden = true;
+    part.appendChild(Object.assign(document.createElement("div"), { className: "lesson-list-heading", textContent: heading }));
+    if (isCode) {
+      const pre = document.createElement("pre");
+      pre.className = "code-block";
+      pre.textContent = content;
+      part.appendChild(pre);
+      if (isFullSketch(content)) part.appendChild(tryItButton(content));
+    } else {
+      part.appendChild(Object.assign(document.createElement("p"), { textContent: content }));
+    }
+    b.addEventListener("click", () => {
+      part.hidden = !part.hidden;
+      b.setAttribute("aria-expanded", String(!part.hidden));
+    });
+    buttons.appendChild(b);
+    panel.appendChild(part);
+  }
+  box.append(buttons, panel);
   return box;
 }
 
@@ -236,20 +397,32 @@ function renderExample(block) {
   return pre;
 }
 
-// { type: "guided", title, steps }: follow-along instructions.
+// { type: "guided", title, steps, code? }: follow-along instructions,
+// optionally with the sketch they start from (with Try it). `broken: true`
+// marks a sketch that's wrong on purpose (the tests check it really is).
 function renderGuided(block) {
   const box = document.createElement("div");
   box.className = "lesson-guided";
   const h = document.createElement("div");
   h.className = "lesson-list-heading";
   h.textContent = block.title || "Follow along";
+  box.appendChild(h);
+  if (block.code) {
+    const wrap = document.createElement("div");
+    wrap.className = "code-with-try";
+    const pre = document.createElement("pre");
+    pre.className = "code-block";
+    pre.textContent = block.code;
+    wrap.append(pre, tryItButton(block.code));
+    box.appendChild(wrap);
+  }
   const ol = document.createElement("ol");
   for (const step of block.steps) {
     const li = document.createElement("li");
     li.textContent = step;
     ol.appendChild(li);
   }
-  box.append(h, ol);
+  box.appendChild(ol);
   return box;
 }
 
@@ -303,6 +476,11 @@ function renderBlock(block, terms) {
   if (block.type === "objectives") return renderList(block, "IN THIS LESSON YOU'LL LEARN TO", "lesson-objectives");
   if (block.type === "mistakes") return renderList(block, "COMMON MISTAKES", "lesson-mistakes");
   if (block.type === "predict") return renderPredict(block);
+  if (block.type === "question") return renderPredict(block, "CHECK YOUR UNDERSTANDING");
+  if (block.type === "diagram") return renderDiagramBlock(block);
+  if (block.type === "table") return renderTable(block, terms);
+  if (block.type === "annotated") return renderAnnotated(block);
+  if (block.type === "exercise") return renderExercise(block, terms);
   const el = document.createElement(
     block.type === "code" ? "pre" : block.type === "note" ? "div" : "p"
   );
@@ -367,14 +545,20 @@ function buildQuestMeta(lesson, isCompleted) {
 //   Guided activity, Predict, Experiment, Common mistakes) -> navigation.
 // The challenge ("Independent challenge"), the quiz ("Knowledge checkpoint")
 // and the "What's next" card follow below, rendered by app.js.
-const SECTION_OF_BLOCK = { demo: "visual", example: "example", guided: "guided", predict: "predict", experiment: "experiment", mistakes: "mistakes" };
+const SECTION_OF_BLOCK = {
+  demo: "visual", diagram: "visual", example: "example", annotated: "example", guided: "guided",
+  predict: "predict", experiment: "experiment", exercise: "exercise", mistakes: "mistakes",
+};
 export const SECTION_TITLES = {
   intro: "Introduction",
+  theory: "How it works",
+  application: "In real projects",
   visual: "Visual explanation",
   example: "Worked example",
   guided: "Guided activity",
   predict: "Predict",
-  experiment: "Experiment",
+  experiment: "Modify and experiment",
+  exercise: "Independent exercise",
   mistakes: "Common mistakes",
   challenge: "Independent challenge",
   checkpoint: "Knowledge checkpoint",
@@ -382,11 +566,12 @@ export const SECTION_TITLES = {
 };
 
 // Splits a lesson's blocks into template sections. A block that isn't an
-// activity (text, a note, a snippet) belongs to the section it follows.
+// activity (text, a note, a snippet, a quick check) belongs to the section it
+// follows; `section: "theory"` / `"application"` on a block starts that part.
 export function lessonSections(lesson) {
   const sections = [];
   for (const block of lesson.body) {
-    let kind = SECTION_OF_BLOCK[block.type];
+    let kind = block.section ?? SECTION_OF_BLOCK[block.type];
     if (!kind && block.type === "code" && isFullSketch(block.text)) kind = "example";
     if (!kind) kind = sections.length ? sections[sections.length - 1].kind : "intro";
     if (!sections.length || sections[sections.length - 1].kind !== kind) sections.push({ kind, blocks: [] });

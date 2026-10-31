@@ -131,3 +131,96 @@ test("a revision round offers checkpoints you've tried, even in an unfinished le
   assert.equal(round[0].lesson.id, b.id, "the missed checkpoint comes first");
   assert.ok(round.some((x) => x.lesson.id === a.id), "the finished lesson's checkpoint is in too");
 });
+
+// ---- Phase 2: the lesson parts and checkpoints for Modules 0-2 ----
+import { DIAGRAM_NAMES } from "../js/lessons/diagrams.js";
+import { runSketch } from "./helpers/sim.js";
+import { isFullSketch } from "../js/lessons/render.js";
+
+const runCode = (code, ms = 3000) =>
+  runSketch(isFullSketch(code) ? code : `void setup() {\nSerial.begin(9600);\n${code}\n}\nvoid loop() {}`, { ms });
+
+test("every diagram block names a diagram that exists", () => {
+  for (const l of lessons) {
+    for (const b of l.body.filter((x) => x.type === "diagram")) assert.ok(DIAGRAM_NAMES.includes(b.diagram), `${l.id}: no diagram "${b.diagram}"`);
+  }
+});
+
+test("checkpoint questions: every option is explained, and stated outputs are what the simulator prints", () => {
+  let ran = 0;
+  for (const quiz of Object.values(quizzes).filter((x) => x.type === "questions")) {
+    assert.ok(quiz.questions.length >= 2, `${quiz.id}: a set has at least two questions`);
+    for (const [i, question] of quiz.questions.entries()) {
+      const where = `${quiz.id} question ${i + 1}`;
+      assert.ok(question.options[question.answer] !== undefined, `${where}: the answer is one of the options`);
+      assert.equal(question.why.length, question.options.length, `${where}: one explanation per option`);
+      for (const w of question.why) assert.ok(w.length > 10, `${where}: an empty explanation`);
+      if (question.output !== undefined) {
+        const r = runCode(question.code, question.ms);
+        assert.deepEqual(r.errors, [], where);
+        assert.equal(r.lines.join("\n"), question.output, `${where}: the stated output must be what the sketch prints`);
+        ran++;
+      }
+    }
+  }
+  assert.ok(ran >= 2, `ran ${ran} checkpoint sketches`);
+});
+
+test("lesson questions and predictions explain each wrong option", () => {
+  for (const l of lessons) {
+    for (const b of l.body.filter((x) => x.type === "question" || x.type === "predict")) {
+      if (b.why) assert.equal(b.why.length, b.options.length, `${l.id}: one "why" per option`);
+      if (b.why) b.why.forEach((w, i) => { if (i !== b.answer) assert.ok(w.length > 10, `${l.id}: option ${i + 1} isn't explained`); });
+    }
+  }
+});
+
+test("exercises have an expected result; debug ones are really broken and their fix really works", () => {
+  for (const l of lessons) {
+    for (const b of l.body.filter((x) => x.type === "exercise")) {
+      assert.ok(["modify", "debug", "independent"].includes(b.kind), `${l.id}: exercise kind`);
+      assert.ok(b.expected?.length > 20, `${l.id}: exercise needs an expected result`);
+      if (b.kind === "debug" && b.code) {
+        assert.notEqual(b.code, b.solution, `${l.id}: the fix differs from the bug`);
+        assert.ok(b.solution, `${l.id}: a debug exercise shows a fix`);
+      }
+    }
+    for (const b of l.body.filter((x) => x.type === "guided" && x.broken)) {
+      assert.ok(runCode(b.code, 200).errors.length > 0, `${l.id}: a guided sketch marked broken should really fail`);
+    }
+  }
+});
+
+test("Modules 0-2 follow the full lesson structure", () => {
+  for (const l of lessons.filter((x) => x.module <= 2)) {
+    const kinds = new Set(l.body.map((b) => b.section ?? b.type));
+    assert.ok(l.summary?.length >= 2, `${l.id}: summary`);
+    assert.ok(getQuizForLesson(l.id), `${l.id}: knowledge checkpoint`);
+    assert.ok(kinds.has("application"), `${l.id}: real-world application`);
+    assert.ok(l.challenge || kinds.has("exercise") || kinds.has("experiment"), `${l.id}: something to do independently`);
+  }
+});
+
+// What the Module 1 guided activities tell the learner will happen.
+test("Module 1's guided circuits behave the way their steps say", () => {
+  const board = (wires) => {
+    const b = createBoard(createFakeSvg(), { random: () => 0.25 });
+    b.loadCircuit({ parts: [{ key: "r", kind: "resistor" }, { key: "led", kind: "led" }], wires });
+    b.setRunning(true);
+    return b;
+  };
+  const problems = (b) => b.inspectCircuit().findings.filter((f) => f.level === "problem").map((f) => f.text);
+  const lit = (b) => b.ledLevels()["led-1"] > 0;
+  // Open and Closed Circuits: lit while closed; remove the 5V wire and it's dark, and Check Circuit says why
+  assert.ok(lit(board([["5v", "r.1"], ["r.2", "led.a"], ["led.k", "gnd"]])));
+  const open = board([["r.2", "led.a"], ["led.k", "gnd"]]);
+  assert.ok(!lit(open));
+  assert.match(problems(open)[0], /doesn't reach a pin or 5V/);
+  // Ground: the other GND pin works too; 5V straight to GND is called a short circuit
+  assert.ok(lit(board([["5v", "r.1"], ["r.2", "led.a"], ["led.k", "gnd-pwr2"]])));
+  assert.ok(problems(board([["5v", "r.1"], ["r.2", "led.a"], ["led.k", "gnd"], ["5v", "gnd-pwr2"]])).some((t) => /short circuit/.test(t)));
+  // Breadboards: built through the rails and one column, it's a complete circuit
+  const bb = board([["5v-railtop-2", "r.1"], ["r.2", "grid-c5-t0"], ["led.a", "grid-c5-t3"], ["led.k", "gnd-railtop-4"]]);
+  assert.ok(lit(bb));
+  assert.ok(bb.inspectCircuit().findings.some((f) => f.level === "ok" && /Complete circuit: 5V → resistor → LED → GND/.test(f.text)));
+});

@@ -44,6 +44,7 @@ const SECTIONS = [
       "The breadboard's + and − rails are live as 5V and GND automatically. On a real one, run wires from the Arduino's 5V and GND pins to the rails first.",
       "Sensors, the servo and the ultrasonic module work without their power wires, and the LCD needs no wires at all. Real ones need 5V and GND too.",
       "A pressed button is only read by an input pin - current doesn't flow through it to light an LED directly.",
+      "LEDs wired one after another (in series) aren't simulated: Check Circuit reports them as not connected. Give each LED its own path to GND (in parallel). A real series pair would light dimly, sharing the 5V.",
       "delay() and millis() use real time. delayMicroseconds() and pulseIn() take no time at all.",
     ],
   },

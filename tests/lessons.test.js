@@ -19,7 +19,12 @@ const isFullSketch = (code) => /\bvoid\s+setup\s*\(/.test(code) && /\bvoid\s+loo
 // The runnable sketch in a lesson block, if it has one: a complete sketch in
 // a code block or a worked example.
 const sketchOf = (block) => {
-  const code = block.type === "code" ? block.text : block.type === "example" ? block.code : null;
+  const code = block.type === "code" ? block.text
+    : block.type === "example" ? block.code
+    : block.type === "annotated" ? block.lines.map(([line]) => line).join("\n")
+    : block.type === "exercise" ? block.solution
+    : block.type === "guided" && !block.broken ? block.code
+    : null;
   return code && isFullSketch(code) ? code : null;
 };
 const isEmptySkeleton = (code) => /^\s*void setup\(\) \{\s*\}\s*void loop\(\) \{\s*\}\s*$/.test(code.replace(/\/\/.*$/gm, ""));
@@ -62,10 +67,7 @@ for (const s of sketches) {
 // error) or that only make sense inside a bigger sketch. Lesson code blocks
 // are display-only (never loaded into the editor), so these are fine as-is.
 const FRAGMENTS_NOT_EXPECTED_TO_COMPILE = new Map([
-  ["l1-2#3", "a plain-text spec table (pins, PWM, 16 MHz), not code"],
-  ["l1-12#2", "a plain-text pinout table, not code"],
   ["l1-15#2", "deliberately missing ';' - the lesson is about reading that compiler error"],
-  ["l2-1#2", "shows the words HIGH and LOW with comments, not statements"],
   ["l6-5#2", "an excerpt: '... trigger + measure distance as before ...' stands in for the code that declares duration"],
   ["l5-2#2", "a reference table of the six comparison operators, not statements"],
 ]);
@@ -100,7 +102,7 @@ test("every lesson prediction's answer is what the simulator really prints", () 
   let checked = 0;
   for (const lesson of lessons) {
     lesson.body.forEach((block, i) => {
-      if (block.type !== "predict") return;
+      if (block.type !== "predict" && block.type !== "question") return;
       assert.ok(block.options[block.answer] !== undefined, `${lesson.id}: the answer is one of the options`);
       if (block.output === undefined) return;
       const code = block.code ?? [...lesson.body.slice(0, i)].reverse().map(sketchOf).find(Boolean);

@@ -6,19 +6,63 @@ export const level2Lessons = [
     title: "Digital Signals: HIGH and LOW",
     body: [
       { type: "p", text:
-        "A digital pin only ever has two possible states: HIGH (roughly 5V) or LOW (roughly 0V). " +
-        "There is no \"halfway\" - this is what makes it \"digital\" rather than \"analog\" (which we " +
-        "cover in Module 5)." },
-      { type: "code", text:
-        "HIGH   // on, about 5V\nLOW    // off, about 0V" },
-      { type: "p", text:
-        "HIGH and LOW are just built-in names for the numbers 1 and 0 - Arduino defines them for " +
-        "readability, but digitalWrite(pin, 1) and digitalWrite(pin, HIGH) do the exact same thing." },
+        "A digital signal has only two possible values: on or off. In Arduino code they're called HIGH and LOW." },
+      { type: "p", section: "theory", text:
+        "On the Uno, HIGH means about 5V and LOW means about 0V - nothing in between. That's what makes a pin " +
+        "digital rather than analog (Module 5). HIGH and LOW are just built-in names for the numbers 1 and 0: " +
+        "digitalWrite(13, 1) and digitalWrite(13, HIGH) do exactly the same thing. The names make code easier " +
+        "to read." },
+      { type: "table", head: ["Name", "Number", "Voltage", "For an LED on the pin"], rows: [
+        ["HIGH", "1", "about 5V", "On: current flows out through the LED"],
+        ["LOW", "0", "about 0V", "Off: no push, so no current"],
+      ] },
       { type: "demo", demo: "high-low" },
+      { type: "p", text:
+        "A pin used as an input (Module 4) works the other way round: the Arduino looks at the voltage arriving " +
+        "and decides whether it's HIGH or LOW." },
+      { type: "question",
+        question: "Which of these could NOT come out of a digital pin?",
+        options: ["5V", "0V", "2.5V", "HIGH"],
+        answer: 2,
+        why: [
+          "5V is HIGH - exactly what a digital pin gives when it's on.",
+          "0V is LOW - what a digital pin gives when it's off.",
+          "",
+          "HIGH is one of the two things a digital pin can be.",
+        ],
+        explain: "A digital pin is either about 5V (HIGH) or about 0V (LOW). In-between levels need a trick called PWM, in Module 5." },
+      { type: "predict",
+        question: "What does this print?",
+        code: "void setup() {\n  Serial.begin(9600);\n  Serial.println(HIGH);\n  Serial.println(LOW);\n}\n\nvoid loop() {\n}",
+        options: ["HIGH, then LOW", "1, then 0", "5, then 0", "ON, then OFF"],
+        answer: 1,
+        output: "1\n0",
+        why: [
+          "HIGH and LOW are names for numbers - the Serial Monitor prints the numbers.",
+          "",
+          "They're 1 and 0, not volts - 5V is what HIGH means on the pin, not its value in code.",
+          "ON and OFF aren't Arduino words at all.",
+        ],
+        explain: "HIGH is the number 1 and LOW is the number 0, so that's what gets printed." },
+      { type: "p", section: "application", text:
+        "Digital signals are everywhere: a light switch is on or off, a door is open or closed, a button is " +
+        "pressed or not. Computers store everything - text, photos, music - as long runs of these 1s and 0s, " +
+        "called bits." },
+      { type: "exercise", kind: "independent",
+        task:
+          "Sort these into digital (two states) and analog (any value across a range): a light switch, a " +
+          "dimmer knob, a door sensor that knows open or closed, a thermometer, a push button.",
+        expected:
+          "Digital: the light switch, the door sensor and the push button - each has exactly two states. " +
+          "Analog: the dimmer knob and the thermometer - they can be anywhere across a range." },
       { type: "note", text:
-        "Almost everything you do with pins is controlling and reading these two states - it's the " +
-        "simplest possible interaction between code and the physical world, and almost every project " +
-        "builds on it." },
+        "Almost everything you do with pins is controlling and reading these two states - it's the simplest " +
+        "possible interaction between code and the physical world, and almost every project builds on it." },
+    ],
+    summary: [
+      "A digital pin has two states: HIGH (about 5V) and LOW (about 0V) - nothing in between.",
+      "HIGH and LOW are the numbers 1 and 0 with readable names.",
+      "Anything with two states - a switch, a button, a door - is a digital signal.",
     ],
   },
 
@@ -34,6 +78,12 @@ export const level2Lessons = [
       { type: "p", text:
         "Every pin starts as an INPUT when the board powers up. So an LED needs pinMode(pin, OUTPUT) before " +
         "the pin can power it - forget it, and the code still compiles, but the LED won't light properly." },
+      { type: "p", section: "theory", text:
+        "Why must you choose? Inside the chip, each pin can be connected in two very different ways. As an " +
+        "OUTPUT, it's connected to the 5V or 0V supply, so it can push current out to an LED. As an INPUT, it's " +
+        "connected to neither: it only measures the voltage arriving, taking almost no current, so it doesn't " +
+        "disturb whatever it's measuring. A pin can't be both at once, and the chip can't guess which you mean " +
+        "- so you tell it, once, in setup()." },
       { type: "example", code:
         "void setup() {\n  pinMode(13, OUTPUT);       // pin 13's job: power the LED\n  digitalWrite(13, HIGH);    // switch it on (the next lesson explains this line)\n}\n\nvoid loop() {\n}" },
       { type: "guided", title: "See what pinMode() does", steps: [
@@ -60,6 +110,14 @@ export const level2Lessons = [
       { type: "note", text:
         "Engineering analogy: pinMode() is like setting a valve to either \"supply\" or \"sensor\" mode before " +
         "a system runs - you have to decide its role before it can do anything useful." },
+      { type: "p", section: "application", text:
+        "Every project starts its setup() with a pinMode() line for each part: OUTPUT for LEDs, buzzers and " +
+        "motor drivers, INPUT for buttons and sensors. Reading the pinMode() lines is the quickest way to see " +
+        "what a sketch is wired to." },
+      { type: "exercise", kind: "independent",
+        task: "Write the setup() for a project with LEDs on pins 9 and 10, and a button on pin 2.",
+        expected: "Three pinMode() lines: pinMode(9, OUTPUT); pinMode(10, OUTPUT); pinMode(2, INPUT); - in any order, inside setup().",
+        solution: "void setup() {\n  pinMode(9, OUTPUT);\n  pinMode(10, OUTPUT);\n  pinMode(2, INPUT);\n}\n\nvoid loop() {\n}" },
       { type: "mistakes", items: [
         "Forgetting pinMode(pin, OUTPUT): it compiles, but the LED won't light properly.",
         "A different pin number in pinMode() and digitalWrite() - pinMode(12, OUTPUT) doesn't set up pin 13.",
@@ -110,6 +168,15 @@ export const level2Lessons = [
         "Make both LEDs light at once. Then try digitalWrite(12, LOW) straight after digitalWrite(12, HIGH) in " +
         "setup() - the LED is on for a few millionths of a second, far too short to see. The next lessons fix " +
         "that with delay()." },
+      { type: "p", section: "application", text:
+        "Every on/off output in a project is a digitalWrite(): a warning light, an alarm buzzer, the relay that " +
+        "switches a pump. The traffic light you'll build in Module 7 is three LEDs and a few digitalWrite()s." },
+      { type: "exercise", kind: "independent",
+        task:
+          "Three LEDs are wired to pins 11, 12 and 13, each with its own resistor. Write a sketch that lights " +
+          "only the middle one.",
+        expected: "Only the LED on pin 12 lights; 11 and 13 stay dark. All three pins are set as OUTPUT, and only pin 12 is HIGH.",
+        solution: "void setup() {\n  pinMode(11, OUTPUT);\n  pinMode(12, OUTPUT);\n  pinMode(13, OUTPUT);\n  digitalWrite(11, LOW);\n  digitalWrite(12, HIGH);\n  digitalWrite(13, LOW);\n}\n\nvoid loop() {\n}" },
       { type: "mistakes", items: [
         "Calling digitalWrite() on a pin that was never set as OUTPUT.",
         "Using one pin number in pinMode() and a different one in digitalWrite().",
@@ -131,6 +198,7 @@ export const level2Lessons = [
         "You now know every piece: how to wire an LED safely (Module 1), how to set a pin up with pinMode(), " +
         "switch it with digitalWrite(), and wait with delay(). Put them together and you get the most famous " +
         "sketch in electronics: Blink." },
+      { type: "diagram", diagram: "blink-timing", caption: "A blink is just a pin switching HIGH and LOW, with a wait after each." },
       { type: "guided", title: "Wire the LED", steps: [
         "Add an LED and a resistor from the parts list under the code editor.",
         "Wire pin 13 (top edge of the Arduino) to one leg of the resistor.",
@@ -152,6 +220,21 @@ export const level2Lessons = [
       { type: "experiment", text:
         "Change both delays to 100, then try 1000 on and 100 off. Can you make it look like a heartbeat - two " +
         "quick flashes, then a pause?" },
+      { type: "p", section: "application", text:
+        "Blinking lights are everywhere: a smoke alarm's status LED, a car's indicators, a router's activity " +
+        "light, the beacon on top of a crane. Each one is this same pattern - on, wait, off, wait - with its " +
+        "own timings." },
+      { type: "exercise", kind: "debug",
+        task:
+          "This should blink once a second, but the LED looks like it's on all the time. Try it, find the bug, " +
+          "and fix it.",
+        code: "void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(1000);\n  digitalWrite(13, LOW);\n}",
+        hint: "How long does the LED stay off, before loop() switches it back on?",
+        expected:
+          "After digitalWrite(13, LOW), loop() starts again at once and switches the LED straight back on - it's " +
+          "off for only a few millionths of a second. Adding delay(1000) after the LOW line makes it blink: one " +
+          "second on, one second off.",
+        solution: "void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(1000);\n  digitalWrite(13, LOW);\n  delay(1000);\n}" },
       { type: "mistakes", items: [
         "Only one delay: the LED switches off and straight back on again, so it looks permanently lit.",
         "Forgetting pinMode(13, OUTPUT): the pin can't power the LED, so it stays dark (the simulator warns you).",
@@ -159,6 +242,11 @@ export const level2Lessons = [
       { type: "action", action: "first-circuit", label: "Open the guided first circuit", text:
         "Prefer to be walked through it? The guided first circuit builds exactly this, one wire at a time, " +
         "in Free Practice." },
+    ],
+    summary: [
+      "A blink is pinMode() once, then HIGH, wait, LOW, wait - repeated by loop().",
+      "Both waits matter: without the second one, the LED is off too briefly to see.",
+      "Changing the two delay() values changes how fast it blinks, and how long it's on and off.",
     ],
     challenge: {
       id: "c3",

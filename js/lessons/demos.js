@@ -229,7 +229,108 @@ function breadboard() {
   return box;
 }
 
+// ---- Open and closed circuits ----
+function openClosed() {
+  const box = frame("Try it: open and closed circuits", "A switch is a gap you can close. Flip it and watch what flows.");
+  const pic = svgEl("svg", { viewBox: "0 0 220 110", class: "demo-wave", role: "img" });
+  const wire = { fill: "none", stroke: "#9aa0b4", "stroke-width": 3 };
+  pic.append(
+    svgEl("path", { d: "M 70 20 L 20 20 L 20 90 L 200 90 L 200 20 L 130 20", ...wire }),
+    svgEl("circle", { cx: 70, cy: 20, r: 4, fill: "#e8c547" }),
+    svgEl("circle", { cx: 130, cy: 20, r: 4, fill: "#e8c547" }));
+  const lever = svgEl("line", { x1: 70, y1: 20, x2: 130, y2: 20, stroke: "#e8c547", "stroke-width": 4, "stroke-linecap": "round" });
+  const label = (x, y, t) => { const e = svgEl("text", { x, y, fill: "#9aa0b4", "font-size": 11, "font-family": "monospace", "text-anchor": "middle" }); e.textContent = t; return e; };
+  pic.append(lever, label(100, 12, "switch"), label(20, 105, "5V"), label(200, 105, "GND"), label(110, 82, "resistor + LED"));
+  const row = el("div", "demo-row");
+  const led = ledSvg();
+  const readout = el("div", "demo-readout");
+  const state = el("div", "demo-formula");
+  const verdict = el("div", "demo-verdict");
+  readout.append(state, verdict);
+  row.append(led.svg, readout);
+  const btn = el("button", "btn btn-secondary demo-toggle");
+  btn.type = "button";
+  let closed = false;
+  const update = () => {
+    lever.setAttribute("transform", closed ? "" : "rotate(-35 70 20)");
+    pic.setAttribute("aria-label", closed ? "The switch is closed: the loop is complete." : "The switch is open: there is a gap in the loop.");
+    state.textContent = closed
+      ? "CLOSED circuit: 5V → switch → resistor → LED → GND is one complete loop."
+      : "OPEN circuit: the switch leaves a gap in the loop.";
+    verdict.textContent = closed
+      ? "Current flows (about 14 mA through a 220Ω resistor) and the LED lights."
+      : "No complete path, so no current flows anywhere in the loop - the LED is dark, even though the 5V is still there.";
+    verdict.className = `demo-verdict ${closed ? "is-good" : "is-warn"}`;
+    btn.textContent = closed ? "Open the switch" : "Close the switch";
+    btn.setAttribute("aria-pressed", String(closed));
+    led.set(closed ? 0.8 : 0);
+  };
+  btn.addEventListener("click", () => { closed = !closed; update(); });
+  box.append(btn, pic, row);
+  update();
+  return box;
+}
+
+// ---- Series and parallel ----
+// Two red LEDs (about 2V each) and 220Ω resistors on 5V. In series they
+// share one resistor and one path; in parallel each has its own.
+function seriesParallel() {
+  const box = frame("Try it: series vs parallel", "Two LEDs, wired two different ways. Switch between them - then unplug LED 2 and see what happens to LED 1.");
+  const controls = el("div", "demo-row demo-controls");
+  const wiring = el("button", "btn btn-secondary");
+  wiring.type = "button";
+  const unplug = el("button", "btn btn-secondary");
+  unplug.type = "button";
+  controls.append(wiring, unplug);
+  const leds = el("div", "demo-row");
+  const led1 = ledSvg();
+  const led2 = ledSvg();
+  const tag = (t) => el("span", "demo-slider-label", t);
+  leds.append(tag("LED 1"), led1.svg, tag("LED 2"), led2.svg);
+  const readout = el("div", "demo-readout demo-readout-wide");
+  const numbers = el("div", "demo-formula");
+  const verdict = el("div", "demo-verdict");
+  readout.append(numbers, verdict);
+  let parallel = false;
+  let unplugged = false;
+  const update = () => {
+    wiring.textContent = parallel ? "Wiring: PARALLEL (switch to series)" : "Wiring: SERIES (switch to parallel)";
+    unplug.textContent = unplugged ? "Plug LED 2 back in" : "Unplug LED 2";
+    unplug.setAttribute("aria-pressed", String(unplugged));
+    if (!parallel) {
+      const mA = unplugged ? 0 : (5 - 2 - 2) / 220 * 1000;
+      numbers.textContent = unplugged
+        ? "Series, LED 2 unplugged: the only path is broken. Current: 0 mA."
+        : `Series: one path. The 5V is shared - about 2V for each LED, 1V left for the resistor - so only ${mA.toFixed(1)} mA flows, through both.`;
+      verdict.textContent = unplugged
+        ? "LED 1 goes out too: in series, one gap stops everything."
+        : "Both light, but dimly - they share the push.";
+      verdict.className = `demo-verdict ${unplugged ? "is-bad" : "is-warn"}`;
+      led1.set(mA / 20);
+      led2.set(mA / 20);
+    } else {
+      const each = (5 - 2) / 220 * 1000;
+      numbers.textContent = unplugged
+        ? `Parallel, LED 2 unplugged: LED 1's branch is untouched - still ${each.toFixed(1)} mA.`
+        : `Parallel: each LED has its own branch and resistor, and gets the full 5V: ${each.toFixed(1)} mA each, ${(each * 2).toFixed(1)} mA in total from the 5V pin.`;
+      verdict.textContent = unplugged
+        ? "LED 1 stays lit: each branch is its own complete loop."
+        : "Both light brightly - each has its own path.";
+      verdict.className = "demo-verdict is-good";
+      led1.set(each / 20);
+      led2.set(unplugged ? 0 : each / 20);
+    }
+  };
+  wiring.addEventListener("click", () => { parallel = !parallel; update(); });
+  unplug.addEventListener("click", () => { unplugged = !unplugged; update(); });
+  box.append(controls, leds, readout);
+  update();
+  return box;
+}
+
 const DEMOS = {
+  "open-closed": openClosed,
+  "series-parallel": seriesParallel,
   "ohms-law": ohmsLaw,
   "high-low": highLow,
   pwm,

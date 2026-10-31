@@ -1,5 +1,7 @@
 // Quiz "mini-games" attached to specific lessons, keyed by lesson id - the
-// same pattern data.js uses for challenges. Five types:
+// same pattern data.js uses for challenges. Six types (the sixth,
+// "questions" - a short set of understanding questions, each wrong option
+// explained - is described in quiz.js):
 //
 //   "order"   - a Parsons problem: lines of a correct program are shown
 //               scrambled, and the learner drags/reorders them back into a
@@ -184,22 +186,6 @@ export const quizzes = {
     fixedLine: "  pinMode(ledPin, OUTPUT);",
   },
 
-  "l2-3": {
-    id: "quiz-fill-digitalwrite",
-    type: "fill",
-    topic: "digitalWrite()",
-    title: "Fill in the Blank",
-    prompt: "Complete the line that turns an LED on pin 9 on.",
-    codeBefore: "pinMode(9, OUTPUT);\n",
-    codeAfter: "(9, HIGH);",
-    choices: ["digitalWrite", "digitalRead", "analogWrite", "pinMode"],
-    correctChoice: "digitalWrite",
-    explanation:
-      "digitalWrite(pin, HIGH/LOW) is the function that actually drives an output pin high or low. " +
-      "digitalRead() only reads inputs, and pinMode() just configures a pin's role - it doesn't set its " +
-      "output level.",
-  },
-
   "l2-8": {
     id: "quiz-pullup-inverted",
     type: "debug",
@@ -248,22 +234,8 @@ export const quizzes = {
   },
 };
 
-// ---- Checkpoints added with the structured lessons (Breadboards, Program Flow) ----
+// ---- Checkpoints added with the structured lessons (Program Flow) ----
 Object.assign(quizzes, {
-  "l1-16": {
-    id: "quiz-match-breadboard",
-    type: "match",
-    topic: "Breadboards",
-    title: "Match the Pairs",
-    prompt: "Match each part of a breadboard to how it's connected.",
-    pairs: [
-      { left: "A + or − rail", right: "Every hole along it is connected" },
-      { left: "A 5-hole column", right: "Those five holes are connected to each other" },
-      { left: "The center trench", right: "Separates the top half from the bottom half" },
-      { left: "A jumper wire", right: "Connects two points that aren't joined inside the board" },
-    ],
-  },
-
   "l5-1": {
     id: "quiz-if-assign",
     type: "debug",
@@ -364,120 +336,6 @@ Object.assign(quizzes, {
 
 // ---- Checkpoints for the lessons added in the 2.0 curriculum (foundations.js) ----
 Object.assign(quizzes, {
-  "m0-3": {
-    id: "quiz-match-input-output",
-    type: "match",
-    topic: "Inputs and Outputs",
-    title: "Match the Pairs",
-    prompt: "Match each idea to what it means in an Arduino project.",
-    pairs: [
-      { left: "Input", right: "How the Arduino senses the world (a button, a sensor)" },
-      { left: "Decision", right: "Your code choosing what to do" },
-      { left: "Output", right: "How the Arduino acts on the world (an LED, a buzzer)" },
-      { left: "A night light", right: "Light sensor → is it dark? → switch an LED on" },
-    ],
-  },
-
-  "m0-5": {
-    id: "quiz-match-simulator",
-    type: "match",
-    topic: "The Simulator",
-    title: "Match the Pairs",
-    prompt: "Match each part of the simulator to what it does.",
-    pairs: [
-      { left: "Run", right: "Checks your code and starts it" },
-      { left: "Stop", right: "Powers the board down" },
-      { left: "Serial Monitor", right: "Shows your sketch's messages, and explains mistakes" },
-      { left: "Check Circuit", right: "Says what's connected and spots wiring mistakes" },
-    ],
-  },
-
-  "m1-2": {
-    id: "quiz-match-current",
-    type: "match",
-    topic: "Current",
-    title: "Match the Pairs",
-    prompt: "Match each term to what it means.",
-    pairs: [
-      { left: "Current", right: "How much electricity actually flows" },
-      { left: "1 mA", right: "A thousandth of an amp" },
-      { left: "About 20 mA", right: "What one Arduino pin can safely supply" },
-      { left: "A 200 mA motor on a pin", right: "Far too much - it can damage the pin" },
-    ],
-  },
-
-  "m1-3": {
-    id: "quiz-fill-ohms-law",
-    type: "fill",
-    topic: "Ohm's Law",
-    title: "Fill in the Blank",
-    prompt: "Complete Ohm's law.",
-    codeBefore: "current = voltage ",
-    codeAfter: " resistance",
-    choices: ["÷", "×", "+", "−"],
-    correctChoice: "÷",
-    explanation:
-      "current = voltage ÷ resistance. With 3V across a 220Ω resistor that's 3 ÷ 220 = 0.0136 A, about 13.6 mA. " +
-      "A bigger resistance divides the voltage by more, so less current flows.",
-  },
-
-  "m1-4": {
-    id: "quiz-match-ground",
-    type: "match",
-    topic: "Ground",
-    title: "Match the Pairs",
-    prompt: "Match each idea to what it means.",
-    pairs: [
-      { left: "GND", right: "The 0-volt point every circuit returns to" },
-      { left: "5V", right: "Pushes current out into the circuit" },
-      { left: "A complete loop", right: "What current needs before it can flow at all" },
-      { left: "Two power sources", right: "Their GNDs must be connected together" },
-    ],
-  },
-
-  "m1-6": {
-    id: "quiz-match-led-resistor",
-    type: "match",
-    topic: "LEDs and Resistors",
-    title: "Match the Pairs",
-    prompt: "Match each part of an LED circuit to its job.",
-    pairs: [
-      { left: "Long leg (+)", right: "Faces the power side" },
-      { left: "Short leg (−)", right: "Goes toward GND" },
-      { left: "220Ω resistor", right: "Limits the current to a safe level" },
-      { left: "In series", right: "In the same loop, one after the other" },
-    ],
-  },
-
-  "m1-7": {
-    id: "quiz-match-polarity",
-    type: "match",
-    topic: "Polarity",
-    title: "Match the Pairs",
-    prompt: "Match each part or situation to what's true about it.",
-    pairs: [
-      { left: "An LED", right: "Polarized - it only works one way round" },
-      { left: "A resistor", right: "Not polarized - either way round works" },
-      { left: "An LED in backwards", right: "Blocks the current, so it stays dark" },
-      { left: "A dark LED, no error", right: "Check the wiring first - wiring mistakes show no error" },
-    ],
-  },
-
-  "m2-8": {
-    id: "quiz-fill-delay",
-    type: "fill",
-    topic: "delay()",
-    title: "Fill in the Blank",
-    prompt: "Complete the sketch so the LED stays on for 2 seconds.",
-    codeBefore: "digitalWrite(13, HIGH);\ndelay(",
-    codeAfter: ");  // wait 2 seconds\ndigitalWrite(13, LOW);",
-    choices: ["2", "20", "200", "2000"],
-    correctChoice: "2000",
-    explanation:
-      "delay() counts in milliseconds, and 1000 ms is one second - so two seconds is delay(2000). delay(2) " +
-      "would be 2 milliseconds, far too short to see.",
-  },
-
   "m3-4": {
     id: "quiz-predict-remainder",
     type: "predict",
@@ -493,37 +351,8 @@ Object.assign(quizzes, {
   },
 });
 
-// ---- Checkpoints for the rebuilt Module 2 and 4 lessons ----
+// ---- Checkpoint for the rebuilt digitalRead() lesson (Module 4) ----
 Object.assign(quizzes, {
-  "l1-5": {
-    id: "quiz-match-setup",
-    type: "match",
-    topic: "setup() and loop()",
-    title: "Match the Pairs",
-    prompt: "Match each piece to what it does.",
-    pairs: [
-      { left: "setup()", right: "Runs once, each time the board starts" },
-      { left: "loop()", right: "Runs again and again, forever" },
-      { left: "pinMode(13, OUTPUT);", right: "Preparation - it belongs in setup()" },
-      { left: "Pressing reset (or Run)", right: "Starts the sketch again from setup()" },
-    ],
-  },
-
-  "l1-6": {
-    id: "quiz-fill-loop",
-    type: "fill",
-    topic: "setup() and loop()",
-    title: "Fill in the Blank",
-    prompt: "Complete the sketch so it prints \"Again\" every two seconds, forever.",
-    codeBefore: "void setup() {\n  Serial.begin(9600);\n}\n\nvoid ",
-    codeAfter: "() {\n  Serial.println(\"Again\");\n  delay(2000);\n}",
-    choices: ["loop", "setup", "repeat", "forever"],
-    correctChoice: "loop",
-    explanation:
-      "loop() is the function Arduino runs over and over. setup() would print \"Again\" just once (and a " +
-      "sketch can't have two setup()s), and repeat() and forever() aren't Arduino functions at all.",
-  },
-
   "l2-5": {
     id: "quiz-debug-read-compare",
     type: "debug",
@@ -549,6 +378,514 @@ Object.assign(quizzes, {
       "Comparing needs two: state == HIGH. (The simulator warns about exactly this line.)",
     fixedLine: "  if (state == HIGH) {",
   },
+});
+
+// ---- Checkpoints for Modules 0-2: questions about understanding, not recall ----
+// Each wrong option says exactly why it's wrong (see "questions" in quiz.js).
+// A question with `output` has its code run by the tests, so the stated
+// output is always what the simulator really prints.
+const q = (title, topic, questions) => ({ type: "questions", title, topic, questions });
+
+Object.assign(quizzes, {
+  "l1-1": { id: "quiz-q-what-is-arduino", ...q("Check Your Understanding", "What an Arduino is", [
+    { q: "You send a sketch to an Arduino, then unplug it from your computer and power it from a battery. What happens to the sketch?",
+      options: ["It's lost - it lives on the computer", "It keeps running - it's stored on the board", "It runs once, then stops", "It waits until the computer is plugged back in"],
+      answer: 1,
+      why: [
+        "The computer is only used to write and send the sketch. Once sent, it's stored on the board itself.",
+        "The sketch is stored on the board, so the board runs it whenever it has power - no computer needed.",
+        "An Arduino runs its sketch over and over, for as long as it has power.",
+        "It doesn't need the computer at all once the sketch is on it.",
+      ] },
+    { q: "Which job is an Arduino a good fit for?",
+      options: ["Editing videos", "Switching a fan on when a room gets too hot", "Browsing the web", "Running a 3D video game"],
+      answer: 1,
+      why: [
+        "Video editing needs a powerful computer with lots of memory and a screen.",
+        "Sense something (temperature), decide, act (run a motor) - exactly what an Arduino is for.",
+        "An Arduino has no screen, no web browser and no internet connection of its own.",
+        "Games need a fast computer and a screen; an Arduino has neither.",
+      ] },
+  ]) },
+
+  "l1-2": { id: "quiz-q-microcontroller", ...q("Check Your Understanding", "Microcontrollers", [
+    { q: "A sketch keeps count of how many times a button has been pressed. The board is unplugged and plugged back in. What happens?",
+      options: [
+        "The sketch and the count are both gone",
+        "The sketch runs again, but the count starts from the beginning",
+        "Both the sketch and the count carry on where they were",
+        "The board needs a new sketch",
+      ],
+      answer: 1,
+      why: [
+        "The sketch is in flash memory, which keeps it with the power off.",
+        "The sketch is safe in flash memory, but the count was in RAM - and RAM is cleared when the power goes.",
+        "Values the sketch is using live in RAM, which is cleared when the power goes off.",
+        "The sketch is still in flash memory; it starts again by itself.",
+      ] },
+    { q: "Why does a microcontroller start working almost instantly, when a laptop takes a minute?",
+      options: [
+        "It has no operating system to load - it just starts its one program",
+        "It's faster than a laptop",
+        "It keeps running even when it's switched off",
+        "It skips reading its memory",
+      ],
+      answer: 0,
+      why: [
+        "A laptop loads a whole operating system first; a microcontroller has only your sketch to start.",
+        "It's actually far slower: 16 MHz against a laptop's thousands of MHz.",
+        "With no power it stops completely - it just starts again quickly.",
+        "It reads your sketch from its memory every time; there's just very little to load.",
+      ] },
+  ]) },
+
+  "m0-3": { id: "quiz-q-input-output", ...q("Check Your Understanding", "Inputs and Outputs", [
+    { q: "A doorbell lights up when someone stands within a metre of it. What is the DECISION part?",
+      options: ["The distance sensor", "The light", "The code checking \"is someone closer than 1 metre?\"", "The person"],
+      answer: 2,
+      why: [
+        "The sensor measures the distance - it's the input.",
+        "The light acts on the world - it's the output.",
+        "The decision is the code that uses the input to choose what the output does.",
+        "The person is what's being sensed, not part of the system.",
+      ] },
+    { q: "Which of these is an OUTPUT?",
+      options: ["A temperature sensor", "A push button", "A buzzer", "A light sensor"],
+      answer: 2,
+      why: [
+        "It measures something - an input.",
+        "The Arduino reads whether it's pressed - an input.",
+        "A buzzer makes a sound: it acts on the world, so it's an output.",
+        "It measures brightness - an input.",
+      ] },
+    { q: "A plant-watering system works. You want it to warn you when its water tank is empty. What do you need to add?",
+      options: [
+        "Only an output, like a buzzer",
+        "An input to sense the water level, a decision in the code, and an output to warn you",
+        "Only more code",
+        "A second Arduino",
+      ],
+      answer: 1,
+      why: [
+        "A buzzer alone can't know when the tank is empty - something has to sense the water level.",
+        "A new behaviour needs all three parts: sense the tank, decide it's empty, then warn.",
+        "Code can only decide using information from an input - and nothing measures the tank yet.",
+        "One Arduino can handle many inputs and outputs at once.",
+      ] },
+  ]) },
+
+  "l1-12": { id: "quiz-q-board-pins", ...q("Check Your Understanding", "The Arduino board", [
+    { q: "A light sensor gives a voltage anywhere between 0V and 5V. Which pin should read it?",
+      options: ["Pin 7", "A0", "5V", "GND"],
+      answer: 1,
+      why: [
+        "A digital pin only reports HIGH or LOW - it would throw away everything in between.",
+        "Analog pins measure any voltage from 0 to 5V as a number - exactly right for a sensor like this.",
+        "5V is a power supply, not something your code can read from.",
+        "GND is the 0V return path, not an input.",
+      ] },
+    { q: "You're using the Serial Monitor. Which pins should you leave free?",
+      options: ["Pins 0 and 1", "Pins 12 and 13", "A0 and A1", "5V and GND"],
+      answer: 0,
+      why: [
+        "Pins 0 and 1 carry the USB connection's data - parts on them interfere with the Serial Monitor.",
+        "Pins 12 and 13 are free to use (13 also has the built-in LED).",
+        "The analog pins aren't used by the USB connection.",
+        "5V and GND are power pins - parts use them all the time.",
+      ] },
+  ]) },
+
+  "m0-5": { id: "quiz-q-simulator", ...q("Check Your Understanding", "The Simulator", [
+    { q: "You press Run, and the Serial Monitor says \"SYNTAX ERROR · LINE 4\". What has happened?",
+      options: [
+        "The circuit is wired wrong",
+        "There's a typing mistake around line 4, so nothing has run yet",
+        "The sketch ran, then crashed at line 4",
+        "The simulator is broken",
+      ],
+      answer: 1,
+      why: [
+        "Wiring problems never show up as syntax errors - Check Circuit reports those.",
+        "A syntax error means the code breaks the language's rules, so it can't run at all until it's fixed.",
+        "A syntax error is found BEFORE anything runs. (A problem while running is a runtime error.)",
+        "It's reporting a mistake in the code - fix line 4 and it runs.",
+      ] },
+    { q: "The simulator lights an LED that has no resistor. What would a real LED do?",
+      options: ["Light the same", "Probably burn out - the simulator doesn't calculate current", "Not light at all", "Light more dimly"],
+      answer: 1,
+      why: [
+        "The simulator only looks the same because it doesn't calculate current.",
+        "Without a resistor nothing limits the current, so a real LED burns out - which is why Check Circuit warns you.",
+        "A real one would light - very brightly, and only briefly.",
+        "It would be far brighter, then dead.",
+      ] },
+  ]) },
+
+  "m1-1": { id: "quiz-q-electricity", ...q("Check Your Understanding", "Electricity", [
+    { q: "What is the electricity in a circuit, actually?",
+      options: ["Heat travelling along the wire", "Electric charge moving through a conductor", "Light inside the wire", "Air flowing through the wire"],
+      answer: 1,
+      why: [
+        "Wires can get warm, but the heat is a side-effect, not the electricity.",
+        "Electricity in a circuit is charge (carried by electrons) moving through a conductor like copper.",
+        "Nothing glows inside a wire - LEDs make light from the current.",
+        "There's no air flowing in a wire - it's solid metal.",
+      ] },
+    { q: "Which of these would let current flow between two wires?",
+      options: ["A plastic ruler", "A rubber band", "A metal paper clip", "A sheet of paper"],
+      answer: 2,
+      why: [
+        "Plastic is an insulator.",
+        "Rubber is an insulator.",
+        "Metal is a conductor - a paper clip would join the two wires.",
+        "Dry paper is an insulator.",
+      ] },
+  ]) },
+
+  "l1-13": { id: "quiz-q-voltage", ...q("Check Your Understanding", "Voltage", [
+    { q: "A sensor says \"3.3V only\". Which Uno pin should power it?",
+      options: ["5V", "3.3V", "Pin 13 set HIGH", "Vin"],
+      answer: 1,
+      why: [
+        "5V pushes harder than the sensor was made for, and can damage it.",
+        "The Uno has a 3.3V pin for exactly these parts.",
+        "A HIGH pin gives about 5V - too much, and a pin isn't meant to power parts.",
+        "Vin is the board's raw input supply, usually 7V or more - far too much.",
+      ] },
+    { q: "\"Pin 9 is at 5V\". 5V compared to what?",
+      options: ["Compared to GND", "Compared to the USB cable", "Compared to pin 10", "Compared to nothing - it's just 5V"],
+      answer: 0,
+      why: [
+        "Every voltage on the board is measured from GND, the 0V point.",
+        "The USB cable supplies the power, but voltages are measured from GND.",
+        "Pin 10 could be at any voltage - GND is the fixed reference.",
+        "A voltage is always between two points; on an Arduino the second point is GND.",
+      ] },
+  ]) },
+
+  "m1-2": { id: "quiz-q-current", ...q("Check Your Understanding", "Current", [
+    { q: "Which of these can an Arduino pin power safely, on its own?",
+      options: ["One LED drawing 15 mA", "A motor drawing 250 mA", "A phone charging at 1000 mA", "Ten LEDs in parallel from one pin"],
+      answer: 0,
+      why: [
+        "15 mA is under a pin's 20 mA safe limit.",
+        "250 mA is more than twelve times the limit - motors need a driver and their own supply.",
+        "Fifty times the limit - and a phone needs far more than a pin can give.",
+        "Ten LEDs from one pin would ask for around 150 mA - far over the limit.",
+      ] },
+    { q: "10 mA leaves the 5V pin and goes through an LED. How much flows back into GND?",
+      options: ["0 mA - the LED used it up", "5 mA", "10 mA", "20 mA"],
+      answer: 2,
+      why: [
+        "Current isn't used up - the LED uses energy, but the same flow of charge comes out the other side.",
+        "None of it disappears along the way.",
+        "In a single loop the current is the same everywhere: 10 mA out, 10 mA back.",
+        "Current can't increase on its own - the same 10 mA flows all the way round.",
+      ] },
+  ]) },
+
+  "m1-3": { id: "quiz-q-ohms-law", ...q("Check Your Understanding", "Ohm's Law", [
+    { q: "A red LED (about 2V) is on a 5V pin with a 330Ω resistor. About how much current flows?",
+      options: ["About 15 mA", "About 9 mA", "About 6 mA", "About 30 mA"],
+      answer: 1,
+      why: [
+        "That would be 5V ÷ 330Ω - but the LED uses 2V, leaving only 3V for the resistor.",
+        "3V ÷ 330Ω = 0.0091 A - about 9 mA.",
+        "That's 2V ÷ 330Ω - but it's the 3V left over that's across the resistor.",
+        "More resistance gives LESS current, not more.",
+      ] },
+    { q: "You need about 10 mA through a red LED from 5V. Which resistor?",
+      options: ["33Ω", "300Ω (330Ω is the nearest standard value)", "3000Ω", "30Ω"],
+      answer: 1,
+      why: [
+        "3V ÷ 33Ω would be about 90 mA - far too much.",
+        "resistance = 3V ÷ 0.010 A = 300Ω; the nearest standard value, 330Ω, gives about 9 mA.",
+        "3V ÷ 3000Ω is 1 mA - safe, but very dim.",
+        "3V ÷ 30Ω is 100 mA - it would destroy the LED and the pin.",
+      ] },
+  ]) },
+
+  "m1-5": { id: "quiz-q-open-closed", ...q("Check Your Understanding", "Open and Closed Circuits", [
+    { q: "Which of these is a closed circuit?",
+      options: [
+        "5V → resistor → LED, with the LED's − leg not connected",
+        "5V → resistor → LED → GND",
+        "5V → resistor, and nothing else",
+        "GND → LED, with nothing connected to its + leg",
+      ],
+      answer: 1,
+      why: [
+        "The loop never gets back to GND - it's open.",
+        "It's a complete loop from 5V back to GND, so current can flow.",
+        "There's no path back to GND at all.",
+        "Nothing is pushing current into the LED - there's no path from 5V.",
+      ] },
+    { q: "A circuit stops working. The fault turns out to be a loose wire at the very end, next to GND - after every part. Why did EVERYTHING stop?",
+      options: [
+        "Because current is used up by the parts",
+        "Because a gap anywhere in a loop stops the current everywhere in it",
+        "Because GND has to be the first connection",
+        "It shouldn't have - only the last part should stop",
+      ],
+      answer: 1,
+      why: [
+        "Current isn't used up - it's the same all the way round the loop.",
+        "One gap opens the whole loop, so no current flows anywhere in it.",
+        "The order of connections doesn't matter - the loop just has to be complete.",
+        "Every part in a single loop depends on the whole loop being complete.",
+      ] },
+  ]) },
+
+  "m1-4": { id: "quiz-q-ground", ...q("Check Your Understanding", "Ground", [
+    { q: "You accidentally connect 5V straight to GND with a bare wire. What is that, and why is it a problem?",
+      options: [
+        "An open circuit - nothing flows",
+        "A short circuit - nothing limits the current, which can damage the board or the USB port",
+        "A normal circuit - it's fine",
+        "A parallel circuit - it just shares the current",
+      ],
+      answer: 1,
+      why: [
+        "The loop IS complete - that's the problem.",
+        "With no part in the loop, nothing limits the current, so far too much flows.",
+        "A loop with nothing in it is never fine - it's a short circuit.",
+        "It's not about sharing: a bare wire lets as much current flow as the supply can push.",
+      ] },
+    { q: "A sensor has its own battery. Its signal goes to an Arduino pin, but the readings are nonsense. What's the likely fix?",
+      options: ["Use a bigger battery", "Connect the battery's − to the Arduino's GND", "Use a different pin", "Add a resistor to the signal wire"],
+      answer: 1,
+      why: [
+        "The battery is fine - the two sides just don't share a 0V point.",
+        "Two power sources must share a GND, so they agree on what 0V (and so HIGH and LOW) means.",
+        "Any pin would have the same problem without a shared GND.",
+        "A resistor doesn't give the two sides a common 0V point.",
+      ] },
+  ]) },
+
+  "m1-8": { id: "quiz-q-series-parallel", ...q("Check Your Understanding", "Series and Parallel", [
+    { q: "Fairy lights wired in series: one bulb breaks. What happens?",
+      options: ["Only that bulb goes out", "They all go out", "The others get brighter", "Nothing - bulbs don't affect each other"],
+      answer: 1,
+      why: [
+        "That's what happens in PARALLEL, where each bulb has its own path.",
+        "In series there's only one path, so one broken bulb opens the whole loop.",
+        "With the loop open, no current flows at all.",
+        "In series they all share one path - they depend on each other completely.",
+      ] },
+    { q: "Why does each LED in a parallel circuit get its own resistor?",
+      options: [
+        "So each LED's current is limited separately, and they share it evenly",
+        "Because resistors only work in series",
+        "To make the circuit cheaper",
+        "So the LEDs are dimmer",
+      ],
+      answer: 0,
+      why: [
+        "With one shared resistor, the LEDs won't share the current evenly; a resistor each controls each LED's current.",
+        "Each resistor IS in series - with its own LED, in its own branch.",
+        "It actually costs more parts - but it works properly.",
+        "The point is the right current for each, not dimness.",
+      ] },
+  ]) },
+
+  "l1-16": { id: "quiz-q-breadboard", ...q("Check Your Understanding", "Breadboards", [
+    { q: "Two wires are in the same 5-hole column, on the same side of the trench. Are they connected?",
+      options: ["Yes - the column's holes are joined inside", "No - every hole is separate", "Only if a part is between them", "Only on the power rails"],
+      answer: 0,
+      why: [
+        "Each 5-hole column is one metal strip, so anything in it is connected.",
+        "Holes in the same column are joined - that's the point of a breadboard.",
+        "No part is needed: the strip joins them.",
+        "The rails are connected too, but so are the 5-hole columns.",
+      ] },
+    { q: "A resistor's leg is in a column on the top half. The LED's leg is in the column directly below it, across the trench. Are they connected?",
+      options: ["Yes - it's the same column", "No - the trench separates the top half from the bottom half", "Yes - all holes in a straight line are joined", "Only if the rails are connected"],
+      answer: 1,
+      why: [
+        "It looks like the same column, but the trench splits every column in two.",
+        "The trench breaks the strips: top and bottom are separate. A wire has to cross it.",
+        "Only the 5 holes of one half-column are joined.",
+        "The rails have nothing to do with the middle columns.",
+      ] },
+  ]) },
+
+  "m1-6": { id: "quiz-q-led-resistor", ...q("Check Your Understanding", "LEDs and Resistors", [
+    { q: "An LED's short leg goes to 5V and its long leg (through a resistor) goes to GND. What happens?",
+      options: ["It lights normally", "It stays dark - it's backwards", "It burns out", "It lights dimly"],
+      answer: 1,
+      why: [
+        "An LED only conducts from its long leg (+) to its short leg (−).",
+        "Backwards, it blocks the current completely, so it stays dark - turn it round.",
+        "Backwards, no current flows, so there's nothing to burn it out.",
+        "There's no in-between: backwards, it blocks the current.",
+      ] },
+    { q: "Why does an LED need a resistor at all?",
+      options: [
+        "To make it light up",
+        "An LED barely limits current by itself - the resistor keeps it to a safe level",
+        "So the LED knows which way round it is",
+        "Resistors make LEDs brighter",
+      ],
+      answer: 1,
+      why: [
+        "It lights without one - very briefly, before it burns out.",
+        "With almost no resistance of its own, an LED would take far too much current. The resistor sets a safe current.",
+        "Polarity depends on the legs, not the resistor.",
+        "A resistor reduces current, so it never makes an LED brighter.",
+      ] },
+  ]) },
+
+  "m1-7": { id: "quiz-q-polarity", ...q("Check Your Understanding", "Polarity", [
+    { q: "Which of these parts works either way round?",
+      options: ["An LED", "A buzzer", "A resistor", "An RGB LED"],
+      answer: 2,
+      why: [
+        "LEDs are polarized: long leg +, short leg −.",
+        "Buzzers are polarized: + is marked.",
+        "A resistor isn't polarized - it works the same either way.",
+        "An RGB LED is polarized too.",
+      ] },
+    { q: "Your LED circuit doesn't light, and the Serial Monitor shows no error. What do you check first?",
+      options: ["Rewrite the code", "The wiring: polarity, the path to GND, and every connection", "Restart the computer", "Add more delay()"],
+      answer: 1,
+      why: [
+        "Wiring mistakes never cause an error message - the code may be fine.",
+        "No error means the code ran. A dark LED with working code is almost always a wiring fault.",
+        "Nothing is wrong with the computer.",
+        "A delay changes timing, not whether the LED can light at all.",
+      ] },
+  ]) },
+
+  "l1-10": { id: "quiz-q-serial", ...q("Check Your Understanding", "The Serial Monitor", [
+    { q: "What does this sketch print?",
+      code: "void setup() {\n  Serial.begin(9600);\n  Serial.print(\"Hi \");\n  Serial.println(\"there\");\n  Serial.print(\"!\");\n}\n\nvoid loop() {\n}",
+      output: "Hi there\n!",
+      options: ["Hi there!", "Hi there, then ! on the next line", "Hi, there and ! on three lines", "Nothing - loop() is empty"],
+      answer: 1,
+      why: [
+        "println(\"there\") ends the line, so the ! starts a new one.",
+        "print continues the line, println ends it - so \"Hi there\" is one line and \"!\" the next.",
+        "Only println starts a new line; print(\"Hi \") doesn't.",
+        "It all happens in setup(), which runs once - loop() being empty doesn't matter.",
+      ] },
+    { q: "A sketch prints in setup(), but nothing ever appears in the Serial Monitor. What's the most likely mistake?",
+      options: ["Serial.begin(9600) is missing", "loop() is empty", "The text has no quotes", "It uses println instead of print"],
+      answer: 0,
+      why: [
+        "Without Serial.begin(), the connection is never started, so nothing is sent.",
+        "An empty loop() doesn't stop setup() printing.",
+        "Without quotes it wouldn't compile - you'd see an error, not silence.",
+        "println works just like print, plus a new line.",
+      ] },
+  ]) },
+
+  "l1-5": { id: "quiz-q-setup", ...q("Check Your Understanding", "setup() and loop()", [
+    { q: "A sketch has Serial.println(\"Hi\") in setup() and nothing in loop(). It runs for a minute. How many times does \"Hi\" appear?",
+      options: ["Once", "Once a second", "Thousands of times", "Never"],
+      answer: 0,
+      why: [
+        "setup() runs exactly once each time the board starts.",
+        "Nothing repeats it - only loop() repeats.",
+        "Only code in loop() repeats.",
+        "setup() always runs once at the start.",
+      ] },
+    { q: "Which of these belongs in setup()?",
+      options: ["Checking a sensor reading", "Serial.begin(9600)", "Blinking an LED over and over", "Counting button presses"],
+      answer: 1,
+      why: [
+        "Checking a sensor has to keep happening - that's loop().",
+        "Starting the Serial Monitor only needs doing once, so it goes in setup().",
+        "Anything over and over belongs in loop().",
+        "Counting has to keep happening as presses come in - loop().",
+      ] },
+  ]) },
+
+  "l1-6": { id: "quiz-q-loop", ...q("Check Your Understanding", "setup() and loop()", [
+    { q: "What does this print in its first 5 seconds?",
+      code: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Go\");\n}\n\nvoid loop() {\n  Serial.println(\"Tick\");\n  delay(2000);\n}",
+      output: "Go\nTick\nTick\nTick", ms: 5000,
+      options: ["Go, then Tick three times", "Go, then Tick twice", "Tick, Go, Tick", "Go, Tick, Go, Tick"],
+      answer: 0,
+      why: [
+        "Go once; then Tick at 0 s, 2 s and 4 s - three Ticks within 5 seconds.",
+        "Count again: loop() prints straight away, then at 2 s and at 4 s.",
+        "setup() always finishes before loop() starts, so Go comes first.",
+        "Go is in setup(), so it only appears once.",
+      ] },
+    { q: "You delete the delay() from loop(). What changes?",
+      options: ["Nothing", "Tick pours out as fast as the board can print it", "Tick stops appearing", "The sketch won't compile"],
+      answer: 1,
+      why: [
+        "The delay was the only thing slowing loop() down.",
+        "Without a pause, loop() repeats thousands of times a second.",
+        "loop() still runs - just much faster.",
+        "delay() is optional; removing it is perfectly valid.",
+      ] },
+  ]) },
+
+  "l2-3": { id: "quiz-q-digitalwrite", ...q("Check Your Understanding", "digitalWrite()", [
+    { q: "An LED is on pin 9 with a resistor, and setup() has pinMode(9, OUTPUT). What lights it?",
+      options: ["digitalWrite(9, HIGH);", "digitalWrite(9, LOW);", "digitalRead(9);", "pinMode(9, HIGH);"],
+      answer: 0,
+      why: [
+        "HIGH puts about 5V on pin 9, so current flows through the LED.",
+        "LOW is 0V - no push, so no current.",
+        "digitalRead() reads an input; it doesn't switch anything.",
+        "pinMode() takes OUTPUT or INPUT, not HIGH.",
+      ] },
+    { q: "setup() runs digitalWrite(13, HIGH), and loop() is empty. What does the LED on pin 13 do?",
+      options: ["Flashes once", "Stays on", "Turns on, then off", "Nothing - loop() is empty"],
+      answer: 1,
+      why: [
+        "Nothing ever switches it off again.",
+        "A pin keeps its level until your code changes it - so it stays on.",
+        "There's no LOW anywhere.",
+        "An empty loop() doesn't undo what setup() did.",
+      ] },
+  ]) },
+
+  "m2-8": { id: "quiz-q-delay", ...q("Check Your Understanding", "delay()", [
+    { q: "An LED should stay ON for 2 seconds and OFF for 1 second, over and over. Which timing values?",
+      code: "digitalWrite(13, HIGH);\ndelay(?);\ndigitalWrite(13, LOW);\ndelay(?);",
+      options: ["delay(2) and delay(1)", "delay(2000) and delay(1000)", "delay(1000) and delay(2000)", "delay(200) and delay(100)"],
+      answer: 1,
+      why: [
+        "delay() counts in milliseconds - 2 is just 2 thousandths of a second.",
+        "2 seconds is 2000 ms (after HIGH), and 1 second is 1000 ms (after LOW).",
+        "That's backwards: the first delay comes after HIGH, so it's the ON time.",
+        "200 ms and 100 ms are a fifth and a tenth of a second.",
+      ] },
+    { q: "A sketch does delay(5000). What can the Arduino do during those 5 seconds?",
+      options: ["Keep checking a button", "Nothing - the sketch just waits", "Run loop() again", "Read sensors in the background"],
+      answer: 1,
+      why: [
+        "During delay(), no other code of yours runs - so it can't check the button.",
+        "delay() pauses the whole sketch. (Module 4 shows millis(), which avoids this.)",
+        "loop() can't restart until the delay has finished.",
+        "Nothing runs in the background - only after the delay ends.",
+      ] },
+  ]) },
+
+  "l2-4": { id: "quiz-q-blink", ...q("Check Your Understanding", "Blink", [
+    { q: "How do you make an LED blink twice as fast?",
+      options: ["Halve both delay() values", "Double both delay() values", "Add a second digitalWrite(HIGH)", "Put pinMode() in loop()"],
+      answer: 0,
+      why: [
+        "Shorter waits mean each on and off is shorter - so it blinks faster.",
+        "Longer delays make it blink SLOWER.",
+        "Writing HIGH twice doesn't change the timing.",
+        "pinMode() only needs doing once - it has nothing to do with speed.",
+      ] },
+    { q: "A blink sketch has delay(1000) after HIGH but no delay after LOW. What do you see?",
+      options: ["A normal blink", "The LED looks on all the time", "The LED stays off", "A very fast blink"],
+      answer: 1,
+      why: [
+        "The OFF part needs a wait too.",
+        "It's off for only millionths of a second before loop() switches it back on - too short to see.",
+        "It's on for a whole second each time round.",
+        "The ON time is still a full second - it's the OFF time that has vanished.",
+      ] },
+  ]) },
 });
 
 export function getQuizForLesson(lessonId) {

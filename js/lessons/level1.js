@@ -9,20 +9,62 @@ export const level1Lessons = [
     title: "What is Arduino?",
     body: [
       { type: "p", text:
-        "Arduino is two things at once: a small circuit board with a microcontroller on it, " +
-        "and a simplified programming environment for writing code that runs on that board. " +
-        "When people say \"an Arduino\", they usually mean the board." },
+        "Arduino is a small, inexpensive circuit board that you can program to sense the world and control " +
+        "things in it - lights, sounds, motors. You write a short program on a computer, send it to the board, " +
+        "and from then on the board runs it by itself." },
       { type: "p", text:
-        "A microcontroller is a tiny computer on a single chip - it has a processor, memory, and " +
-        "input/output pins, but none of the extras a laptop has (no OS, no screen, no keyboard). " +
-        "It exists to do one job: run one program, over and over, forever, reading sensors and " +
-        "controlling outputs like LEDs and motors." },
-      { type: "note", text:
-        "As a Mechatronics student, think of Arduino as the \"brain\" you bolt onto a mechanical " +
-        "system so it can sense the world (buttons, sensors) and act on it (motors, LEDs, buzzers)." },
-      { type: "action", action: "first-circuit", label: "Start your first circuit", text:
-        "Prefer to learn by doing? Build a blinking LED on the virtual Arduino first - a guided " +
-        "10-minute walkthrough, no hardware needed. These lessons will be right here when you're back." },
+        "The name covers two things: the board, and the free software you write programs with (the Arduino " +
+        "IDE). When people say \"an Arduino\", they usually mean the board. An Arduino program is called a " +
+        "sketch." },
+      { type: "p", section: "theory", text:
+        "Every Arduino board is built around one chip, the microcontroller - a tiny, simple computer (the next " +
+        "lesson looks inside it). The rest of the board makes that chip easy to use: a USB socket to connect it " +
+        "to your computer, a circuit that supplies it with steady power, and rows of pins - metal connection " +
+        "points where wires go to parts like LEDs, buttons and sensors." },
+      { type: "table", head: ["", "A laptop", "An Arduino Uno"], rows: [
+        ["Runs", "many programs at once", "one program - the sketch you sent it - over and over"],
+        ["Screen and keyboard", "yes", "no - it shows you things through its pins and the Serial Monitor"],
+        ["Starts up in", "a minute or so", "about a second"],
+        ["Connects to", "the internet, screens, USB devices", "LEDs, buttons, sensors and motors, wired straight to its pins"],
+      ] },
+      { type: "question",
+        question: "Which is the best description of what an Arduino does?",
+        options: [
+          "It's a very small laptop",
+          "It runs one program you write, using its pins to sense and control things",
+          "It's a battery that powers electronics projects",
+          "It needs the internet to run its program",
+        ],
+        answer: 1,
+        why: [
+          "A laptop runs many programs and has a screen and keyboard. An Arduino has neither - it runs just your one sketch.",
+          "",
+          "It needs power itself; it doesn't store or supply energy the way a battery does.",
+          "It doesn't use the internet at all - once the sketch is on the board, it runs on its own.",
+        ],
+        explain:
+          "An Arduino is a small programmable board: your sketch tells it what to sense (through its input pins) " +
+          "and what to do (through its output pins), and it does exactly that, over and over." },
+      { type: "p", section: "application", text:
+        "Students, artists, hobbyists and engineers use Arduinos to build an idea quickly and see if it works: a " +
+        "plant that waters itself, a weather station, a robot, a light that comes on when someone walks past. " +
+        "Engineers often build a first working version (a prototype) with one before designing the final product." },
+      { type: "exercise", kind: "independent",
+        task:
+          "Look around the room you're in. Find two things that a small programmable board could control. For " +
+          "each one, say what it would need to sense, and what it would need to do.",
+        expected:
+          "Any two sensible examples - for instance: a desk lamp that switches on when it gets dark (senses " +
+          "light, switches a light on), or a fan that starts when the room is hot (senses temperature, runs a " +
+          "motor). If you can name what's sensed and what's done, you've got the idea; lesson 0.3 builds on it." },
+      { type: "action", action: "first-circuit", label: "Build your first circuit", text:
+        "Prefer to learn by doing? Build a blinking LED on the virtual Arduino first - a guided 10-minute " +
+        "walkthrough, no hardware needed. These lessons will be right here when you're back." },
+    ],
+    summary: [
+      "An Arduino is a small programmable board: you write a sketch, and the board runs it by itself.",
+      "It senses and controls the world through its pins - metal connection points for wires.",
+      "Unlike a laptop, it runs one program, over and over, from the moment it has power.",
     ],
   },
 
@@ -31,18 +73,50 @@ export const level1Lessons = [
     title: "What is a Microcontroller?",
     body: [
       { type: "p", text:
-        "There are many Arduino boards (Uno, Nano, Mega, Leonardo...). We'll use the Arduino Uno as " +
-        "our reference board throughout this course, since it's the most common one for learning." },
+        "The chip in the middle of an Arduino Uno is a microcontroller: a complete, very small computer on a " +
+        "single chip. Your sketch is stored inside it, and runs inside it." },
+      { type: "p", section: "theory", text:
+        "Inside, it has the same basic parts as any computer - just far smaller and simpler:" },
+      { type: "table", head: ["Part", "What it does", "On the Uno's chip (ATmega328P)"], rows: [
+        ["Processor", "Follows your sketch's instructions, one at a time", "16 million simple steps a second (16 MHz)"],
+        ["Program memory (flash)", "Stores your sketch - and keeps it when the power is off", "32 KB: plenty for every sketch in this course"],
+        ["Working memory (RAM)", "Holds the values your sketch is using right now - cleared when the power goes off", "2 KB: small, so huge lists of data don't fit"],
+        ["Pins", "Connect the chip to the outside world", "20 your code can use"],
+      ] },
       { type: "p", text:
-        "The Uno's microcontroller chip is an ATmega328P. Key numbers worth knowing:" },
-      { type: "code", text:
-        "14 digital pins   (pins 0-13, can read/write HIGH or LOW)\n" +
-        "6 analog input pins (A0-A5, can read a range of voltages)\n" +
-        "6 of the digital pins support PWM  (analogWrite, marked with a ~ on the board)\n" +
-        "Runs at 16 MHz, 5V logic level" },
-      { type: "note", text:
-        "You don't need to memorize these numbers yet - just know they exist. We'll use each of them " +
-        "as we reach the relevant lesson." },
+        "That's tiny next to a laptop, which has millions of times more memory. But a microcontroller doesn't " +
+        "need more: it has one job, and it starts doing it the moment it's powered, with no operating system to " +
+        "load first." },
+      { type: "question",
+        question: "Which part of the microcontroller still has your sketch in it after the board has been unplugged overnight?",
+        options: ["The processor", "The working memory (RAM)", "The program memory (flash)", "None - the sketch has to be sent again"],
+        answer: 2,
+        why: [
+          "The processor follows instructions; it doesn't store them.",
+          "RAM is cleared whenever the power goes off.",
+          "",
+          "That would make an Arduino useless away from a computer - the sketch is kept in flash memory.",
+        ],
+        explain:
+          "Flash memory keeps its contents with no power, like a USB stick. That's why an Arduino starts running " +
+          "its sketch again as soon as it's plugged back in." },
+      { type: "p", section: "application", text:
+        "Microcontrollers are in almost every electronic thing you own: a microwave, a washing machine, a TV " +
+        "remote, a digital thermometer, a car (which can have dozens). Each one runs one program that reads " +
+        "buttons or sensors and controls something. Learning Arduino is learning how all of them work." },
+      { type: "exercise", kind: "independent",
+        task:
+          "Find three things at home that must contain a microcontroller. For each, name one input it reads and " +
+          "one output it controls.",
+        expected:
+          "For example: a microwave reads its keypad (input) and runs the turntable motor and beeper (outputs); " +
+          "a washing machine reads the door switch (input) and runs the drum motor (output); a TV remote reads " +
+          "its buttons (input) and flashes an infrared LED (output)." },
+    ],
+    summary: [
+      "A microcontroller is a whole computer on one chip: a processor, memory and pins.",
+      "Flash memory keeps your sketch with the power off; RAM holds the values in use, and is cleared when the power goes.",
+      "It runs one program for one job - which is why microcontrollers are in nearly every electronic device.",
     ],
   },
 
@@ -68,16 +142,61 @@ export const level1Lessons = [
     title: "Structure of an Arduino Program",
     body: [
       { type: "p", text:
-        "Every Arduino sketch (that's what .ino files are called) needs exactly two functions: " +
-        "setup() and loop(). Nothing will compile without them." },
-      { type: "code", text:
-        "void setup() {\n  // runs once, when the board powers on or resets\n}\n\nvoid loop() {\n  // runs over and over, forever, after setup() finishes\n}" },
+        "A sketch is a list of instructions for the Arduino, written in a language based on C++. Every sketch " +
+        "has the same basic shape - learn it once, and you can find your way around any Arduino program." },
+      { type: "p", section: "theory", text:
+        "When you press Upload in the Arduino IDE (or Run in the simulator), your sketch is first checked and " +
+        "translated into the simple instructions the microcontroller understands - that's called compiling. " +
+        "Then the board runs it, in a fixed order: setup() first, once; then loop(), over and over." },
+      { type: "diagram", diagram: "program-flow" },
+      { type: "annotated", lines: [
+        ["void setup() {", "setup() starts here: the part that runs ONCE, when the board starts"],
+        ["  // runs once", "a comment - a note for people; the Arduino ignores it"],
+        ["}", "this } ends setup()"],
+        ["", ""],
+        ["void loop() {", "loop() starts here: the part that runs again and again"],
+        ["  // runs forever", ""],
+        ["}", "this } ends loop() - and then the Arduino starts loop() again"],
+      ] },
       { type: "p", text:
-        "If you've written C or Python before: there is no main() you write yourself, and there is no " +
-        "natural end to the program - loop() just keeps calling itself for as long as the board has power." },
-      { type: "note", text:
-        "This is the single biggest structural difference from a normal C or Python program. Keep it in " +
-        "mind - we'll come back to it a lot." },
+        "Every sketch needs both, even if one of them is empty. The curly braces { } mark where each one starts " +
+        "and ends: everything between them belongs to it. The word void means the function doesn't hand back a " +
+        "result - Module 3 explains functions properly; for now, just write it exactly like this." },
+      { type: "question",
+        question: "The board powers on. Which part of the sketch runs first?",
+        options: ["loop()", "setup()", "Whichever comes first in the file", "Both at the same time"],
+        answer: 1,
+        why: [
+          "loop() only starts once setup() has finished.",
+          "",
+          "The order in the file doesn't matter - the Arduino always runs setup() first, then loop().",
+          "The Arduino does one thing at a time: setup() completely, then loop().",
+        ],
+        explain: "setup() always runs first, once. Only when it has finished does loop() start - and it then repeats forever." },
+      { type: "p", section: "application", text:
+        "Every Arduino program you'll ever read - a robot, a weather station - has exactly this shape: setup() " +
+        "gets the hardware ready once, and loop() does the job, forever. When you open someone else's sketch, " +
+        "find those two first." },
+      { type: "exercise", kind: "debug",
+        task:
+          "This sketch won't run. Press Try it, then Run, and read the message in the Serial Monitor. What's " +
+          "wrong, and how do you fix it?",
+        code: "void setup() {\n\n\nvoid loop() {\n}",
+        hint: "Every { needs a matching }. Count them in setup().",
+        expected:
+          "The message says setup() is never closed before loop() begins. Add a } at the end of setup() (on " +
+          "the empty line before void loop) - then it runs. It does nothing yet, because both parts are empty.",
+        solution: "void setup() {\n}\n\nvoid loop() {\n}" },
+      { type: "mistakes", items: [
+        "Leaving out setup() or loop() because it's empty - both must be there.",
+        "A missing }: every { needs its matching }, or the compiler can't tell where a function ends.",
+        "Writing Setup() or LOOP() - names are case-sensitive: setup and loop, all lower case.",
+      ] },
+    ],
+    summary: [
+      "A sketch is compiled (checked and translated), then run: setup() once, then loop() forever.",
+      "Every sketch needs both setup() and loop(), even if one is empty.",
+      "Curly braces { } mark where each part starts and ends.",
     ],
   },
 
@@ -95,8 +214,8 @@ export const level1Lessons = [
       { type: "example", code:
         "void setup() {\n  Serial.begin(9600);                 // start the Serial Monitor\n  Serial.println(\"setup: getting ready\");\n}\n\nvoid loop() {\n  Serial.println(\"loop: running\");\n  delay(1000);                        // wait one second\n}" },
       { type: "p", text:
-        "Don't worry about the details of Serial or delay() yet - Serial.println() prints a line of text in " +
-        "the Serial Monitor, and delay(1000) waits a second. Later lessons cover both properly." },
+        "You know Serial.println() from the last lesson. delay(1000) waits one second - it gets its own " +
+        "lesson soon, in this module." },
       { type: "guided", title: "Watch setup() run once", steps: [
         "Press \"Try it in the editor\" under the example - it puts the sketch in the editor below.",
         "Press Run, and watch the Serial Monitor under the board.",
@@ -117,6 +236,15 @@ export const level1Lessons = [
           "second. Where you put a line decides whether it happens once or over and over." },
       { type: "experiment", text:
         "Try that move for real and check your prediction. Then put it back in setup()." },
+      { type: "p", section: "application", text:
+        "In real projects, setup() is where the hardware gets ready: pins set as inputs or outputs, the Serial " +
+        "Monitor started, a display cleared, a motor moved to its starting position. If something only needs " +
+        "doing once, it goes here." },
+      { type: "exercise", kind: "independent",
+        task: "Write a sketch that prints \"Ready!\" once when it starts - and nothing after that.",
+        hint: "Once means setup(). loop() still has to be there, but it can be empty.",
+        expected: "\"Ready!\" appears once in the Serial Monitor, and nothing else, however long it runs.",
+        solution: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Ready!\");\n}\n\nvoid loop() {\n}" },
       { type: "mistakes", items: [
         "Putting something that should keep happening in setup() - it happens once, and never again.",
         "Leaving setup() out because it's empty: every sketch needs both setup() and loop(), even if one of them has nothing in it.",
@@ -160,6 +288,14 @@ export const level1Lessons = [
         "Change delay(2000) to delay(500) and run it: \"Again\" now comes four times as often. Then delete the " +
         "delay line completely. The messages pour out as fast as the board can print them - that's how fast " +
         "loop() really repeats. Press Stop." },
+      { type: "p", section: "application", text:
+        "Every project that reacts to the world lives in loop(): read a sensor, decide, act - and repeat, many " +
+        "times a second, so it responds the moment something changes." },
+      { type: "exercise", kind: "independent",
+        task: "Write a sketch that prints \"Starting...\" once, and then \"Ping\" and \"Pong\" in turn, one line a second, forever.",
+        hint: "loop() can print Ping, wait, print Pong, and wait - then it starts again.",
+        expected: "\"Starting...\" once, then Ping, Pong, Ping, Pong... one line every second.",
+        solution: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Starting...\");\n}\n\nvoid loop() {\n  Serial.println(\"Ping\");\n  delay(1000);\n  Serial.println(\"Pong\");\n  delay(1000);\n}" },
       { type: "note", text:
         "Engineering analogy: setup() is like calibrating an instrument before you start taking " +
         "measurements. loop() is the continuous measurement-and-response cycle that runs afterward." },
@@ -181,13 +317,60 @@ export const level1Lessons = [
     title: "Comments",
     body: [
       { type: "p", text:
-        "Comments are text in your code that the compiler ignores completely - they exist purely for " +
-        "humans reading the code (including future you)." },
-      { type: "code", text:
-        "// a single-line comment - everything after // on this line is ignored\n\n/* a multi-line comment\n   can span several lines\n   until it's closed */" },
+        "Code is read by people as well as by the Arduino. A comment is a note in your sketch that the " +
+        "Arduino completely ignores - it's there to explain the code to whoever reads it next, including you, " +
+        "next week." },
+      { type: "table", section: "theory", head: ["You write", "What's ignored"], rows: [
+        ["// a note", "Everything from // to the end of that line"],
+        ["/* a note */", "Everything between /* and */ - it can cover many lines"],
+      ] },
+      { type: "annotated", lines: [
+        ["/* Greeter", "/* starts a block comment..."],
+        ["   Says hello once. */", "...and */ ends it: everything in between is ignored"],
+        ["void setup() {", ""],
+        ["  Serial.begin(9600);  // start the Serial Monitor", "a comment after code: // to the end of the line"],
+        ["  Serial.println(\"Hello!\");", ""],
+        ["}", ""],
+        ["", ""],
+        ["void loop() {", ""],
+        ["  // Serial.println(\"debug\");", "\"commented out\": a line switched off without deleting it"],
+        ["}", ""],
+      ] },
       { type: "p", text:
-        "This is identical to C and C++, so nothing new here if you've used either before. Good comments " +
-        "explain WHY something is done a certain way, not just WHAT the line does." },
+        "Good comments explain WHY, not WHAT. \"delay(1000); // wait 1 second\" only repeats the code. " +
+        "\"delay(1000); // the sensor needs a second to warm up\" tells the reader something they couldn't see." },
+      { type: "predict",
+        question: "What does this print?",
+        code: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"one\");\n  // Serial.println(\"two\");\n  Serial.println(\"three\");\n}\n\nvoid loop() {\n}",
+        options: ["one, two, three", "one, three", "one only", "An error"],
+        answer: 1,
+        output: "one\nthree",
+        why: [
+          "The line with \"two\" starts with //, so the Arduino never sees it.",
+          "",
+          "Only the commented line is skipped - the code after it still runs.",
+          "A comment is never an error: the Arduino just skips it.",
+        ],
+        explain: "// switches the whole line off, so \"two\" never prints. The lines before and after run as normal." },
+      { type: "p", section: "application", text:
+        "In real projects, comments record which pin each part is wired to, why a value was chosen, and what a " +
+        "tricky section does. \"Commenting out\" is also a standard debugging trick: switch a suspect line off, " +
+        "and see if the problem goes away." },
+      { type: "exercise", kind: "modify",
+        task:
+          "Try the commented example: run it, then comment out the line that prints Hello! and run it again. " +
+          "Finally, switch it back on.",
+        expected: "With // in front of it, nothing is printed at all; remove the // and Hello! appears again." },
+      { type: "mistakes", items: [
+        "Opening a /* comment and never closing it with */ - everything after it becomes a comment, and the sketch breaks.",
+        "Comments that repeat the code instead of explaining it.",
+        "Leaving lots of old commented-out code - delete what you no longer need.",
+      ] },
+    ],
+    summary: [
+      "Comments are notes for people; the Arduino ignores them completely.",
+      "// comments to the end of the line; /* ... */ comments everything in between.",
+      "Good comments explain why; commenting a line out switches it off for testing.",
     ],
   },
 
@@ -269,17 +452,72 @@ export const level1Lessons = [
     title: "The Serial Monitor",
     body: [
       { type: "p", text:
-        "Since Arduino has no screen, the Serial Monitor is how the board \"talks back\" to you on your " +
-        "computer - it's your main debugging tool for the entire course." },
-      { type: "code", text:
-        "void setup() {\n  Serial.begin(9600);           // open communication at 9600 bits/sec\n}\n\nvoid loop() {\n  Serial.println(\"Hello!\");   // send text, followed by a new line\n  delay(1000);                 // wait 1000 ms so it doesn't spam\n}" },
-      { type: "p", text:
-        "Serial.begin(9600) must be called once in setup() before you can print anything. The number " +
-        "(baud rate) just needs to match between your code and whatever is reading it - 9600 is a safe " +
-        "default." },
+        "An Arduino has no screen. The Serial Monitor is how your sketch shows you what it's doing: the board " +
+        "sends text down the USB cable, and the Serial Monitor window displays it. In the simulator, it's the " +
+        "panel under the board." },
+      { type: "p", section: "theory", text:
+        "\"Serial\" means the data travels one bit after another, along a single wire. Both ends have to agree " +
+        "how fast: Serial.begin(9600) starts the connection at 9600 bits per second (\"baud\") - a standard " +
+        "speed, and the one this course always uses. It goes once, at the start of setup()." },
+      { type: "table", head: ["You write", "What appears"], rows: [
+        ["Serial.print(\"Hi\");", "Hi - and the next print carries on the same line"],
+        ["Serial.println(\"Hi\");", "Hi - then a new line starts"],
+        ["Serial.println(42);", "42 - numbers are printed as digits"],
+        ["Serial.println(\"42\");", "42 - in quotes it's text, but it looks the same"],
+      ] },
+      { type: "annotated", lines: [
+        ["void setup() {", ""],
+        ["  Serial.begin(9600);", "start the connection - once, at the top of setup()"],
+        ["  Serial.println(\"Hello!\");", "print Hello! and start a new line"],
+        ["}", ""],
+        ["", ""],
+        ["void loop() {", ""],
+        ["  Serial.print(\"Still \");", "print, but stay on the same line..."],
+        ["  Serial.println(\"running\");", "...then finish the line"],
+        ["  delay(1000);", "wait one second (delay() gets its own lesson)"],
+        ["}", ""],
+      ] },
+      { type: "guided", title: "Talk to the Serial Monitor", steps: [
+        "Press \"Try it in the editor\" under the code above, then Run.",
+        "\"Hello!\" appears once. \"Still running\" appears once a second, each time on a new line.",
+        "Press Stop. Change println(\"running\") to print(\"running\") and run it again - everything runs together on one line.",
+      ] },
+      { type: "predict",
+        question: "What does this print?",
+        code: "void setup() {\n  Serial.begin(9600);\n  Serial.print(\"A\");\n  Serial.print(\"B\");\n  Serial.println(\"C\");\n  Serial.println(\"D\");\n}\n\nvoid loop() {\n}",
+        options: ["A, B, C and D on four lines", "ABC on one line, then D on the next", "ABCD on one line", "Nothing - loop() is empty"],
+        answer: 1,
+        output: "ABC\nD",
+        why: [
+          "print doesn't start a new line - only println does.",
+          "",
+          "println(\"C\") ends the line, so D starts a new one.",
+          "Everything here is in setup(), which runs once - an empty loop() doesn't stop it.",
+        ],
+        explain: "print adds to the current line; println adds and then ends it. So A, B and C share a line, and D gets the next." },
+      { type: "p", section: "application", text:
+        "Programmers use exactly this to find problems: print what the code is doing at each step, and see " +
+        "what it REALLY did, not what you assumed. Later you'll print sensor readings - a light level, a " +
+        "distance - to watch them change as numbers." },
+      { type: "exercise", kind: "modify",
+        task:
+          "Change the sketch so that setup() prints a countdown - 3, 2 and 1, each on its own line - and then " +
+          "loop() prints \"Go!\" every two seconds.",
+        expected: "3, 2 and 1 appear once, each on its own line; then \"Go!\" appears every 2 seconds, forever.",
+        solution: "void setup() {\n  Serial.begin(9600);\n  Serial.println(3);\n  Serial.println(2);\n  Serial.println(1);\n}\n\nvoid loop() {\n  Serial.println(\"Go!\");\n  delay(2000);\n}" },
+      { type: "mistakes", items: [
+        "Printing before Serial.begin(9600) has run - on a real board that text is lost.",
+        "Using print when you meant println - everything runs together on one line.",
+        "Forgetting the quotes around text: Serial.println(Hello) looks for something named Hello.",
+      ] },
       { type: "note", text:
-        "Use Serial.println() constantly while debugging: print variable values at key points in your " +
-        "code so you can see what the Arduino is actually doing, not just what you assumed it was doing." },
+        "Use Serial.println() constantly while debugging: print values at key points in your code so you can " +
+        "see what the Arduino is actually doing, not just what you assumed it was doing." },
+    ],
+    summary: [
+      "The Serial Monitor shows text your sketch sends down the USB cable.",
+      "Serial.begin(9600) once at the start of setup(); then print stays on the line, println ends it.",
+      "Printing what your code is doing is the most useful debugging tool there is.",
     ],
     challenge: {
       id: "c1",
@@ -335,16 +573,47 @@ export const level1Lessons = [
     title: "Understanding the Arduino Board",
     body: [
       { type: "p", text:
-        "Before wiring anything up, it helps to know what each group of pins on the Uno is for." },
-      { type: "code", text:
-        "Digital pins 0-13   general-purpose I/O, HIGH/LOW only (pins with ~ also support PWM)\n" +
-        "Analog pins A0-A5    read a range of voltages (0-5V), used for sensors/potentiometers\n" +
-        "5V / 3.3V            regulated power output pins, for powering small external components\n" +
-        "GND                  ground - the reference \"0V\" that all your circuits connect back to\n" +
-        "VIN                  where you'd feed in an external power supply (e.g. a 9V battery)" },
+        "Every part you connect goes to one of the Uno's pins, and the pins come in groups, each with its own " +
+        "job. Knowing the groups means you'll always know where a wire should go." },
+      { type: "diagram", diagram: "uno-board", caption: "The Arduino Uno, seen from above. The same groups of pins appear on the simulator's board." },
+      { type: "table", section: "theory", head: ["Pins", "What they're for", "Used for"], rows: [
+        ["Digital pins 0-13", "On or off only: your code switches them HIGH (about 5V) or LOW (0V), or reads whether they're HIGH or LOW", "LEDs, buttons, buzzers - anything on/off. Pins marked ~ can also fake in-between levels (PWM, Module 5)"],
+        ["Analog in A0-A5", "Measure any voltage from 0 to 5V as a number", "Sensors whose reading changes smoothly: light, temperature, a turning knob"],
+        ["5V and 3.3V", "Always on: a steady supply to power small parts", "Powering sensors and the + side of a circuit"],
+        ["GND", "Ground: the 0V point every circuit returns to (it has its own lesson)", "The − side of every circuit"],
+      ] },
       { type: "note", text:
-        "Pins 0 and 1 double as the Serial connection (RX/TX) used by Serial.println(). Avoid wiring " +
-        "components to them while also using the Serial Monitor - they'll interfere with each other." },
+        "Pins 0 and 1 are also used by the USB connection to your computer, which carries uploads and the " +
+        "Serial Monitor's messages (lesson 2.2). Keep them free, and wire your parts to pins 2-13." },
+      { type: "question",
+        question: "An LED has to be switched on and off by your sketch. Which pin could control it?",
+        options: ["5V", "GND", "Pin 9", "A pin labelled 3.3V"],
+        answer: 2,
+        why: [
+          "5V is always on - your code can't switch it off, so the LED would just stay lit.",
+          "GND is 0V all the time: it's the return path, not something you can switch.",
+          "",
+          "Like 5V, the 3.3V pin is a steady supply your code can't switch.",
+        ],
+        explain:
+          "Only the digital (and analog) pins can be controlled by code. 5V, 3.3V and GND are fixed supplies - " +
+          "that's exactly why circuits use them for power and the digital pins for control." },
+      { type: "p", section: "application", text:
+        "A typical project mixes all the groups. A night light, for example, takes its light sensor's reading " +
+        "on A0, switches its LED from pin 9 (through a resistor), and connects both parts' other legs to 5V and " +
+        "GND. Other Arduino boards - the smaller Nano, the bigger Mega - have the same kinds of pins, just more " +
+        "or fewer of them." },
+      { type: "exercise", kind: "independent",
+        task:
+          "Using the diagram, find: (1) the pin the Uno's own built-in LED is connected to, (2) a pin that could " +
+          "read a light sensor, (3) where the − side of an LED circuit should connect. Then open Free Practice " +
+          "(the Practice tab) and find the same three on the simulator's board.",
+        expected: "(1) Pin 13. (2) Any of A0-A5. (3) GND - the simulator's board has GND pins next to 5V along its bottom edge." },
+    ],
+    summary: [
+      "Digital pins 0-13 are on/off; analog pins A0-A5 measure a voltage as a number.",
+      "5V, 3.3V and GND are fixed supplies your code can't switch: power and the return path.",
+      "Keep pins 0 and 1 free - the USB connection uses them.",
     ],
   },
 
@@ -353,22 +622,53 @@ export const level1Lessons = [
     title: "Voltage",
     body: [
       { type: "p", text:
-        "Voltage is the \"push\" that makes electricity flow - a bit like water pressure in a pipe. It's " +
+        "Voltage is the \"push\" that makes electricity flow - like the pressure in a water pipe. It's " +
         "measured in volts (V). An AA battery pushes with 1.5V; a USB port with 5V." },
+      { type: "p", section: "theory", text:
+        "A voltage is always measured between two points. \"The pin is at 5V\" means 5V compared to GND - the " +
+        "0V point of the circuit (it gets its own lesson soon). A higher voltage pushes harder, so - through the " +
+        "same parts - more current flows." },
+      { type: "table", head: ["Source", "Voltage"], rows: [
+        ["AA battery", "1.5V"],
+        ["Some sensors (\"3.3V parts\")", "3.3V"],
+        ["USB port, and an Arduino Uno", "5V"],
+        ["A 9V battery", "9V"],
+        ["Wall socket (mains)", "230V or 120V - dangerous; never connect it to an Arduino"],
+      ] },
       { type: "p", text:
         "The Arduino Uno works at 5 volts. When your code sets a pin HIGH, the pin pushes out about 5V; when " +
         "it's LOW, about 0V. That's all a digital pin can do: 5V or 0V, nothing in between." },
-      { type: "p", text:
-        "A voltage is always measured between two points. \"The pin is at 5V\" means 5V compared to GND - the " +
-        "0V point of the circuit (it gets its own lesson soon)." },
       { type: "predict",
         question: "Your code sets a pin HIGH. What voltage does it push out?",
-        options: ["About 0V", "About 1.5V", "About 5V", "About 12V"],
-        answer: 2,
-        explain: "The Uno is a 5V board: HIGH is about 5 volts, LOW is about 0 volts." },
+        options: ["About 1.5V", "About 5V", "About 9V", "It depends on what's connected"],
+        answer: 1,
+        why: [
+          "1.5V is an AA battery. The Uno's pins work at 5V.",
+          "",
+          "9V is more than the Uno works with - its pins only ever give 5V or 0V.",
+          "A HIGH pin always tries to give about 5V. (What's connected decides the current, not the voltage - next lesson.)",
+        ],
+        explain: "The Uno works at 5V, so HIGH means about 5V and LOW means about 0V." },
+      { type: "p", section: "application", text:
+        "Every part you buy is made for a certain voltage, and the Uno's 5V sets the rules. Most beginner parts " +
+        "are made for 5V. Some sensors are 3.3V parts: give them 5V and they can be damaged - they go on the " +
+        "Uno's 3.3V pin. And anything that needs more than 5V, like most motors, gets its own supply." },
+      { type: "exercise", kind: "independent",
+        task:
+          "A sensor's label says \"3.3V only\". Which Uno pin should power it? And what could happen if you " +
+          "connected it to 5V instead?",
+        expected:
+          "The 3.3V pin. On 5V it gets pushed harder than it was made for - it could give wrong readings, or " +
+          "be permanently damaged." },
       { type: "mistakes", items: [
         "Mixing voltages: a sensor made for 3.3V can be damaged by 5V, and a 12V supply connected to a pin will destroy it. Always check what voltage a part needs before you wire it.",
+        "Forgetting that a voltage is between two points: \"5V\" only means something compared to GND.",
       ] },
+    ],
+    summary: [
+      "Voltage is the push that makes current flow, measured in volts (V) between two points.",
+      "The Uno works at 5V: a HIGH pin gives about 5V, a LOW pin about 0V.",
+      "Every part is made for a voltage - check it before you connect anything.",
     ],
   },
 
@@ -376,50 +676,61 @@ export const level1Lessons = [
   // change (saved progress uses them); the position in this list is the order.
   {
     id: "l1-16",
-    title: "Breadboards and Complete Circuits",
+    title: "Breadboards",
     body: [
       { type: "p", text:
-        "Electricity only flows around a complete loop: out of a power source (5V, or a pin set HIGH), " +
-        "through the parts, and back to GND. If the loop is broken anywhere - a loose wire, a part in " +
-        "backwards - nothing flows anywhere in it. That's why one bad connection can make a whole circuit " +
-        "look dead." },
+        "A breadboard lets you build a circuit without soldering: push the legs of parts and the ends of wires " +
+        "into its holes, and change things as often as you like. It's how almost every Arduino project starts." },
+      { type: "p", section: "theory", text:
+        "Inside it, metal strips join certain holes together. The two long rows along each edge are the power " +
+        "rails: every hole in a + rail is connected, and every hole in a − rail is connected. Run a wire from " +
+        "the Arduino's 5V to + and from GND to −, and the whole rail becomes 5V or GND." },
       { type: "p", text:
-        "A breadboard lets you build that loop without soldering. Inside it, metal strips join certain " +
-        "holes together:" },
-      { type: "p", text:
-        "The two long rows along each edge are the power rails: every hole in a + rail is connected, and " +
-        "every hole in a − rail is connected. Run a wire from the Arduino's 5V to + and from GND to −, and " +
-        "the whole rail becomes 5V or GND." },
-      { type: "p", text:
-        "In the middle, holes are joined in short columns of 5. Two legs in the same column are connected " +
-        "- no wire needed. Columns are NOT joined to their neighbours, and the trench down the middle " +
-        "separates the top half from the bottom half." },
+        "In the middle, holes are joined in short columns of 5. Two legs in the same column are connected - no " +
+        "wire needed. Columns are NOT joined to their neighbours, and the trench down the middle separates the " +
+        "top half from the bottom half." },
       { type: "demo", demo: "breadboard" },
       { type: "predict",
         question: "An LED's two legs are pushed into holes in the SAME 5-hole column. What happens when its circuit is powered?",
-        options: [
-          "It lights normally",
-          "It stays dark - both legs are joined, so current goes round it, not through it",
-          "It lights extra brightly",
-          "The breadboard melts",
-        ],
+        options: ["It lights normally", "Nothing - both legs are joined, so the current bypasses the LED", "It lights very brightly", "The breadboard melts"],
         answer: 1,
+        why: [
+          "For it to light, current has to go IN one leg and OUT the other - here the column joins them.",
+          "",
+          "No current goes through the LED at all, so it can't light.",
+          "Nothing that dramatic - the current just takes the strip instead of the LED.",
+        ],
         explain:
-          "Holes in the same column are connected, so the LED's + and − legs are joined by the metal strip. " +
-          "Current takes that easy path instead of going through the LED. Each leg of a part needs its own " +
-          "column - that's why parts are placed across columns, or across the trench." },
+          "The metal strip joins the two legs, so current takes that path instead of going through the LED. " +
+          "Each leg of a part needs its own column." },
+      { type: "p", section: "application", text:
+        "Engineers prototype on breadboards for the same reason you will: a circuit can be tried, measured and " +
+        "changed in minutes. Once it works, it's moved to a soldered board for good." },
       { type: "note", text:
-        "How this simulator's board works: parts don't plug in by sitting on the breadboard - connect each " +
-        "leg with a wire, to a pin or to a hole. Holes in the same column ARE connected, like a real board. " +
-        "And the rails are already live as 5V and GND here; on a real breadboard, run those two wires from " +
-        "the Arduino first. Check Circuit always tells you what's connected." },
+        "How this simulator's board works: parts don't plug in by sitting on the breadboard - connect each leg " +
+        "with a wire, to a pin or to a hole. Holes in the same column ARE connected, like a real board. And the " +
+        "rails are already live as 5V and GND here; on a real breadboard, run those two wires from the Arduino " +
+        "first. Check Circuit always tells you what's connected to what." },
+      { type: "exercise", kind: "independent",
+        task:
+          "In Free Practice, build 5V → resistor → LED → GND using the breadboard: wire the resistor's free leg " +
+          "to the + rail, join the resistor and the LED's + leg through one 5-hole column (each wired to a hole " +
+          "in it), and wire the LED's − leg to the − rail. Press Run, then Check Circuit.",
+        expected:
+          "The LED lights while the board runs. Check Circuit describes a complete loop from 5V through the " +
+          "resistor and LED to GND - the column you used joins the resistor to the LED." },
       { type: "mistakes", items: [
         "Both legs of a part in the same column - they're shorted together, so the part does nothing.",
         "Using a rail that isn't connected to the Arduino (on a real board, nothing is live until you wire 5V and GND to the rails).",
-        "A part placed so it bridges nothing - each leg needs to reach the pin, rail or other part it's meant to.",
+        "Expecting a column on the top half to connect to the one below it - the trench separates them.",
       ] },
-      { type: "action", action: "first-circuit", label: "Build a complete circuit", text:
-        "See a complete circuit - and what breaking it does - in the guided first circuit." },
+      { type: "action", action: "first-circuit", label: "Try the guided first circuit", text:
+        "See a whole breadboard circuit built step by step - and what breaking it does - in the guided first circuit." },
+    ],
+    summary: [
+      "A breadboard holds a circuit without soldering; metal strips inside join certain holes.",
+      "Each + or − rail is one long connection; the middle holes are joined in columns of 5, split by the trench.",
+      "Each leg of a part needs its own column - two legs in one column are shorted together.",
     ],
   },
 
@@ -447,18 +758,56 @@ export const level1Lessons = [
     title: "Reading Compiler Errors",
     body: [
       { type: "p", text:
-        "Every beginner hits compiler errors constantly - that's normal, not a sign you're doing " +
-        "something wrong. Learning to read them quickly is a core skill." },
+        "Before your sketch runs, the compiler checks every line. If something breaks the language's rules, " +
+        "it stops and tells you what's wrong and where. Everyone gets these - reading them quickly is a skill, " +
+        "not a sign you've done badly." },
       { type: "code", text:
         "void setup() {\n  pinMode(13, OUTPUT)\n}\n\n// error: expected ';' before '}' token" },
-      { type: "p", text:
-        "The error names the SYMPTOM (a missing semicolon) and roughly WHERE (right before the closing " +
-        "brace) - but the actual mistake is usually on the line just above where it's pointing, since " +
-        "the compiler only notices something's wrong once it hits the next token." },
+      { type: "p", section: "theory", text:
+        "An error message has two useful parts: WHAT the compiler expected, and WHERE it noticed the problem. " +
+        "The catch is in \"noticed\": the compiler only realises something's wrong when the next thing stops " +
+        "making sense - so the real mistake is often on the line BEFORE the one it names. Above, the missing ; " +
+        "is on line 2, but the compiler only notices at the } on line 3." },
+      { type: "table", head: ["Mistake", "The Arduino IDE says", "Where to look"], rows: [
+        ["A missing ;", "expected ';' before ...", "The end of the line above the one it names"],
+        ["A missing }", "expected '}' at end of input", "Count the { and }: every { needs a }"],
+        ["Wrong spelling or capitals", "'digitalwrite' was not declared in this scope", "The name: digitalWrite, exactly"],
+        ["A missing quote", "missing terminating \" character", "Text needs a \" at both ends"],
+      ] },
       { type: "note", text:
-        "The most common beginner mistakes, in order of how often they show up: missing semicolons, " +
-        "mismatched { } braces, mismatched ( ) parentheses, and using the wrong case (Arduino is " +
-        "case-sensitive - HIGH and high are not the same thing)." },
+        "The simulator explains the same mistakes in plainer words (\"Missing ';' at the end of this line\"), " +
+        "and highlights the line. The real Arduino IDE uses the shorter, more technical messages in the table - " +
+        "this lesson prepares you for both." },
+      { type: "guided", title: "Fix two mistakes, one at a time", broken: true,
+        code: "void setup() {\n  Serial.begin(9600)\n  Serial.println(\"Ready\");\n}\n\nvoid loop() {\n  Serial.printn(\"Tick\");\n  delay(1000);\n}",
+        steps: [
+        "Press \"Try it in the editor\" under this sketch, then Run.",
+        "Read the first error: which line, and what's missing? Fix it, and Run again.",
+        "A second error appears - compilers often report one problem at a time. Read it, fix it, and Run.",
+        "\"Ready\" prints once, then \"Tick\" every second.",
+      ] },
+      { type: "p", section: "application", text:
+        "Professional programmers read compiler errors every day. The method is always the same: read the " +
+        "message, go to the line it names, and check that line and the one above it." },
+      { type: "exercise", kind: "debug",
+        task: "Find and fix every mistake in this sketch, using the error messages to guide you.",
+        code: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Start\")\n}\n\nvoid Loop() {\n  Serial.println(\"Again\");\n  delay(1000);\n}",
+        hint: "There are two: one on a line inside setup(), and one in a name - names are case-sensitive.",
+        expected:
+          "Add the missing ; after Serial.println(\"Start\"), and rename Loop to loop (lower case). Then \"Start\" " +
+          "prints once and \"Again\" every second.",
+        solution: "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Start\");\n}\n\nvoid loop() {\n  Serial.println(\"Again\");\n  delay(1000);\n}" },
+      { type: "mistakes", items: [
+        "Only looking at the line the error names - check the line above it too.",
+        "Fixing several things at once without re-running: fix one error, run, then read the next.",
+        "Thinking an error means you're bad at this - every programmer gets them, all the time.",
+      ] },
     ],
+    summary: [
+      "The compiler checks your sketch first; an error says what it expected and where it noticed.",
+      "The real mistake is often on the line before the one named - check both.",
+      "Fix one error at a time, then run again.",
+    ],
+
   },
 ];

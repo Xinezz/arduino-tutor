@@ -206,6 +206,10 @@ in the in-app **Simulator Limits** window, so none of them is silent:
   wires at all.
 - A pressed button is only read by input pins; current doesn't flow through it
   to light an LED directly.
+- LEDs in series (one LED's − leg to the next one's + leg) aren't simulated:
+  Check Circuit reports them as not connected. Each LED needs its own path from
+  a pin or 5V to GND. A real series pair would light dimly, sharing the 5V -
+  the "Series vs parallel" demo in Module 1 shows that behaviour.
 - Sensors produce clean values from their on-screen sliders (no noise), except
   for floating digital pins.
 - Unwired header pins (IOREF, RESET, 3V3, VIN) are drawn but not connected to

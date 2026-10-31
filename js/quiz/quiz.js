@@ -68,7 +68,8 @@ export function renderQuiz(container, quiz, onResult) {
     // after the result and explanation, which the quiz may still be adding
     setTimeout(() => container.appendChild(retry), 0);
   };
-  if (quiz.type === "predict") renderPredictQuiz(container, quiz, report);
+  if (quiz.type === "questions") renderQuestionsQuiz(container, quiz, report);
+  else if (quiz.type === "predict") renderPredictQuiz(container, quiz, report);
   else if (quiz.type === "debug") renderDebugQuiz(container, quiz, report);
   else if (quiz.type === "fill") renderFillBlankQuiz(container, quiz, report);
   else if (quiz.type === "match") renderMatchQuiz(container, quiz, report);
@@ -341,6 +342,84 @@ function renderPredictQuiz(container, quiz, onResult) {
   }
 
   render();
+}
+
+// ---------- "questions" type: a short set of understanding questions ----------
+// Each question: { q, code?, options, answer, why } where why[i] explains
+// option i - why it's right, or exactly why it's wrong. A wrong pick says why
+// and leaves the question open, so the learner can think again; the set
+// counts as passed only if every question was right first time (anything
+// else goes on the revision list, and comes back in a revision round).
+
+function renderQuestionsQuiz(container, quiz, onResult) {
+  const card = document.createElement("div");
+  card.className = "quiz-card hud-frame";
+  renderQuizHeader(card, quiz, "question");
+  const state = quiz.questions.map(() => ({ wrong: new Set(), done: false }));
+
+  const finish = () => {
+    const missed = state.filter((s) => s.wrong.size > 0).length;
+    const result = document.createElement("div");
+    result.className = "quiz-result " + (missed ? "failure" : "success");
+    result.textContent = missed
+      ? `All answered - ${missed === 1 ? "one question" : `${missed} questions`} needed another try. They'll come back in your revision round; try the set again to clear it now.`
+      : "All right first time - you've got this.";
+    card.appendChild(result);
+    onResult(quiz.id, missed === 0, quiz.topic);
+  };
+
+  quiz.questions.forEach((question, qi) => {
+    const block = document.createElement("div");
+    block.className = "quiz-question";
+    const head = document.createElement("p");
+    head.className = "quiz-question-text";
+    head.textContent = `${qi + 1}. ${question.q}`;
+    block.appendChild(head);
+    if (question.code) {
+      const pre = document.createElement("pre");
+      pre.className = "code-block";
+      pre.textContent = question.code;
+      block.appendChild(pre);
+    }
+    const optionsWrap = document.createElement("div");
+    optionsWrap.className = "quiz-options";
+    const feedback = document.createElement("p");
+    feedback.className = "quiz-question-feedback";
+    feedback.hidden = true;
+    question.options.forEach((opt, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "quiz-option";
+      btn.textContent = opt;
+      btn.addEventListener("click", () => {
+        const s = state[qi];
+        if (s.done) return;
+        const right = i === question.answer;
+        feedback.hidden = false;
+        feedback.className = `quiz-question-feedback ${right ? "is-right" : "is-wrong"}`;
+        feedback.textContent = right
+          ? `✔ ${question.why?.[i] ?? "Correct."}`
+          : `✖ ${question.why?.[i] ?? "Not quite."} Think again and pick another answer.`;
+        if (right) {
+          s.done = true;
+          btn.classList.add("correct");
+          optionsWrap.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+          // the last one's sound comes with the set's result (app.js)
+          if (state.every((x) => x.done)) finish();
+          else playSfx("correct");
+        } else {
+          s.wrong.add(i);
+          btn.classList.add("incorrect");
+          btn.disabled = true;
+          playSfx("wrong");
+        }
+      });
+      optionsWrap.appendChild(btn);
+    });
+    block.append(optionsWrap, feedback);
+    card.appendChild(block);
+  });
+  container.appendChild(card);
 }
 
 // ---------- "debug" type: click the one buggy line in a code listing ----------

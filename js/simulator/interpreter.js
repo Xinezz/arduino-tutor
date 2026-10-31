@@ -1357,7 +1357,15 @@ class Analyzer {
           if (["available", "read", "peek", "parseInt", "parseFloat", "readString", "readStringUntil", "readBytes"].includes(callee.property)) {
             this.error(`Reading from the Serial Monitor (${name}) isn't supported in this simulator yet - it can only send output`, node.line);
           }
-          this.error(`'${name}' isn't supported in this simulator`, node.line);
+          // Real Serial functions this simulator doesn't run are "unsupported";
+          // anything else (Serial.printn, Serial.Println) is a typo, and a real
+          // Arduino wouldn't accept it either.
+          if (["write", "flush", "end", "setTimeout", "find", "findUntil", "availableForWrite"].includes(callee.property)) {
+            this.error(`'${name}' isn't supported in this simulator`, node.line);
+          }
+          const serialNames = Object.keys(BUILTINS).filter((n) => n.startsWith("Serial.")).map((n) => n.slice("Serial.".length));
+          const hint = suggest(callee.property, serialNames);
+          this.error(`Serial has no function called '${callee.property}' - is it spelled correctly?${hint ? ` (Did you mean 'Serial.${hint}'?)` : ""}`, node.line);
         }
         this.checkArgs(sig, name, node, scope, argTypes);
         node.callKind = "builtin";
