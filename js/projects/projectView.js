@@ -266,7 +266,7 @@ export function renderProjectPage(container, project, progress, { onBack, onStar
 
 // ---------------------------------------------------------------- the builder panel
 // runCheck(spec) -> a check result for the learner's current code and circuit.
-export function renderProjectBuilder(container, project, mode, progress, { runCheck, onStepPassed, onComplete, onHint, onExit, onBackToPage }) {
+export function renderProjectBuilder(container, project, mode, progress, { runCheck, onStepPassed, onComplete, onHint, onExit, onBackToPage, onDocument, onImprovementPassed }) {
   const entry = progress.projects?.[project.id] ?? { stagesDone: [] };
   let stepIndex = mode === "guided" ? Math.max(0, project.steps.findIndex((s) => !entry.stagesDone.includes(s.id))) : 0;
   if (mode === "guided" && project.steps.every((s) => entry.stagesDone.includes(s.id)) && !entry.completed?.guided) stepIndex = project.steps.length - 1;
@@ -355,7 +355,7 @@ export function renderProjectBuilder(container, project, mode, progress, { runCh
       container.append(button("Check my project", "complete", () => {
         const r = runCheck(project.final);
         renderCheckResult(area, r);
-        if (r.status === "pass") { finished = true; onComplete?.(mode, hintsUsed); render(); }
+        if (r.status === "pass") { finished = true; onComplete?.(mode, hintsUsed, r); render(); }
       }), area);
     }
     const help = el("details", "project-plan");
@@ -367,7 +367,7 @@ export function renderProjectBuilder(container, project, mode, progress, { runCh
   // after the last guided step: the whole project, checked together
   const finalCheck = () => {
     const r = runCheck(project.final);
-    if (r.status === "pass") { finished = true; onComplete?.(mode, hintsUsed); render(); return; }
+    if (r.status === "pass") { finished = true; onComplete?.(mode, hintsUsed, r); render(); return; }
     const area = checkArea();
     renderCheckResult(area, r);
     container.appendChild(area);
@@ -376,13 +376,21 @@ export function renderProjectBuilder(container, project, mode, progress, { runCh
   const renderDone = () => {
     container.appendChild(el("div", "lesson-list-heading", "PROJECT COMPLETE ✔"));
     container.appendChild(el("p", null, `It does everything it should, and the check ran your own code and circuit. Concepts you applied: ${project.concepts.map((c) => SKILLS[c]).join(", ")}.`));
+    if (onDocument) {
+      container.appendChild(el("p", "learning-legend", "Your code, circuit and check results are saved in your portfolio as a new version. Document what you built while it's fresh:"));
+      container.appendChild(button("Document it in my portfolio", "primary", onDocument));
+    }
     container.appendChild(el("div", "lesson-list-heading", "IMPROVE THE DESIGN"));
     for (const imp of project.improvements) {
       const box = el("div", "lesson-exercise is-independent");
       box.append(el("strong", null, imp.title), el("p", null, imp.task));
       if (imp.check) {
         const area = checkArea();
-        box.append(button("Check this improvement", "hint", () => renderCheckResult(area, runCheck(imp.check))), area);
+        box.append(button("Check this improvement", "hint", () => {
+          const r = runCheck(imp.check);
+          renderCheckResult(area, r);
+          if (r.status === "pass") onImprovementPassed?.(imp, area);
+        }), area);
       } else {
         box.appendChild(el("p", "learning-legend", "No automatic check for this one - test it on the board against your own plan."));
       }

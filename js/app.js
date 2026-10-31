@@ -80,8 +80,13 @@ import { mistakeFromProblem } from "./progress/mistakes.js";
 import { QUESTION_BANK } from "./progress/questionBank.js";
 import { openTutor } from "./tutor/tutorView.js";
 import { renderPathways, confirmPathwayLesson } from "./pathways/pathwaysView.js";
-import { pathwayById, pathwayLessonById, pathwayProjectById } from "./pathways/data.js";
+import { pathwayById, pathwayLessonById, pathwayProjectById, PATHWAY_PROJECTS } from "./pathways/data.js";
 import { pathwayStatus } from "./pathways/progress.js";
+import { renderPortfolio } from "./portfolio/portfolioView.js";
+import {
+  loadPortfolio, savePortfolio, captureCompletion, captureImprovement, entryIdFor,
+  exportPortfolio, parsePortfolioFile, importPortfolio,
+} from "./portfolio/portfolio.js";
 import { nextLesson, missingNeeds } from "./progress/learning.js";
 import { renderChallenge } from "./lessons/challenge.js";
 import { getQuizForLesson } from "./quiz/data.js";
@@ -157,19 +162,21 @@ const viewEls = {
   map: document.getElementById("view-map"),
   projects: document.getElementById("view-projects"),
   pathways: document.getElementById("view-pathways"),
+  portfolio: document.getElementById("view-portfolio"),
   practice: document.getElementById("view-practice"),
   shop: document.getElementById("view-shop"),
   dashboard: document.getElementById("view-dashboard"),
 };
-// The five tabs, in order - also what the number-key shortcuts index into.
-const VIEW_ORDER = ["learn", "projects", "pathways", "practice", "dashboard"];
+// The six tabs, in order - also what the number-key shortcuts index into.
+const VIEW_ORDER = ["learn", "projects", "pathways", "practice", "dashboard", "portfolio"];
 // Which tab is lit for each screen: a lesson and the map belong to Learn,
 // the shop to Progress (it's where your rewards are).
-const TAB_FOR_VIEW = { learn: "learn", lessons: "learn", map: "learn", projects: "projects", pathways: "pathways", practice: "practice", dashboard: "dashboard", shop: "dashboard" };
+const TAB_FOR_VIEW = { learn: "learn", lessons: "learn", map: "learn", projects: "projects", pathways: "pathways", portfolio: "portfolio", practice: "practice", dashboard: "dashboard", shop: "dashboard" };
 const learnPanelEl = document.getElementById("learn-panel");
 const nextStepEl = document.getElementById("next-step-section");
 const projectsPanelEl = document.getElementById("projects-panel");
 const pathwaysPanelEl = document.getElementById("pathways-panel");
+const portfolioPanelEl = document.getElementById("portfolio-panel");
 const dashboardPanelEl = document.getElementById("dashboard-panel");
 const mapPanelEl = document.getElementById("map-panel");
 const shopPanelEl = document.getElementById("shop-panel");
@@ -512,6 +519,8 @@ function switchView(viewName) {
     renderProjectsView();
   } else if (viewName === "pathways") {
     renderPathwaysView();
+  } else if (viewName === "portfolio") {
+    renderPortfolioView();
   } else if (viewName === "map") {
     noteVisit("mapVisits");
     renderMapView();
@@ -565,9 +574,12 @@ function startProjectBuild(project, mode) {
       rewards.settle(before, { kind: "stage", label: project.title });
     },
     onHint: () => { progress = recordProjectHint(progress, project.id); },
-    onComplete: (doneMode, hintsUsed) => {
+    onComplete: (doneMode, hintsUsed, result) => {
       const before = rewards.snapshot();
       progress = recordProjectComplete(progress, project.id, doneMode, hintsUsed, project.title);
+      // the code and circuit that passed go into the portfolio, as a new version
+      captureCompletion(portfolio, project, { mode: doneMode, hints: hintsUsed, result, ...practiceWork(), log: progress.projects[project.id]?.log });
+      if (!persistPortfolio().ok) setStatus("Couldn't save to your portfolio - this browser's storage may be full.");
       rewards.settle(before, { kind: "stage", label: project.title });
       afterLearning();
       playSfx("correct");
@@ -576,6 +588,11 @@ function startProjectBuild(project, mode) {
     onExit: () => { exit(); setStatus("Project closed - your circuit and code are still in Free Practice."); },
     onBackToPage: () => { exit(); currentProjectId = project.id; switchView("projects"); },
     onSaveLog: (field, text) => { progress = saveProjectLog(progress, project.id, field, text); },
+    onDocument: () => { exit(); portfolioState = { view: "entry", id: entryIdFor(project.id), editing: true }; switchView("portfolio"); },
+    onImprovementPassed: (imp, area) => {
+      const v = captureImprovement(portfolio, project, imp, practiceWork());
+      if (v && persistPortfolio().ok) area.appendChild(Object.assign(document.createElement("p"), { className: "learning-legend", textContent: `Saved in your portfolio as v${v.n}: ${v.name}.` }));
+    },
   });
   setStatus(`Building "${project.title}" (${MODES[mode].label}) - the project is beside the editor and board.`);
 }
@@ -625,6 +642,72 @@ function renderProjectsView() {
     });
   }
   replayFadeIn(projectsPanelEl);
+}
+
+// ---- the engineering portfolio (portfolio/) ----
+// Kept under its own storage key; saved after every change.
+let portfolio = loadPortfolio();
+let portfolioState = { view: "home" };
+const persistPortfolio = () => savePortfolio(portfolio);
+const practiceWork = () => ({ code: practicePanel.editor.getValue(), circuit: practicePanel.board.exportCircuit() });
+
+async function loadIntoPractice(code, circuit, label) {
+  const yes = await confirmDialog({
+    title: "LOAD INTO FREE PRACTICE?",
+    body: `This replaces the code and circuit in Free Practice with ${label}. Anything there now that you haven't saved as a version will be lost.`,
+    confirmLabel: "Load It",
+  });
+  if (!yes) return;
+  practicePanel.stopRun();
+  switchView("practice");
+  practicePanel.editor.setValue(code ?? "void setup() {\n}\n\nvoid loop() {\n}\n");
+  practicePanel.board.loadCircuit(circuit ?? { parts: [], wires: [] });
+  practicePanel.editor.refresh();
+  setStatus(`Loaded ${label} into Free Practice.`);
+}
+
+function downloadPortfolio() {
+  const blob = new Blob([exportPortfolio(portfolio)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = Object.assign(document.createElement("a"), { href: url, download: `arduino-tutor-portfolio-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setStatus("Portfolio backup downloaded - keep the file somewhere safe.");
+}
+
+function restorePortfolio() {
+  const input = Object.assign(document.createElement("input"), { type: "file", accept: ".json,application/json" });
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const incoming = parsePortfolioFile(await file.text());
+    if (!incoming) { setStatus("That file isn't an Arduino Tutor portfolio backup."); return; }
+    const count = Object.keys(incoming.entries).length;
+    const yes = await confirmDialog({
+      title: "RESTORE FROM BACKUP?",
+      body: `The backup has ${count} record${count === 1 ? "" : "s"}. They're ADDED to your portfolio - nothing you have now is overwritten; if a record exists in both and differs, the backup's copy is kept alongside, marked "imported copy".`,
+      confirmLabel: "Restore",
+    });
+    if (!yes) return;
+    const r = importPortfolio(portfolio, incoming);
+    persistPortfolio();
+    setStatus(`Restored: ${r.added} added, ${r.kept} kept as imported copies, ${r.same} already here.`);
+    renderPortfolioView();
+  });
+  input.click();
+}
+
+function renderPortfolioView() {
+  const ctx = {
+    portfolio, progress, projects: [...BEGINNER_PROJECTS, ...PATHWAY_PROJECTS],
+    persist: persistPortfolio, getPracticeWork: practiceWork, loadIntoPractice, setStatus,
+    exportFile: downloadPortfolio, importFile: restorePortfolio,
+    onOpenProject: (id) => { currentProjectId = id; switchView("projects"); },
+  };
+  renderPortfolio(portfolioPanelEl, ctx, portfolioState, renderPortfolioView);
+  replayFadeIn(portfolioPanelEl);
 }
 
 // ---- engineering pathways (pathways/) ----

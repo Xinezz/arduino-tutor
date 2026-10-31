@@ -1851,6 +1851,9 @@ export function createBoard(svgEl, options = {}) {
       // a resistor can come with its value (one of the values the board offers)
       const comp = components[components.length - 1];
       if (part.ohms && RESISTOR_VALUES.some((v) => v.ohms === part.ohms)) comp.ohms = part.ohms;
+      // a saved circuit (exportCircuit) also keeps where each part was, and an LED's colour
+      if (Number.isFinite(part.x) && Number.isFinite(part.y)) { comp.x = part.x; comp.y = part.y; }
+      if (part.color && comp.kind === "led") comp.color = part.color;
     }
     const resolve = (ref) => {
       const m = /^(\w+)\.(\w+)$/.exec(ref);
@@ -1877,6 +1880,19 @@ export function createBoard(svgEl, options = {}) {
   function wireCount() {
     return wires.length;
   }
+  // The circuit as a loadCircuit() spec - parts (with their positions) and
+  // wires - so it can be saved (the portfolio) and drawn again exactly.
+  function exportCircuit() {
+    const keyOf = new Map(components.map((c) => [c.id, c.id.replace(/-/g, "")]));
+    const ref = (connector) => {
+      const m = /^(.+)-([a-z0-9]+)$/.exec(connector);
+      return m && keyOf.has(m[1]) ? `${keyOf.get(m[1])}.${m[2]}` : connector;
+    };
+    return {
+      parts: components.map((c) => ({ key: keyOf.get(c.id), kind: c.kind, x: c.x, y: c.y, ...(c.ohms ? { ohms: c.ohms } : {}), ...(c.color ? { color: c.color } : {}) })),
+      wires: wires.map((w) => [ref(w.from), ref(w.to)]),
+    };
+  }
   function isRunning() {
     return running;
   }
@@ -1888,7 +1904,7 @@ export function createBoard(svgEl, options = {}) {
     lcdBegin, lcdPrint, lcdSetCursor, lcdClear, pinStatus,
     addComponent, removeComponent, clearWiring, reset, setRunning, setWireColor,
     connect, setButtonPressed, updateComponent,
-    inspectCircuit, areConnected, listComponents, ledLevels, wireCount, isRunning, loadCircuit,
+    inspectCircuit, areConnected, listComponents, ledLevels, wireCount, isRunning, loadCircuit, exportCircuit,
     getWirePalette: () => WIRE_PALETTE,
   };
 }
