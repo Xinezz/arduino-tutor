@@ -25,6 +25,13 @@ import {
   recordCheck,
   recordPrediction,
   recordQuizResult,
+  recordAnswer,
+  recordMistake,
+  recordProjectCheck,
+  recordRevisionSession,
+  setGoal,
+  removeGoal,
+  markGoalsDone,
   markProjectStageDone,
   touchStreak,
   spendCredits,
@@ -55,12 +62,20 @@ import {
   renderNextStep,
   sectionHeading,
   onPrediction,
+  onLessonQuestion,
 } from "./lessons/render.js";
 import { moduleParts } from "./lessons/levels.js";
 import { lessons } from "./lessons/data.js";
 import { renderLearnView } from "./learn/learnView.js";
 import { openWelcomeTour } from "./learn/welcomeTour.js";
-import { renderLearningProgress } from "./progress/progressView.js";
+import { renderLearningProgress, openRevisionSession, renderFeedback } from "./progress/progressView.js";
+import { masteryReport } from "./progress/skills.js";
+import { recommendations } from "./progress/recommend.js";
+import { feedbackFor } from "./progress/insights.js";
+import { goalById, newlyReached } from "./progress/goals.js";
+import { mistakeFromProblem } from "./progress/mistakes.js";
+import { QUESTION_BANK } from "./progress/questionBank.js";
+import { openTutor } from "./tutor/tutorView.js";
 import { nextLesson, missingNeeds } from "./progress/learning.js";
 import { renderChallenge } from "./lessons/challenge.js";
 import { getQuizForLesson } from "./quiz/data.js";
@@ -221,6 +236,16 @@ function runFailed(consoleId) {
   shake(document.getElementById(consoleId));
 }
 
+// Every error, warning and wiring fault the simulator reports is checked
+// against the known kinds of mistake (progress/mistakes.js); the learner's
+// own ones are saved, so one that keeps coming back can be spotted.
+const lastErrors = { lessons: null, practice: null };
+function handleProblem(where, problem) {
+  if (problem.type === "error") lastErrors[where] = problem.details ?? { kind: "code", message: problem.message };
+  const m = mistakeFromProblem(problem);
+  if (m) progress = recordMistake(progress, m.id, m.label, m.lessonId);
+}
+
 function handleRun() {
   const before = rewards.snapshot();
   progress = recordRun(progress);
@@ -247,8 +272,9 @@ const lessonsPanel = createSimulatorPanel({
   limitsBtn: document.getElementById("limits-btn"),
   circuitReportEl: document.getElementById("circuit-report"),
   onStatus: setStatus,
-  onRun: handleRun,
+  onRun: () => { lastErrors.lessons = null; handleRun(); },
   onRunError: () => runFailed("sim-console"),
+  onProblem: (p) => handleProblem("lessons", p),
   onReview: (lessonId) => reviewLesson(lessonId),
 });
 const editor = lessonsPanel.editor;
@@ -269,8 +295,9 @@ const practicePanel = createSimulatorPanel({
   limitsBtn: document.getElementById("practice-limits-btn"),
   circuitReportEl: document.getElementById("practice-circuit-report"),
   onStatus: setStatus,
-  onRun: handleRun,
+  onRun: () => { lastErrors.practice = null; handleRun(); },
   onRunError: () => runFailed("practice-sim-console"),
+  onProblem: (p) => handleProblem("practice", p),
   onReview: (lessonId) => reviewLesson(lessonId),
 });
 
@@ -515,7 +542,11 @@ function startProjectBuild(project, mode) {
     practicePanel.editor.refresh();
   };
   renderProjectBuilder(projectGuideEl, project, mode, progress, {
-    runCheck: (spec) => runCheck(spec, practicePanel.editor.getValue(), practicePanel.board.inspectCircuit().findings),
+    runCheck: (spec) => {
+      const result = runCheck(spec, practicePanel.editor.getValue(), practicePanel.board.inspectCircuit().findings);
+      progress = recordProjectCheck(progress, project.id, result.status === "pass");
+      return result;
+    },
     onStepPassed: (stepId) => {
       const before = rewards.snapshot();
       progress = markProjectStageDone(progress, project.id, stepId);
@@ -524,8 +555,9 @@ function startProjectBuild(project, mode) {
     onHint: () => { progress = recordProjectHint(progress, project.id); },
     onComplete: (doneMode, hintsUsed) => {
       const before = rewards.snapshot();
-      progress = recordProjectComplete(progress, project.id, doneMode, hintsUsed);
+      progress = recordProjectComplete(progress, project.id, doneMode, hintsUsed, project.title);
       rewards.settle(before, { kind: "stage", label: project.title });
+      afterLearning();
       playSfx("correct");
       setStatus(`"${project.title}" complete (${MODES[doneMode].label} mode) - your own code and circuit passed every check.`);
     },
@@ -542,10 +574,11 @@ function renderProjectsView() {
       onBack: () => { currentProjectId = null; renderProjectsView(); },
       onStart: (mode) => startProjectBuild(library, mode),
       onOpenLesson: goToLesson,
-      onQuizResult: (quizId, success, topic) => {
+      onQuizResult: (quizId, success, topic, detail) => {
         const before = rewards.snapshot();
-        progress = recordQuizResult(progress, quizId, success, topic);
+        progress = recordQuizResult(progress, quizId, success, topic, detail);
         if (success) rewards.settle(before, { kind: "quiz" });
+        afterLearning();
       },
       onSaveLog: (field, text) => { progress = saveProjectLog(progress, library.id, field, text); },
     });
@@ -606,13 +639,20 @@ function renderDashboardView({ refresh = false } = {}) {
   dashboardPanelEl.append(learningEl, rewardsHead, rewardsEl);
   renderLearningProgress(learningEl, progress, {
     onOpenLesson: goToLesson,
-    onQuizResult: (quizId, success, topic) => {
-      const before = rewards.snapshot();
-      progress = recordQuizResult(progress, quizId, success, topic);
-      if (success) rewards.settle(before, { kind: "quiz" });
+    onOpenChallenge: openChallenge,
+    onOpenProject: (id) => { currentProjectId = id; switchView("projects"); },
+    onRevise: startRevision,
+    onAskTutor: () => askTutor(),
+    onSetGoal: (id) => {
+      const goal = goalById(id);
+      progress = setGoal(progress, id, goal?.baseline?.(progress) ?? null);
+      setStatus(`Goal set: "${goal?.title}". Its progress bar moves as you learn.`);
+      renderDashboardView({ refresh: true });
     },
-    // the revision list and totals have changed - show them as they are now
-    onRoundEnd: () => { if (currentView === "dashboard") renderDashboardView({ refresh: true }); },
+    onRemoveGoal: (id) => {
+      progress = removeGoal(progress, id);
+      renderDashboardView({ refresh: true });
+    },
   });
   renderDashboard(rewardsEl, progress, {
     refresh,
@@ -627,6 +667,79 @@ function renderDashboardView({ refresh = false } = {}) {
   });
   dashboardPanelEl.scrollTop = top;
 }
+
+// ---- personalised learning: revision, goals, the tutor ----
+
+// A revision session (progressView.openRevisionSession). A question from a
+// set is recorded on its own; a one-piece checkpoint (order, debug...) is
+// recorded like any attempt. Once every question of a set has been put right,
+// the set itself counts as solved.
+function startRevision(area = null) {
+  openRevisionSession(progress, area, {
+    onAnswer: (item, quizId, success, topic, detail) => {
+      const before = rewards.snapshot();
+      if (item.quiz) {
+        progress = recordQuizResult(progress, quizId, success, topic, detail);
+      } else {
+        for (const [key, right] of detail?.answers ?? [[item.key, success]]) progress = recordAnswer(progress, key, right);
+        const set = item.quizId ? QUESTION_BANK.filter((i) => i.quizId === item.quizId) : [];
+        if (set.length && !progress.quizzes[item.quizId]?.solved && set.every((i) => progress.answers[i.key]?.last)) {
+          progress = recordQuizResult(progress, item.quizId, true, item.topic, { answers: [] });
+        }
+      }
+      if (success) rewards.settle(before, { kind: "quiz" });
+    },
+    onDone: (doneArea, right, total) => {
+      progress = recordRevisionSession(progress, doneArea, right, total);
+      afterLearning();
+      setStatus(`Revision session finished: ${right} of ${total} right first time.`);
+      if (currentView === "dashboard") renderDashboardView({ refresh: true });
+    },
+    onOpenLesson: goToLesson,
+  });
+}
+
+// After anything that can move a skill level: goals that have now been
+// reached are saved (once) and announced, and trophies re-checked.
+function afterLearning() {
+  const report = masteryReport(progress);
+  const reached = newlyReached(progress, report);
+  if (reached.length) {
+    progress = markGoalsDone(progress, reached, Object.fromEntries(reached.map((id) => [id, goalById(id)?.title])));
+    for (const id of reached) {
+      playSfx("mission");
+      showToast({ iconHtml: icon("flag", 3), title: "GOAL REACHED", text: goalById(id)?.title ?? id, kind: "mission", duration: 5000 });
+    }
+  }
+  rewards.checkAchievements();
+}
+
+// Opens a lesson and scrolls to its challenge.
+async function openChallenge(lessonId) {
+  await goToLesson(lessonId);
+  if (currentLessonId === lessonId) setTimeout(() => challengeSectionEl.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+}
+
+// The tutor can read the workspace on screen: a lesson's editor and board,
+// or Free Practice's. Elsewhere it answers from the course alone.
+function tutorContext() {
+  if (currentView === "practice") {
+    return { where: "practice", code: practicePanel.editor.getValue(), findings: practicePanel.board.inspectCircuit().findings, lastError: lastErrors.practice };
+  }
+  if (currentView === "lessons" && !editorSectionEl.hidden) {
+    return { where: "lessons", lessonId: currentLessonId, code: editor.getValue(), findings: lessonsPanel.board?.inspectCircuit().findings ?? null, lastError: lastErrors.lessons };
+  }
+  return { where: currentView };
+}
+
+function askTutor(question = null) {
+  const lesson = currentView === "lessons" ? findLesson(currentLessonId) : null;
+  const suggestions = [];
+  if (lastErrors[currentView === "practice" ? "practice" : "lessons"] && (currentView === "practice" || currentView === "lessons")) suggestions.push("What does this error mean?");
+  if (lesson?.title) suggestions.push(`What is ${lesson.title.replace(/^(What is|What are)\s+/i, "").replace(/\?$/, "").toLowerCase()}?`);
+  openTutor({ getContext: tutorContext, onOpenLesson: goToLesson, suggestions, initialQuestion: question });
+}
+document.getElementById("hud-tutor").addEventListener("click", () => { if (appStarted) askTutor(); });
 
 // ---- daily missions ----
 
@@ -770,8 +883,16 @@ function openLesson(lessonId) {
     getFindings: () => lessonsPanel.board?.inspectCircuit().findings ?? null,
     onCheckError: (err) => editor.markErrorLine(err.line),
     onCheck: (challengeId, passed) => {
-      progress = recordCheck(progress, challengeId, passed);
+      progress = recordCheck(progress, challengeId, passed, challenge?.title, lessonId);
       renderNextStep(nextStepEl, lesson, progress);
+      const entry = progress.checks[challengeId];
+      if (passed || entry.attempts >= 2) {
+        const report = masteryReport(progress);
+        renderFeedback(challengeSectionEl, feedbackFor(progress, report, {
+          lessonId, challenge: { passed, title: challenge.title, independent: entry.independent, attempts: entry.attempts },
+        }, passed ? recommendations(progress, { report, limit: 1 }) : []));
+      }
+      if (passed) afterLearning();
     },
     onComplete: (challengeId, { at, isBoss } = {}) => {
       const firstTime = !progress.completedChallenges.includes(challengeId);
@@ -834,15 +955,21 @@ function openLesson(lessonId) {
     // its own box, so "Try again" re-deals the quiz without the heading
     const quizBoxEl = document.createElement("div");
     quizSectionEl.appendChild(quizBoxEl);
-    renderQuiz(quizBoxEl, quiz, (quizId, success, topic) => {
+    renderQuiz(quizBoxEl, quiz, (quizId, success, topic, detail) => {
       // Checked BEFORE recording, since recordQuizResult only pays out credits
       // the first time a quiz flips to solved - re-answering an
       // already-solved quiz (e.g. revisiting the lesson) correctly earns
       // nothing again, and the status message should say so honestly.
       const alreadySolved = progress.quizzes[quizId]?.solved;
       const before = rewards.snapshot();
-      progress = recordQuizResult(progress, quizId, success, topic);
+      progress = recordQuizResult(progress, quizId, success, topic, detail);
       renderNextStep(nextStepEl, lesson, progress);
+      // what this result shows, from the profile - after the quiz's own result
+      const report = masteryReport(progress);
+      renderFeedback(quizSectionEl, feedbackFor(progress, report, {
+        lessonId, answers: detail?.answers ?? [[`${quizId}#0`, success]],
+      }, recommendations(progress, { report, limit: 1 })));
+      afterLearning();
       if (!success) {
         playSfx("wrong");
         shake(quizSectionEl);
@@ -886,6 +1013,7 @@ function openLesson(lessonId) {
     // beforehand - set them AFTER instead so the completion reaction is
     // actually what's left on screen.
     const result = rewards.settle(before, { kind: "lesson", at, label: lesson.title });
+    afterLearning();
     setStatus(
       alreadyDone
         ? `"${lesson.title}" marked as done.`
@@ -992,6 +1120,7 @@ installShortcuts({
     switchView(view);
   },
   help: () => openHelp(),
+  tutor: () => askTutor(),
   settings: () => openOptions(),
   mute: () => {
     setSetting("muted", !getSettings().muted);
@@ -1080,6 +1209,7 @@ function startApp(target) {
 }
 
 onPrediction((key, right) => { progress = recordPrediction(progress, key, right); });
+onLessonQuestion((key, right) => { progress = recordAnswer(progress, key, right); });
 
 document.getElementById("practice-to-course-btn").addEventListener("click", () => switchView("learn"));
 

@@ -170,10 +170,15 @@ function renderList(block, heading, className) {
 // accuracy - a measure of reasoning, never a penalty).
 let predictionListener = null;
 export function onPrediction(fn) { predictionListener = fn; }
+// The same for a "question" block (key "<lessonId>#q<n>") - its first pick
+// goes to the learner profile as an answer, so a miss comes back in revision.
+let questionListener = null;
+export function onLessonQuestion(fn) { questionListener = fn; }
 
 function renderPredict(block, label = "PREDICT FIRST", ctx = {}) {
   const isPrediction = block.type === "predict";
   const key = isPrediction ? `${ctx.lessonId}#p${(ctx.predictions = (ctx.predictions ?? 0) + 1)}` : null;
+  const questionKey = block.type === "question" ? `${ctx.lessonId}#q${(ctx.questions = (ctx.questions ?? 0) + 1)}` : null;
   // the sketch this prediction is about: its own, or the one just above it
   const sketch = block.code && isFullSketch(block.code) ? block.code : ctx.lastSketch;
   let firstPick = null;
@@ -214,6 +219,7 @@ function renderPredict(block, label = "PREDICT FIRST", ctx = {}) {
     if (firstPick !== null) return;
     firstPick = i;
     if (key) predictionListener?.(key, i === block.answer);
+    if (questionKey && ctx.lessonId) questionListener?.(questionKey, i === block.answer);
   };
 
   const showAnswer = (chosen) => {

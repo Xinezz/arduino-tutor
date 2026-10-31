@@ -1,6 +1,8 @@
 // Renders the five quiz game types and handles their interaction.
-// onResult(quizId, success, topic) is called once per attempt so app.js can
-// record it in progress (for the dashboard's weak-topics list).
+// onResult(quizId, success, topic, detail) is called once per attempt so app.js
+// can record it in progress. A set of questions also passes
+// detail.answers: [[questionKey, rightFirstTime], ...] - see
+// progress/questionBank.js for the keys.
 
 import { typewriterText } from "../utils/typewriter.js";
 import { icon } from "../game/sprites.js";
@@ -38,7 +40,8 @@ function renderQuizHeader(card, quiz, spriteName) {
   reward.className = "reward-chip";
   reward.innerHTML = `${icon("star", 1)}+${CREDIT_REWARDS.quiz} ${icon("coin", 1)}+${CREDIT_REWARDS.quiz}`;
   reward.title = "Reward for solving this quiz (first time only)";
-  titleRow.appendChild(reward);
+  // a single question shown again in revision (quiz.keys) earns nothing by itself
+  if (!quiz.keys) titleRow.appendChild(reward);
   card.appendChild(titleRow);
 
   const prompt = document.createElement("p");
@@ -57,8 +60,8 @@ export function renderQuiz(container, quiz, onResult) {
   }
   // The other four lock their answers once you've answered - so a wrong
   // answer gets a "Try again" that deals the same question afresh.
-  const report = (quizId, success, topic) => {
-    onResult?.(quizId, success, topic);
+  const report = (quizId, success, topic, detail) => {
+    onResult?.(quizId, success, topic, detail);
     if (success || container.querySelector(".quiz-retry")) return;
     const retry = document.createElement("button");
     retry.type = "button";
@@ -365,7 +368,9 @@ function renderQuestionsQuiz(container, quiz, onResult) {
       ? `All answered - ${missed === 1 ? "one question" : `${missed} questions`} needed another try. They'll come back in your revision round; try the set again to clear it now.`
       : "All right first time - you've got this.";
     card.appendChild(result);
-    onResult(quiz.id, missed === 0, quiz.topic);
+    onResult(quiz.id, missed === 0, quiz.topic, {
+      answers: state.map((s, i) => [quiz.keys?.[i] ?? `${quiz.id}#${i}`, s.wrong.size === 0]),
+    });
   };
 
   quiz.questions.forEach((question, qi) => {

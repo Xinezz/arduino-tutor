@@ -41,6 +41,7 @@ export function createSimulatorPanel({
   onStatus, // optional: (message) => void, for reporting into the shared status bar
   onRun, // optional: () => void, called each time a program is started (feeds daily missions / trophies)
   onRunError, // optional: (message) => void, called when a running program hits an error
+  onProblem, // optional: ({ type: "error"|"warning"|"circuit", message, details?, finding? }) => void - every error, warning and wiring fault met, for the learner profile
   onReview, // optional: (lessonId) => void, opens the lesson a hint points to
 }) {
   const editor = createEditor(codeEditorEl);
@@ -236,6 +237,7 @@ export function createSimulatorPanel({
     const report = board.inspectCircuit();
     const problems = report.findings.filter((f) => f.level === "problem");
     for (const f of problems.slice(0, 3)) consoleWrite(`⚠ WIRING PROBLEM · ${f.subject}: ${f.text}\n`, "sim-wiring");
+    for (const f of problems) onProblem?.({ type: "circuit", message: f.text, finding: f });
     if (problems.length) consoleWrite(`(Check Circuit lists everything on the board.)\n`, "sim-status");
   }
 
@@ -273,12 +275,14 @@ export function createSimulatorPanel({
       // shown in their own color so they never look like a crash.
       onWarning: (message) => {
         consoleWrite(`Warning: ${message}\n`, "sim-warn");
+        onProblem?.({ type: "warning", message });
         // the hints stay folded away until asked for - a warning isn't a crash
         writeHelp(explainWarning(message), { shown: 0, firstLabel: "Why? Show a hint" });
       },
       onError: (message, details) => {
         showError(message, details);
         onRunError?.(message);
+        onProblem?.({ type: "error", message, details });
         runBtn.disabled = false;
         stopBtn.disabled = true;
         activeRun = null;

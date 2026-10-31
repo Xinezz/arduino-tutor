@@ -190,6 +190,7 @@ const SHORTCUTS = [
   ["[  ]", "Previous / next lesson"],
   ["M", "Mute or unmute sound"],
   ["S", "Open Options"],
+  ["T", "Ask Sam, the tutor"],
   ["?", "Show this cheat sheet"],
   ["Esc", "Pause menu (Options) - or close a window"],
 ];

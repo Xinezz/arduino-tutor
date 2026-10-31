@@ -49,6 +49,13 @@ function defaultProgress() {
     checks: {},              // challengeId -> { attempts, passed, independent } from "Check My Solution"
     predictions: {},         // "<lessonId>#p<n>" -> { right } - whether the FIRST prediction was right
 
+    // ---- the learner profile (see js/progress/skills.js) ----
+    answers: {},             // question key (see questionBank.js) -> { n, first, last, at, box, due, hist } - see recordAnswer
+    mistakes: {},            // mistake id -> { label, lessonId, times: [ISO, ...] } - errors, warnings and circuit faults met
+    activity: [],            // [{ at, kind, label, lessonId? }] newest last - the learning history (capped)
+    goals: [],               // [{ id, setAt, baseline?, doneAt? }] - learning goals you chose (see goals.js)
+    revisionLog: [],         // [{ at, area, right, total }] - finished revision sessions
+
     // ---- the game layer ----
     achievements: {},        // achievement id -> ISO timestamp it was unlocked (presence = unlocked, so it can never pay out twice)
     stats: defaultStats(),   // lifetime counters the achievements read from
@@ -177,9 +184,33 @@ export function touchStreak(progress) {
 // through its life might have a `stats` object that's missing a counter
 // added later. Merging each nested object over its own defaults means old
 // saves keep working and quietly pick up new fields.
+const isObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const ACTIVITY_CAP = 80;
+
 function normalize(saved) {
+  if (!isObject(saved)) saved = {};
   const base = defaultProgress();
   const merged = { ...base, ...saved };
+  // A hand-edited or half-written save can hold the wrong shape anywhere -
+  // every collection falls back to empty rather than crashing the page.
+  for (const key of ["viewedLessons", "completedChallenges", "flaggedLessons", "milestonesAwarded"]) {
+    merged[key] = Array.isArray(saved[key]) ? saved[key].filter((x) => typeof x === "string" || typeof x === "number") : [];
+  }
+  for (const key of ["quizzes", "projects"]) merged[key] = isObject(saved[key]) ? saved[key] : {};
+  for (const [id, entry] of Object.entries(merged.projects)) {
+    if (!isObject(entry) || !Array.isArray(entry.stagesDone)) delete merged.projects[id];
+  }
+  for (const key of ["credits", "xp", "streak"]) if (!Number.isFinite(merged[key])) merged[key] = base[key];
+  // the learner profile: anything malformed is dropped, the rest kept
+  merged.answers = Object.fromEntries(Object.entries(isObject(saved.answers) ? saved.answers : {})
+    .filter(([, a]) => isObject(a) && Number.isFinite(a.n) && typeof a.last === "boolean"));
+  merged.mistakes = Object.fromEntries(Object.entries(isObject(saved.mistakes) ? saved.mistakes : {})
+    .filter(([, m]) => isObject(m) && Array.isArray(m.times))
+    .map(([id, m]) => [id, { ...m, times: m.times.filter((t) => typeof t === "string") }]));
+  merged.activity = (Array.isArray(saved.activity) ? saved.activity : [])
+    .filter((a) => isObject(a) && typeof a.at === "string" && typeof a.label === "string").slice(-ACTIVITY_CAP);
+  merged.goals = (Array.isArray(saved.goals) ? saved.goals : []).filter((g) => isObject(g) && typeof g.id === "string");
+  merged.revisionLog = (Array.isArray(saved.revisionLog) ? saved.revisionLog : []).filter((r) => isObject(r) && Number.isFinite(r.total));
   merged.stats = { ...base.stats, ...(saved.stats || {}) };
   merged.equipped = { ...base.equipped, ...(saved.equipped || {}) };
   merged.daily = { ...base.daily, ...(saved.daily || {}) };
@@ -282,6 +313,7 @@ export function markLessonViewed(progress, lessonId) {
     progress.viewedLessons.push(lessonId);
     bumpDaily(progress, "lessons");
     applyXp(progress, CREDIT_REWARDS.lesson);
+    logActivity(progress, "lesson", "Lesson done", lessonId);
   }
   progress.lastLessonId = lessonId;
   saveProgress(progress);
@@ -318,12 +350,113 @@ export function recordPrediction(progress, key, right) {
   return progress;
 }
 
-export function recordCheck(progress, challengeId, passed) {
+// ---- the learner profile ----
+
+// "YYYY-MM-DD" in local time, and that date moved on by n days.
+export function dayString(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+export function addDays(day, n) {
+  const [y, m, d] = day.split("-").map(Number);
+  return dayString(new Date(y, m - 1, d + n));
+}
+
+// Spaced revision, Leitner-style, per question. box 0: right first time -
+// never needs revising. A wrong answer puts it in box 1, due the next day.
+// Answering it right ON or AFTER its due day moves it up a box (due again 3
+// days later, then 7); from box 4 it counts as secure. Getting it right again
+// the same day it was missed doesn't move it on - recalling something a
+// minute after seeing the answer isn't the same as remembering it.
+export const REVIEW_GAPS = { 1: 1, 2: 3, 3: 7 };
+export const SECURE_BOX = 4;
+
+export function recordAnswer(progress, key, right, now = new Date()) {
+  progress.answers ??= {};
+  const today = dayString(now);
+  const a = progress.answers[key] || { n: 0, first: right, box: 0, due: null, hist: [] };
+  a.n += 1;
+  if (a.n === 1) a.first = right;
+  if (!right) {
+    a.box = 1;
+    a.due = addDays(today, REVIEW_GAPS[1]);
+  } else if (a.box > 0 && a.box < SECURE_BOX && a.due && today >= a.due) {
+    a.box += 1;
+    a.due = a.box >= SECURE_BOX ? null : addDays(today, REVIEW_GAPS[a.box]);
+  }
+  a.last = right;
+  a.at = now.toISOString();
+  a.hist = [...(a.hist || []), right ? 1 : 0].slice(-8);
+  progress.answers[key] = a;
+  saveProgress(progress);
+  return progress;
+}
+
+// A mistake met while working: a run error, a warning or a circuit fault,
+// identified by kind (see insights.js mistakeFrom*). The same mistake met
+// again within a minute is the same moment - pressing Run twice on unchanged
+// code isn't a second mistake.
+export function recordMistake(progress, id, label, lessonId, now = new Date()) {
+  progress.mistakes ??= {};
+  const m = progress.mistakes[id] || { label, lessonId, times: [] };
+  const last = m.times[m.times.length - 1];
+  if (last && Math.abs(now - new Date(last)) < 60000) return progress;
+  m.label = label;
+  m.lessonId = lessonId;
+  m.times = [...m.times, now.toISOString()].slice(-10);
+  progress.mistakes[id] = m;
+  saveProgress(progress);
+  return progress;
+}
+
+// The learning history: one line per meaningful event, newest last.
+function logActivity(progress, kind, label, lessonId = null) {
+  progress.activity ??= [];
+  progress.activity.push({ at: new Date().toISOString(), kind, label, ...(lessonId ? { lessonId } : {}) });
+  if (progress.activity.length > ACTIVITY_CAP) progress.activity.splice(0, progress.activity.length - ACTIVITY_CAP);
+}
+
+export function recordRevisionSession(progress, area, right, total) {
+  progress.revisionLog = [...progress.revisionLog, { at: new Date().toISOString(), area, right, total }].slice(-40);
+  logActivity(progress, "revision", `Revision session: ${right} of ${total} right`);
+  saveProgress(progress);
+  return progress;
+}
+
+// Goals (the choices live in goals.js): at most a few at once, each set
+// once; reaching one is recorded with its date and never undone.
+export function setGoal(progress, id, baseline = null) {
+  if (progress.goals.some((g) => g.id === id && !g.doneAt)) return progress;
+  progress.goals = progress.goals.filter((g) => g.id !== id);
+  progress.goals.push({ id, setAt: new Date().toISOString(), ...(baseline !== null ? { baseline } : {}) });
+  saveProgress(progress);
+  return progress;
+}
+
+export function removeGoal(progress, id) {
+  progress.goals = progress.goals.filter((g) => !(g.id === id && !g.doneAt));
+  saveProgress(progress);
+  return progress;
+}
+
+export function markGoalsDone(progress, ids, labels = {}) {
+  for (const g of progress.goals) {
+    if (!g.doneAt && ids.includes(g.id)) {
+      g.doneAt = new Date().toISOString();
+      logActivity(progress, "goal", `Goal reached: ${labels[g.id] ?? g.id}`);
+    }
+  }
+  saveProgress(progress);
+  return progress;
+}
+
+export function recordCheck(progress, challengeId, passed, label = null, lessonId = null) {
   const entry = progress.checks[challengeId] || { attempts: 0, passed: false, independent: false };
   entry.attempts += 1;
   if (passed && !entry.passed) {
     entry.passed = true;
     entry.independent = !(progress.hintUses[challengeId] > 0);
+    if (label) logActivity(progress, "challenge", `Challenge passed${entry.independent ? " (no hints)" : ""}: ${label}`, lessonId);
   }
   progress.checks[challengeId] = entry;
   saveProgress(progress);
@@ -360,14 +493,22 @@ export function markChallengeCompleted(progress, challengeId) {
 // keeps getting wrong, not just topics they haven't tried yet. Credits only
 // pay out the first time a quiz flips from unsolved to solved - retrying an
 // already-solved quiz (or failing again) never pays out again.
-export function recordQuizResult(progress, quizId, success, topic) {
+// `detail.answers` ([[questionKey, right], ...]) is each question's own
+// result - a set of questions reports every one, so the profile knows WHICH
+// question was missed. A single-question quiz (order, debug, ...) is one
+// question: "<quizId>#0".
+export function recordQuizResult(progress, quizId, success, topic, detail = {}) {
   const existing = progress.quizzes[quizId] || { attempts: 0, solved: false, topic };
   const wasAlreadySolved = existing.solved;
+  const wasFailing = existing.lastResult === "failure";
   existing.attempts += 1;
   existing.lastResult = success ? "success" : "failure";
   existing.topic = topic;
   if (success) existing.solved = true;
   progress.quizzes[quizId] = existing;
+  for (const [key, right] of detail.answers ?? [[`${quizId}#0`, success]]) recordAnswer(progress, key, right);
+  // one line per outcome, not per press: retrying a wrong order again and again is one "needs another look"
+  if (success || !wasFailing) logActivity(progress, "quiz", `${success ? "Checkpoint answered" : "Checkpoint needs another look"}: ${topic}`);
   if (success && !wasAlreadySolved) {
     bumpDaily(progress, "quizzes");
     applyXp(progress, CREDIT_REWARDS.quiz);
@@ -406,12 +547,26 @@ export function recordProjectHint(progress, projectId) {
   return progress;
 }
 
-export function recordProjectComplete(progress, projectId, mode, hints = 0) {
+export function recordProjectComplete(progress, projectId, mode, hints = 0, title = projectId) {
   const entry = progress.projects[projectId] || { stagesDone: [] };
   entry.completed = entry.completed || {};
   const first = !entry.completed[mode];
   if (first) entry.completed[mode] = { hints };
   if (first) applyXp(progress, CREDIT_REWARDS.projectStage * 2);
+  if (first) logActivity(progress, "project", `Project built in ${mode} mode: ${title}`);
+  progress.projects[projectId] = entry;
+  saveProgress(progress);
+  return progress;
+}
+
+// A "Check" press while building a library project - failed checks are how
+// the profile tells a project that went smoothly from one that was a struggle.
+export function recordProjectCheck(progress, projectId, passed) {
+  const entry = progress.projects[projectId] || { stagesDone: [] };
+  const c = entry.checks || { attempts: 0, fails: 0 };
+  c.attempts += 1;
+  if (!passed) c.fails += 1;
+  entry.checks = c;
   progress.projects[projectId] = entry;
   saveProgress(progress);
   return progress;

@@ -15,6 +15,7 @@ import { computeCurrentRankIndex, RANKS } from "../progress/ranks.js";
 import { getLevelInfo } from "../progress/progress.js";
 import { levelTitle } from "../lessons/levels.js";
 import { THEMES } from "./shop.js";
+import { masteryReport, levelIndex } from "../progress/skills.js";
 
 const bossChallengeIds = lessons
   .filter((l) => l.challenge?.difficulty === "boss")
@@ -26,6 +27,10 @@ const levelNumbers = [...new Set(lessons.map((l) => l.level))];
 // Everything a check might want, computed once per evaluation.
 export function buildContext(progress) {
   const done = new Set(progress.viewedLessons);
+  // the learner profile (progress/skills.js) - for the trophies that reward
+  // understanding rather than activity
+  const areas = masteryReport(progress);
+  const answers = Object.values(progress.answers ?? {});
   const quizzesSolved = Object.values(progress.quizzes || {}).filter((q) => q.solved).length;
   const stagesDone = projects.reduce((n, p) => n + (progress.projects[p.id]?.stagesDone.length ?? 0), 0);
   const projectsFinished = projects.filter(
@@ -55,6 +60,12 @@ export function buildContext(progress) {
     streak: progress.streak || 0,
     rankIndex: computeCurrentRankIndex(progress),
     hour: new Date().getHours(),
+    areasProficient: areas.filter((a) => a.levelIndex >= levelIndex("proficient")).length,
+    areasMastered: areas.filter((a) => a.level === "mastered").length,
+    correctedAfterGap: answers.filter((a) => !a.first && a.last && a.box >= 2).length,
+    goalsReached: (progress.goals ?? []).filter((g) => g.doneAt).length,
+    independentBuilds: Object.values(progress.projects ?? {}).filter((p) => p.completed?.independent).length,
+    selfFixed: Object.values(progress.checks ?? {}).filter((c) => c.passed && c.independent && c.attempts > 1).length,
   };
 }
 
@@ -99,6 +110,16 @@ export const ACHIEVEMENTS = [
   counter("quiz-all", "Perfect Recall", "Solve every quiz game", "gem", 60, (c) => c.quizzesSolved, Object.keys(quizzes).length),
   counter("stage-1", "Builder", "Finish a project stage", "chip", 10, (c) => c.stagesDone, 1),
   counter("project-1", "Ship It", "Finish every stage of a project", "medal", 50, (c) => c.projectsFinished, 1),
+
+  // ---- understanding (the learner profile) ----
+  counter("area-proficient", "Solid Ground", "Reach Proficient in a skill area", "shield", 25, (c) => c.areasProficient, 1),
+  counter("area-proficient-5", "Well Rounded", "Reach Proficient in 5 skill areas", "chart", 60, (c) => c.areasProficient, 5),
+  counter("area-mastered", "Mastery", "Reach Mastered in a skill area", "crown", 50, (c) => c.areasMastered, 1),
+  counter("it-stuck", "It Stuck", "Get a question you'd missed right, a day or more later", "bulb", 15, (c) => c.correctedAfterGap, 1),
+  counter("it-stuck-10", "Long Memory", "Put right 10 missed questions after a gap", "scroll", 40, (c) => c.correctedAfterGap, 10),
+  counter("self-fix-3", "Debugger", "Fix 3 challenges yourself after a failed check, with no hints", "sword", 30, (c) => c.selfFixed, 3),
+  counter("goal-1", "Goal Reached", "Reach a learning goal you set yourself", "flag", 20, (c) => c.goalsReached, 1),
+  counter("own-design", "Own Design", "Build a project in Independent mode", "medal", 40, (c) => c.independentBuilds, 1),
 
   // ---- the simulator ----
   counter("run-1", "Power On", "Run your first program", "play", 5, (c) => c.stats.runs, 1),

@@ -97,6 +97,8 @@ export function installShortcuts(handlers) {
       handlers.mute();
     } else if (k === "s" || k === "S") {
       handlers.settings();
+    } else if ((k === "t" || k === "T") && handlers.tutor) {
+      handlers.tutor();
     } else if (k === "Escape") {
       handlers.settings(); // like a game's pause menu
     } else if (k === "[") {
