@@ -18,6 +18,7 @@ import {
   setPlayerName,
   markChallengeCompleted,
   markFirstCircuitDone,
+  markOnboarded,
   recordCheck,
   recordQuizResult,
   markProjectStageDone,
@@ -51,7 +52,9 @@ import {
   sectionHeading,
 } from "./lessons/render.js";
 import { moduleParts } from "./lessons/levels.js";
+import { lessons } from "./lessons/data.js";
 import { renderLearnView } from "./learn/learnView.js";
+import { openWelcomeTour } from "./learn/welcomeTour.js";
 import { renderLearningProgress } from "./progress/progressView.js";
 import { nextLesson, missingNeeds } from "./progress/learning.js";
 import { renderChallenge } from "./lessons/challenge.js";
@@ -313,6 +316,7 @@ const firstCircuitGuide = createFirstCircuitGuide({
 
 async function startFirstCircuit() {
   if (currentView !== "practice") switchView("practice");
+  document.getElementById("practice-beginner-note").hidden = true; // the guide is the instructions now
   if (!firstCircuitGuide.isActive()) {
     const b = practicePanel.board;
     const hasWork = b.listComponents().length > 0 || b.wireCount() > 0 || !practicePanel.editor.isTemplate();
@@ -448,12 +452,18 @@ function switchView(viewName) {
       onOpenLesson: goToLesson,
       onOpenMap: () => switchView("map"),
       onStartFirstCircuit: startFirstCircuit,
+      onShowTour: showWelcomeTour,
     });
     learnPanelEl.scrollTop = 0;
   } else if (viewName === "lessons") {
     editor.refresh(); // CodeMirror needs this after being hidden/shown to size itself correctly
   } else if (viewName === "practice") {
     practicePanel.editor.refresh(); // same deal - was hidden, needs to re-measure now that it's visible
+    // Until the introduction module is done, point beginners back to the
+    // course (Free Practice itself stays fully usable) - but not while the
+    // guided first circuit is giving instructions.
+    document.getElementById("practice-beginner-note").hidden =
+      firstCircuitGuide.isActive() || lessons.filter((l) => l.module === 0).every((l) => progress.viewedLessons.includes(l.id));
   } else if (viewName === "projects") {
     renderProjectsView();
   } else if (viewName === "map") {
@@ -538,6 +548,8 @@ function renderDashboardView({ refresh = false } = {}) {
       progress = recordQuizResult(progress, quizId, success, topic);
       if (success) rewards.settle(before, { kind: "quiz" });
     },
+    // the revision list and totals have changed - show them as they are now
+    onRoundEnd: () => { if (currentView === "dashboard") renderDashboardView({ refresh: true }); },
   });
   renderDashboard(rewardsEl, progress, {
     refresh,
@@ -756,7 +768,10 @@ function openLesson(lessonId) {
   const quiz = getQuizForLesson(lessonId);
   quizSectionEl.innerHTML = "";
   if (quiz) {
-    renderQuiz(quizSectionEl, quiz, (quizId, success, topic) => {
+    // its own box, so "Try again" re-deals the quiz without the heading
+    const quizBoxEl = document.createElement("div");
+    quizSectionEl.appendChild(quizBoxEl);
+    renderQuiz(quizBoxEl, quiz, (quizId, success, topic) => {
       // Checked BEFORE recording, since recordQuizResult only pays out credits
       // the first time a quiz flips to solved - re-answering an
       // already-solved quiz (e.g. revisiting the lesson) correctly earns
@@ -764,6 +779,7 @@ function openLesson(lessonId) {
       const alreadySolved = progress.quizzes[quizId]?.solved;
       const before = rewards.snapshot();
       progress = recordQuizResult(progress, quizId, success, topic);
+      renderNextStep(nextStepEl, lesson, progress);
       if (!success) {
         playSfx("wrong");
         shake(quizSectionEl);
@@ -951,7 +967,19 @@ installKonami(() => {
 // "map" or "shop" open that screen, "first-circuit" starts the guided first
 // circuit in Free Practice, and anything else is treated as a lesson
 // id to jump directly into (e.g. the menu's "Review" on a flagged lesson).
-const SCREEN_TARGETS = new Set(["learn", "practice", "dashboard", "map", "shop", "first-circuit"]);
+const SCREEN_TARGETS = new Set(["welcome", "learn", "practice", "dashboard", "map", "shop", "first-circuit"]);
+
+// The welcome tour (learn/welcomeTour.js): a new player's first stop, and
+// the Learn page's "How this course works". It ends on the guided first LED
+// build, or the course.
+function showWelcomeTour() {
+  progress = markOnboarded(progress);
+  openWelcomeTour({
+    firstCircuitDone: progress.firstCircuitDone,
+    onFirstCircuit: startFirstCircuit,
+    onStartCourse: () => switchView("learn"),
+  });
+}
 
 function startApp(target) {
   appStarted = true;
@@ -962,7 +990,11 @@ function startApp(target) {
   openLesson(lessonTarget);
   editor.refresh(); // was created/sized while hidden behind the menu, needs a re-measure now that it's visible
   if (target === "first-circuit") startFirstCircuit();
-  else if (SCREEN_TARGETS.has(target)) switchView(target);
+  else if (target === "welcome") {
+    // the course is the starting point; the tour opens over it
+    switchView("learn");
+    setTimeout(showWelcomeTour, 400);
+  } else if (SCREEN_TARGETS.has(target)) switchView(target);
   updateMusic();
 
   // Welcome-back flourishes, once per browser session.
@@ -983,6 +1015,20 @@ function startApp(target) {
   // Catches anything a save from before trophies existed has already earned.
   rewards.checkAchievements({ delay: shown ? 600 : 2200 });
 }
+
+document.getElementById("practice-to-course-btn").addEventListener("click", () => switchView("learn"));
+
+// The logo: back to the home screen, from anywhere. Anything running stops
+// first (as it would when leaving any screen); the code and circuits stay.
+document.getElementById("brand-home").addEventListener("click", () => {
+  if (!appStarted) return;
+  lessonsPanel.stopRun();
+  practicePanel.stopRun();
+  pixelWipe(() => {
+    appShellEl.hidden = true;
+    showMenu();
+  });
+});
 
 function showMenu() {
   menuScreenEl.hidden = false;

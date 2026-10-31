@@ -113,14 +113,14 @@ const WARNING_HELP = [
   [/uses '=', which STORES a value/, () => ["= stores a value; == compares two values. Inside an if you almost always want ==."], "l5-1"],
   [/There's a ';' right after if/, () => ["A ; straight after if (...) ends the if, so the block below runs every time. Remove that ;."], "l5-1"],
   [/compares two values but does nothing/, () => ["A comparison on its own doesn't do anything. Did you mean to store a value (=), or to put it inside an if?"], "l5-2"],
-  [/negative/, () => ["delay() can't wait a negative time - on an Uno a negative number turns into a huge wait (about 49 days)."], "l1-6"],
+  [/negative/, () => ["delay() can't wait a negative time - on an Uno a negative number turns into a huge wait (about 49 days)."], "m2-8"],
 ];
 
 // Circuit check findings -> the lesson that explains that part.
 const PART_LESSONS = {
-  LED: "l2-4", "RGB LED": "l4-4", Button: "l2-6", Buzzer: "l4-3", Potentiometer: "l3-3",
+  LED: "m1-6", "RGB LED": "l4-4", Button: "l2-6", Buzzer: "l4-3", Potentiometer: "l3-3",
   "Light sensor": "l3-5", "Temperature sensor": "l6-4", "IR sensor": "l6-2",
-  "Ultrasonic sensor": "l6-1", Servo: "l4-5", Resistor: "l2-4",
+  "Ultrasonic sensor": "l6-1", Servo: "l4-5", Resistor: "m1-6",
 };
 
 const lessonTitle = (id) => lessons.find((l) => l.id === id)?.title ?? null;
@@ -180,7 +180,8 @@ export function explainWarning(message) {
 // The lesson that explains a circuit check finding, or null.
 export function conceptForFinding(finding) {
   if (finding.level === "ok") return null;
-  if (/short circuit/i.test(finding.text)) return reviewFor("l1-13");
+  if (/short circuit/i.test(finding.text)) return reviewFor("m1-4");
+  if (/in backwards/.test(finding.text)) return reviewFor("m1-7");
   if (/floats|floating|pull-down/.test(finding.text)) return reviewFor("l2-7");
   if (/already held HIGH/.test(finding.text)) return reviewFor("l2-8");
   if (/rail/.test(finding.text)) return reviewFor("l1-16");

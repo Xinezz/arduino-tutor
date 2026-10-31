@@ -197,6 +197,15 @@ const LEAD_LABELS = {
 // options.onCircuitChange: called whenever the circuit itself changes (a part
 // added or removed, a wire drawn or deleted, a resistor value changed) - not
 // on every pin change while a sketch runs.
+// Pressing a part - to drag it, hold a button or move a sensor's slider -
+// works with a mouse, a pen or a finger: pointer events (mouse events only
+// arrive after a finger lifts, so a touch could never hold a button), and no
+// page scrolling while you do it. Everywhere else on the board still scrolls.
+function onPress(el, handler) {
+  el.style.touchAction = "none";
+  el.addEventListener("pointerdown", handler);
+}
+
 export function createBoard(svgEl, options = {}) {
   const random = options.random || Math.random;
   let pinModes = {};        // pin -> "OUTPUT" | "INPUT" | "INPUT_PULLUP"
@@ -770,11 +779,13 @@ export function createBoard(svgEl, options = {}) {
       render();
     }
     function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   // A horizontal slider used by potentiometer/LDR/temp-sensor/ultrasonic to
@@ -795,11 +806,13 @@ export function createBoard(svgEl, options = {}) {
     function onMove(e) { apply(e); }
     function onUp() {
       draggingSliderId = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   // ---------- rendering ----------
@@ -1296,7 +1309,7 @@ export function createBoard(svgEl, options = {}) {
     const g = wireGroup(led);
 
     const hit = drawPixelLedBody(g, led, hexToRgb(led.color || "#ffe066"), level > 0 ? 0.35 + (level / 255) * 0.65 : 0, [-6, 6]);
-    hit.addEventListener("mousedown", (e) => startDrag(led, e));
+    onPress(hit, (e) => startDrag(led, e));
     hit.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleLedColor(led); });
     const wired = connectedSet(led.id + "-a").size > 1 || connectedSet(led.id + "-k").size > 1;
     g.appendChild(componentLabel(led.x, led.y + 74, pin !== null ? `LED (pin ${pin})` : wired ? "LED (check wiring)" : "LED (unwired)"));
@@ -1319,7 +1332,7 @@ export function createBoard(svgEl, options = {}) {
       x: bodyX, y: bodyY, width: bodyW, height: bodyH, rx: 5,
       fill: "#d9c398", stroke: "#8a7550", "stroke-width": 1.5,
     });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     body.addEventListener("dblclick", (e) => { e.stopPropagation(); cycleResistorValue(comp); });
     g.appendChild(body);
     value.bands.forEach((bandName, i) => {
@@ -1343,12 +1356,12 @@ export function createBoard(svgEl, options = {}) {
       fill: isPressed ? "#4a4f63" : "#2a2f3f", stroke: "#9aa0b4", "stroke-width": 2,
       style: `cursor:${running ? "pointer" : "grab"}`,
     });
-    body.addEventListener("mousedown", (e) => {
+    onPress(body, (e) => {
       if (running) { pressed.add(btn.id); render(); }
       else { startDrag(btn, e); }
     });
-    body.addEventListener("mouseup", () => { if (running && pressed.has(btn.id)) { pressed.delete(btn.id); render(); } });
-    body.addEventListener("mouseleave", () => { if (running && pressed.has(btn.id)) { pressed.delete(btn.id); render(); } });
+    const release = () => { if (running && pressed.has(btn.id)) { pressed.delete(btn.id); render(); } };
+    for (const type of ["pointerup", "pointerleave", "pointercancel"]) body.addEventListener(type, release);
     g.appendChild(body);
     drawLeads(g, btn);
 
@@ -1376,7 +1389,7 @@ export function createBoard(svgEl, options = {}) {
     const peak = Math.max(rVal, gVal, bVal);
     const rgb = isLit ? [rVal, gVal, bVal].map((v) => Math.round((v / peak) * 255)) : [230, 232, 240];
     const hit = drawPixelLedBody(g, comp, rgb, isLit ? 0.35 + (peak / 255) * 0.65 : 0, [-10, -2, 2, 10]);
-    hit.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(hit, (e) => startDrag(comp, e));
     const wiredCount = [rPin, gPin, bPin].filter((p) => p !== null).length;
     g.appendChild(componentLabel(comp.x, comp.y + 74, wiredCount === 3 ? "RGB LED (R,G,B wired)" : `RGB LED (${wiredCount}/3 wired)`));
     g.appendChild(removeGlyph(comp.x + 32, comp.y - 14, () => removeComponent(comp.id)));
@@ -1392,7 +1405,7 @@ export function createBoard(svgEl, options = {}) {
       cx: comp.x, cy: comp.y + 20, r: 16,
       fill: isActive ? "#3a2f52" : "#2a2f3f", stroke: isActive ? "#b48ce8" : "#9aa0b4", "stroke-width": 2,
     });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     if (isActive) {
       for (const r of [24, 30]) {
@@ -1411,11 +1424,11 @@ export function createBoard(svgEl, options = {}) {
     const track = svgEl_("rect", { x, y: y - 3, width, height: 6, rx: 3, fill: "#0d2338", stroke: "#2a2f3f" });
     g.appendChild(track);
     const hit = svgEl_("rect", { x, y: y - 10, width, height: 20, fill: "transparent", style: "cursor:pointer" });
-    hit.addEventListener("mousedown", (e) => startSliderDrag(x, width, onDrag, e));
+    onPress(hit, (e) => startSliderDrag(x, width, onDrag, e));
     g.appendChild(hit);
     const handleX = x + frac * width;
     const handle = svgEl_("circle", { cx: handleX, cy: y, r: 7, fill: "#4fc3f7", stroke: "#06202b", "stroke-width": 1.5, style: "cursor:pointer" });
-    handle.addEventListener("mousedown", (e) => startSliderDrag(x, width, onDrag, e));
+    onPress(handle, (e) => startSliderDrag(x, width, onDrag, e));
     g.appendChild(handle);
   }
 
@@ -1423,7 +1436,7 @@ export function createBoard(svgEl, options = {}) {
     const pin = wiredPinOf(comp.id + "-w");
     const g = wireGroup(comp);
     const body = svgEl_("rect", { x: comp.x - 24, y: comp.y, width: 48, height: 30, rx: 5, fill: "#2a2f3f", stroke: "#9aa0b4", "stroke-width": 2 });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     const knobAngle = (comp.rawValue / 1023) * 270 - 135;
     const knob = svgEl_("circle", { cx: comp.x, cy: comp.y + 15, r: 10, fill: "#1c3d5a", stroke: "#4fc3f7", "stroke-width": 2 });
@@ -1452,7 +1465,7 @@ export function createBoard(svgEl, options = {}) {
       cx: comp.x, cy: comp.y + 18, r: 14,
       fill: `rgba(245, 197, 66, ${0.15 + glow * 0.5})`, stroke: "#f5c542", "stroke-width": 2,
     });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     g.appendChild(componentLabel(comp.x, comp.y + 22, "LDR"));
     drawLeads(g, comp);
@@ -1469,7 +1482,7 @@ export function createBoard(svgEl, options = {}) {
     const pin = wiredPinOf(comp.id + "-s");
     const g = wireGroup(comp);
     const body = svgEl_("rect", { x: comp.x - 12, y: comp.y, width: 24, height: 30, rx: 4, fill: "#2a2f3f", stroke: "#ff9f4a", "stroke-width": 2 });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     drawLeads(g, comp);
     g.appendChild(componentLabel(comp.x, comp.y + 78, pin !== null ? `Temp Sensor (pin A${pin - 14})` : "Temp Sensor (unwired)"));
@@ -1484,7 +1497,7 @@ export function createBoard(svgEl, options = {}) {
   function drawUltrasonic(comp) {
     const g = wireGroup(comp);
     const body = svgEl_("rect", { x: comp.x - 30, y: comp.y, width: 60, height: 28, rx: 4, fill: "#2a2f3f", stroke: "#9aa0b4", "stroke-width": 2 });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     g.appendChild(svgEl_("circle", { cx: comp.x - 14, cy: comp.y + 14, r: 9, fill: "#1c3d5a", stroke: "#7fb8e0" }));
     g.appendChild(svgEl_("circle", { cx: comp.x + 14, cy: comp.y + 14, r: 9, fill: "#1c3d5a", stroke: "#7fb8e0" }));
@@ -1509,7 +1522,7 @@ export function createBoard(svgEl, options = {}) {
       fill: isBlocked ? "#4a2f2f" : "#2a2f3f", stroke: isBlocked ? "#ef6461" : "#9aa0b4", "stroke-width": 2,
       style: `cursor:${running ? "pointer" : "grab"}`,
     });
-    body.addEventListener("mousedown", (e) => { if (running) toggleIr(comp); else startDrag(comp, e); });
+    onPress(body, (e) => { if (running) toggleIr(comp); else startDrag(comp, e); });
     g.appendChild(body);
     drawLeads(g, comp);
     const status = pin === null ? "IR Sensor (unwired)" : running ? `IR (pin ${pin}) - click to ${isBlocked ? "clear" : "block"}` : `IR Sensor (pin ${pin})`;
@@ -1523,7 +1536,7 @@ export function createBoard(svgEl, options = {}) {
     const angle = pin !== null ? (servoAngles[pin] ?? 90) : 90;
     const g = wireGroup(comp);
     const body = svgEl_("rect", { x: comp.x - 20, y: comp.y, width: 40, height: 34, rx: 4, fill: "#2a2f3f", stroke: "#9aa0b4", "stroke-width": 2 });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
     const pivotX = comp.x, pivotY = comp.y + 17;
     g.appendChild(svgEl_("circle", { cx: pivotX, cy: pivotY, r: 5, fill: "#0d2338", stroke: "#7fb8e0" }));
@@ -1542,7 +1555,7 @@ export function createBoard(svgEl, options = {}) {
     const g = wireGroup(comp);
     const w = 200, h = 56;
     const body = svgEl_("rect", { x: comp.x - w / 2, y: comp.y, width: w, height: h, rx: 4, fill: "#274d1e", stroke: "#9aa0b4", "stroke-width": 2 });
-    body.addEventListener("mousedown", (e) => startDrag(comp, e));
+    onPress(body, (e) => startDrag(comp, e));
     g.appendChild(body);
 
     if (lcd.begun) {
@@ -1833,7 +1846,12 @@ export function createBoard(svgEl, options = {}) {
     nextComponentNum = {};
     signalColorCursor = 0;
     const ids = {};
-    for (const part of parts) ids[part.key] = addComponent(part.kind);
+    for (const part of parts) {
+      ids[part.key] = addComponent(part.kind);
+      // a resistor can come with its value (one of the values the board offers)
+      const comp = components[components.length - 1];
+      if (part.ohms && RESISTOR_VALUES.some((v) => v.ohms === part.ohms)) comp.ohms = part.ohms;
+    }
     const resolve = (ref) => {
       const m = /^(\w+)\.(\w+)$/.exec(ref);
       return m && ids[m[1]] ? `${ids[m[1]]}-${m[2]}` : ref;

@@ -10,6 +10,7 @@ import { icon } from "../game/sprites.js";
 import { CREDIT_REWARDS } from "../progress/progress.js";
 import { getQuizForLesson } from "../quiz/data.js";
 import { renderDemo } from "./demos.js";
+import { withTerms } from "./terms.js";
 import { lessonPosition, lessonById, nextLesson, missingNeeds, challengeEvidence } from "../progress/learning.js";
 
 export function renderSidebar(container, progress, onSelect) {
@@ -78,6 +79,15 @@ export function renderSidebar(container, progress, onSelect) {
     }
 
     link.addEventListener("click", () => onSelect(lesson.id));
+    // reachable and usable from the keyboard, like a button
+    link.tabIndex = 0;
+    link.setAttribute("role", "button");
+    link.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSelect(lesson.id);
+      }
+    });
     link.dataset.lessonId = lesson.id;
 
     container.appendChild(link);
@@ -87,6 +97,8 @@ export function renderSidebar(container, progress, onSelect) {
 export function setActiveSidebarLink(container, lessonId) {
   container.querySelectorAll(".lesson-link").forEach((el) => {
     el.classList.toggle("active", el.dataset.lessonId === lessonId);
+    if (el.dataset.lessonId === lessonId) el.setAttribute("aria-current", "true");
+    else el.removeAttribute("aria-current");
   });
 }
 
@@ -195,12 +207,12 @@ function renderPredict(block) {
 }
 
 // { type: "list", items }: a plain bulleted list.
-function renderPlainList(block) {
+function renderPlainList(block, terms) {
   const ul = document.createElement("ul");
   ul.className = "lesson-list";
   for (const text of block.items) {
     const li = document.createElement("li");
-    li.textContent = text;
+    li.appendChild(withTerms(text, terms));
     ul.appendChild(li);
   }
   return ul;
@@ -247,7 +259,15 @@ function renderCircuitLoader(block) {
   const box = document.createElement("div");
   box.className = "lesson-circuit";
   const p = document.createElement("p");
-  const names = block.parts.map((x) => x.kind === "led" ? "an LED" : `a ${x.kind}`).join(" and ");
+  // "2 LEDs and 2 resistors", "a push button, a resistor and an LED"
+  const LABELS = { led: "LED", button: "push button", rgbled: "RGB LED", ldr: "light sensor", tempsensor: "temperature sensor" };
+  const counts = new Map();
+  for (const part of block.parts) counts.set(part.kind, (counts.get(part.kind) ?? 0) + 1);
+  const items = [...counts].map(([kind, n]) => {
+    const label = LABELS[kind] ?? kind;
+    return n > 1 ? `${n} ${label}s` : `${/^[aeiouAEIOU]|^LED|^RGB/.test(label) ? "an" : "a"} ${label}`;
+  });
+  const names = items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0];
   p.textContent = `Puts ${names} on the board below, already wired - replacing whatever is on it now.`;
   const btn = document.createElement("button");
   btn.type = "button";
@@ -270,9 +290,11 @@ function renderExperiment(block) {
   return box;
 }
 
-function renderBlock(block) {
+// `terms` ({ seen, lessonId }) marks the first use of a word a beginner may
+// not know (see terms.js) - in paragraphs, notes and lists.
+function renderBlock(block, terms) {
   if (block.type === "action") return renderAction(block);
-  if (block.type === "list") return renderPlainList(block);
+  if (block.type === "list") return renderPlainList(block, terms);
   if (block.type === "example") return renderExample(block);
   if (block.type === "guided") return renderGuided(block);
   if (block.type === "circuit") return renderCircuitLoader(block);
@@ -296,9 +318,9 @@ function renderBlock(block) {
     }
   } else if (block.type === "note") {
     el.className = "note-box";
-    el.textContent = block.text;
+    el.appendChild(withTerms(block.text, terms));
   } else {
-    el.textContent = block.text;
+    el.appendChild(withTerms(block.text, terms));
   }
   return el;
 }
@@ -356,6 +378,7 @@ export const SECTION_TITLES = {
   mistakes: "Common mistakes",
   challenge: "Independent challenge",
   checkpoint: "Knowledge checkpoint",
+  summary: "Summary",
 };
 
 // Splits a lesson's blocks into template sections. A block that isn't an
@@ -457,6 +480,7 @@ function buildOutline(sections, lesson) {
   const kinds = sections.map((s) => s.kind);
   if (lesson.challenge) kinds.push("challenge");
   if (getQuizForLesson(lesson.id)) kinds.push("checkpoint");
+  kinds.push("summary");
   const row = document.createElement("div");
   row.className = "lesson-outline";
   row.appendChild(Object.assign(document.createElement("span"), { className: "lesson-outline-label", textContent: "In this lesson:" }));
@@ -502,9 +526,10 @@ export function renderLesson(container, lesson, isCompleted, isFlagged, progress
 
   const sections = lessonSections(lesson);
   container.appendChild(buildOutline(sections, lesson));
+  const terms = { seen: new Set(), lessonId: lesson.id };
   sections.forEach((section, i) => {
     container.appendChild(sectionHeading(i + 1, section.kind));
-    for (const block of section.blocks) container.appendChild(renderBlock(block));
+    for (const block of section.blocks) container.appendChild(renderBlock(block, terms));
   });
 
   // simple prev/next navigation between lessons, plus an explicit "mark done"
@@ -554,6 +579,32 @@ export function renderLesson(container, lesson, isCompleted, isFlagged, progress
 // why it matters. Buttons work by data-action (app.js).
 export function renderNextStep(container, lesson, progress) {
   container.innerHTML = "";
+  // The template's last numbered part: the summary - the key points (where
+  // the lesson has them), and what you should now be able to do, as a
+  // self-check.
+  const number = lessonSections(lesson).length + (lesson.challenge ? 1 : 0) + (getQuizForLesson(lesson.id) ? 1 : 0) + 1;
+  container.appendChild(sectionHeading(number, "summary"));
+  const summary = document.createElement("div");
+  summary.className = "lesson-summary";
+  if (lesson.summary?.length) {
+    summary.appendChild(Object.assign(document.createElement("div"), { className: "lesson-list-heading", textContent: "KEY POINTS" }));
+    const ul = document.createElement("ul");
+    for (const text of lesson.summary) ul.appendChild(Object.assign(document.createElement("li"), { textContent: text }));
+    summary.appendChild(ul);
+  }
+  if (lesson.objectives?.length) {
+    summary.appendChild(Object.assign(document.createElement("div"), { className: "lesson-list-heading", textContent: "YOU SHOULD NOW BE ABLE TO" }));
+    const ul = document.createElement("ul");
+    ul.className = "lesson-summary-check";
+    for (const text of lesson.objectives) ul.appendChild(Object.assign(document.createElement("li"), { textContent: text }));
+    summary.appendChild(ul);
+    summary.appendChild(Object.assign(document.createElement("p"), {
+      className: "lesson-summary-note",
+      textContent: "Not sure about one of these? Go back over that part, or flag the lesson for review - it'll show up on your Progress page.",
+    }));
+  }
+  container.appendChild(summary);
+
   const card = document.createElement("div");
   card.className = "next-step-card hud-frame";
   const h = document.createElement("div");

@@ -50,11 +50,28 @@ function renderQuizHeader(card, quiz, spriteName) {
 export function renderQuiz(container, quiz, onResult) {
   container.innerHTML = "";
   if (!quiz) return;
-  if (quiz.type === "order") renderOrderQuiz(container, quiz, onResult);
-  else if (quiz.type === "predict") renderPredictQuiz(container, quiz, onResult);
-  else if (quiz.type === "debug") renderDebugQuiz(container, quiz, onResult);
-  else if (quiz.type === "fill") renderFillBlankQuiz(container, quiz, onResult);
-  else if (quiz.type === "match") renderMatchQuiz(container, quiz, onResult);
+  if (quiz.type === "order") {
+    // the order game already lets you keep adjusting and check again
+    renderOrderQuiz(container, quiz, onResult);
+    return;
+  }
+  // The other four lock their answers once you've answered - so a wrong
+  // answer gets a "Try again" that deals the same question afresh.
+  const report = (quizId, success, topic) => {
+    onResult?.(quizId, success, topic);
+    if (success || container.querySelector(".quiz-retry")) return;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "btn btn-hint quiz-retry";
+    retry.textContent = "Try again";
+    retry.addEventListener("click", () => renderQuiz(container, quiz, onResult));
+    // after the result and explanation, which the quiz may still be adding
+    setTimeout(() => container.appendChild(retry), 0);
+  };
+  if (quiz.type === "predict") renderPredictQuiz(container, quiz, report);
+  else if (quiz.type === "debug") renderDebugQuiz(container, quiz, report);
+  else if (quiz.type === "fill") renderFillBlankQuiz(container, quiz, report);
+  else if (quiz.type === "match") renderMatchQuiz(container, quiz, report);
 }
 
 // ---------- "order" type: drag scrambled code lines into the right sequence ----------

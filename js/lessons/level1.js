@@ -88,11 +88,45 @@ export const level1Lessons = [
       { type: "p", text:
         "setup() runs exactly once. It's where you configure things before the main behaviour starts: " +
         "which pins are inputs vs outputs, starting Serial communication, initializing variables." },
-      { type: "code", text:
-        "void setup() {\n  pinMode(13, OUTPUT);   // configure pin 13 to send power out\n  Serial.begin(9600);   // start Serial communication at 9600 baud\n}" },
       { type: "p", text:
-        "Don't worry about pinMode() or Serial.begin() yet - you'll use them properly in later lessons. " +
-        "For now, just understand: setup() is your one-time preparation step." },
+        "\"Once\" means once each time the board starts: when it's powered on, when its reset button is " +
+        "pressed, or when a new sketch is uploaded. In the simulator, every press of Run starts the board " +
+        "fresh - so setup() runs again." },
+      { type: "example", code:
+        "void setup() {\n  Serial.begin(9600);                 // start the Serial Monitor\n  Serial.println(\"setup: getting ready\");\n}\n\nvoid loop() {\n  Serial.println(\"loop: running\");\n  delay(1000);                        // wait one second\n}" },
+      { type: "p", text:
+        "Don't worry about the details of Serial or delay() yet - Serial.println() prints a line of text in " +
+        "the Serial Monitor, and delay(1000) waits a second. Later lessons cover both properly." },
+      { type: "guided", title: "Watch setup() run once", steps: [
+        "Press \"Try it in the editor\" under the example - it puts the sketch in the editor below.",
+        "Press Run, and watch the Serial Monitor under the board.",
+        "\"setup: getting ready\" appears once. \"loop: running\" keeps appearing, once a second.",
+        "Press Stop, then Run again: the board starts fresh, so setup()'s line appears once more.",
+      ] },
+      { type: "predict",
+        question: "You move Serial.println(\"setup: getting ready\"); out of setup() and into loop(), just above the other println. What happens?",
+        options: [
+          "Nothing changes",
+          "\"setup: getting ready\" now appears every second, just before each \"loop: running\"",
+          "The sketch won't compile",
+          "\"setup: getting ready\" never appears",
+        ],
+        answer: 1,
+        explain:
+          "Everything in loop() repeats - so the line that used to run once now runs on every pass, once a " +
+          "second. Where you put a line decides whether it happens once or over and over." },
+      { type: "experiment", text:
+        "Try that move for real and check your prediction. Then put it back in setup()." },
+      { type: "mistakes", items: [
+        "Putting something that should keep happening in setup() - it happens once, and never again.",
+        "Leaving setup() out because it's empty: every sketch needs both setup() and loop(), even if one of them has nothing in it.",
+        "Printing before Serial.begin(9600) has run - on a real board that text is lost. Start Serial at the top of setup().",
+      ] },
+    ],
+    summary: [
+      "setup() runs once, each time the board starts (power on, reset, new upload - or Run in the simulator).",
+      "It's for preparation: setting pin modes, starting Serial, giving variables their first values.",
+      "Anything that should keep happening belongs in loop() instead.",
     ],
   },
 
@@ -106,9 +140,39 @@ export const level1Lessons = [
       { type: "p", text:
         "This is where your ongoing behaviour lives: reading a sensor every cycle, checking if a button " +
         "is pressed, updating an LED. Think of it as the \"heartbeat\" of your program." },
+      { type: "example", code:
+        "void setup() {\n  Serial.begin(9600);\n  Serial.println(\"Start\");\n}\n\nvoid loop() {\n  Serial.println(\"Again\");\n  delay(2000);   // wait two seconds before the next pass\n}" },
+      { type: "predict",
+        question: "What does the Serial Monitor show after 3 seconds?",
+        options: ["Start, Again", "Start, Again, Again", "Again, Again, Again", "Start, Start, Again"],
+        answer: 1,
+        output: "Start\nAgain\nAgain",
+        explain:
+          "setup() prints \"Start\" once. Then loop() prints \"Again\" straight away, waits 2 seconds, and " +
+          "starts over - printing \"Again\" a second time at the 2-second mark. The third one would come at " +
+          "4 seconds." },
+      { type: "guided", title: "Watch loop() repeat", steps: [
+        "Press \"Try it in the editor\" under the example, then Run.",
+        "Count the seconds between each \"Again\" in the Serial Monitor - it should be two.",
+        "Press Stop when you've seen enough.",
+      ] },
+      { type: "experiment", text:
+        "Change delay(2000) to delay(500) and run it: \"Again\" now comes four times as often. Then delete the " +
+        "delay line completely. The messages pour out as fast as the board can print them - that's how fast " +
+        "loop() really repeats. Press Stop." },
       { type: "note", text:
         "Engineering analogy: setup() is like calibrating an instrument before you start taking " +
         "measurements. loop() is the continuous measurement-and-response cycle that runs afterward." },
+      { type: "mistakes", items: [
+        "Expecting loop() to run once - it never stops repeating while the board has power.",
+        "Putting one-time preparation (like Serial.begin) in loop() - it runs again on every pass.",
+        "Leaving out a delay when you want to watch each step happen - loop() can repeat thousands of times a second.",
+      ] },
+    ],
+    summary: [
+      "loop() starts as soon as setup() finishes, and repeats for as long as the board has power.",
+      "Everything the board should keep doing - reading, checking, switching - goes in loop().",
+      "With no delay() in it, loop() repeats as fast as the board can run it.",
     ],
   },
 

@@ -67,13 +67,13 @@
 <header class="topbar">
   <div class="topbar-left">
     <button id="sidebar-toggle" class="btn btn-secondary sidebar-toggle" aria-label="Toggle lesson list"><span data-sprite="list"></span><span class="sb-label">Quests</span></button>
-    <div class="brand">
+    <button type="button" class="brand" id="brand-home" title="Back to the home screen" aria-label="Arduino Tutor - back to the home screen">
       <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="6" y="6" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
         <path d="M9 6V2M12 6V2M15 6V2M9 22v-4M12 22v-4M15 22v-4M6 9H2M6 12H2M6 15H2M22 9h-4M22 12h-4M22 15h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
       </svg>
       <span class="brand-text">Arduino<span>Tutor</span></span>
-    </div>
+    </button>
   </div>
   <nav class="view-tabs" id="view-tabs">
     <button class="view-tab active" data-view="learn" data-sprite-icon="book" data-sfx="select" title="The course: every module and lesson, and what to do next (1)"><span class="tab-label">Learn</span></button>
@@ -164,7 +164,8 @@
       <div class="wire-palette" id="wire-palette">
         <!-- filled in by app.js from board.getWirePalette() -->
       </div>
-      <svg id="sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg>
+      <p class="sim-board-scroll-note">The board is wider than your screen - swipe sideways to see all of it.</p>
+      <div class="sim-board-scroll"><svg id="sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg></div>
       <div class="circuit-report" id="circuit-report" aria-live="polite" hidden></div>
 
       <div class="console-toolbar">
@@ -223,6 +224,10 @@
         <button id="start-first-circuit-btn" class="btn btn-complete" type="button">Start your first circuit</button>
         <span>New to Arduino? A guided 10-minute build: wire an LED, write the code, make it blink. No hardware needed.</span>
       </div>
+      <div class="practice-beginner-note" id="practice-beginner-note" hidden>
+        <p>Free Practice has no instructions - it's for trying things out once you know the basics. If you're just starting, the course explains everything step by step, beginning with what an Arduino is.</p>
+        <button id="practice-to-course-btn" class="btn btn-primary" type="button">Go to the course</button>
+      </div>
     </div>
 
     <div class="practice-workspace" id="practice-workspace">
@@ -277,7 +282,8 @@
       <div class="wire-palette" id="practice-wire-palette">
         <!-- filled in by js/simulator/panel.js from board.getWirePalette() -->
       </div>
-      <svg id="practice-sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg>
+      <p class="sim-board-scroll-note">The board is wider than your screen - swipe sideways to see all of it.</p>
+      <div class="sim-board-scroll"><svg id="practice-sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg></div>
       <div class="circuit-report" id="practice-circuit-report" aria-live="polite" hidden></div>
 
       <div class="console-toolbar">

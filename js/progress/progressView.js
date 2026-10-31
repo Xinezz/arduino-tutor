@@ -35,7 +35,7 @@ function tile(value, label) {
   return t;
 }
 
-export function renderLearningProgress(container, progress, { onOpenLesson, onQuizResult } = {}) {
+export function renderLearningProgress(container, progress, { onOpenLesson, onQuizResult, onRoundEnd } = {}) {
   container.innerHTML = "";
   const section = el("section", "learning-progress");
   section.appendChild(el("h1", null, "Your Learning"));
@@ -124,23 +124,25 @@ export function renderLearningProgress(container, progress, { onOpenLesson, onQu
   round.appendChild(el("div", "lesson-list-heading", "REVISION ROUND"));
   const pool = revisionQuizzes(progress, 3);
   if (!pool.length) {
-    round.appendChild(el("p", null, "Finish a lesson with a knowledge checkpoint, and its questions will turn up here for revision."));
+    round.appendChild(el("p", null, "Answer a lesson's knowledge checkpoint (or finish the lesson), and its question will turn up here for revision."));
   } else {
     round.appendChild(el("p", null, `${pool.length} checkpoint question${pool.length === 1 ? "" : "s"} from lessons you've finished - the ones you found tricky first. Revisiting earlier ideas is what makes them stick.`));
     const start = el("button", "btn btn-primary", "Start revision round");
     start.type = "button";
-    start.addEventListener("click", () => openRevisionRound(pool, onQuizResult));
+    start.addEventListener("click", () => openRevisionRound(pool, onQuizResult, onRoundEnd));
     round.appendChild(start);
   }
   section.appendChild(round);
   container.appendChild(section);
 }
 
-// One question at a time, in a window.
-function openRevisionRound(pool, onQuizResult) {
+// One question at a time, in a window. onDone runs when it closes, so the
+// page behind it can show what changed.
+function openRevisionRound(pool, onQuizResult, onDone) {
   let i = 0;
   let correct = 0;
   let answered = false;
+  let nextBtn = null;
   const body = el("div", "revision-body");
   const counter = el("div", "lesson-list-heading");
   const from = el("p", "revision-from");
@@ -162,13 +164,20 @@ function openRevisionRound(pool, onQuizResult) {
     nextBtn.textContent = i === pool.length - 1 ? "Finish" : "Next question";
   };
 
+  // The window may wait in a queue behind another one (a reward, say), so
+  // its button is only looked up - and the first question dealt - once it
+  // is actually on screen.
   const handle = openModal({
     title: "REVISION ROUND",
     content: body,
     className: "modal-wide",
     actions: [{ label: "Next question", kind: "primary", closes: false, onClick: () => advance() }],
+    onOpen: (box) => {
+      nextBtn = box.querySelector(".modal-actions .btn");
+      show();
+    },
+    onClose: () => onDone?.(),
   });
-  const nextBtn = handle.el?.querySelector(".modal-actions .btn") ?? document.createElement("button");
   let finished = false;
   function advance() {
     if (finished) {
@@ -184,5 +193,4 @@ function openRevisionRound(pool, onQuizResult) {
       nextBtn.textContent = "Done";
     }
   }
-  show();
 }

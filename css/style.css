@@ -558,6 +558,10 @@ h1, h2, h3 {
    to be, so keeping the old size would push "ArduinoTutor" past the edge
    of the topbar on anything narrower than a very wide desktop window. */
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.75rem; }
+/* The logo is the way back to the home screen. */
+button.brand { padding: 4px 6px; margin: -4px -6px; color: inherit; background: none; border: 1px solid transparent; font-family: var(--font-pixel); }
+button.brand:hover { border-color: var(--border); background: var(--panel-alt); }
+button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand-icon { color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow)); }
 .brand span { color: var(--accent); text-shadow: 0 0 14px var(--accent-glow); }
 
@@ -1061,6 +1065,16 @@ h1, h2, h3 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-top: 8px;
+}
+
+/* On a phone the whole board would shrink to a third of its size - pins
+   about 10px across, breadboard holes 3px - far too small to tap. Below 700px
+   it keeps a usable size and scrolls sideways inside its own box instead. */
+.sim-board-scroll-note { display: none; }
+@media (max-width: 700px) {
+  .sim-board-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sim-board-scroll .sim-svg { min-width: 640px; }
+  .sim-board-scroll-note { display: block; margin: 6px 0 0; font-size: 0.8rem; color: var(--text-dim); }
 }
 
 .sim-connector-hit { cursor: pointer; }
@@ -2134,7 +2148,8 @@ h1, h2, h3 {
 .learn-next { padding: 16px 20px; border: 2px solid var(--green); }
 .learn-next .lesson-list-heading { color: var(--green); }
 .learn-next-eyebrow { font-size: 0.82rem; color: var(--text-dim); }
-.learn-next-title { margin: 4px 0 6px; font-size: 1rem; }
+.learn-next-title { margin: 4px 0 6px; font-size: 1rem; overflow-wrap: anywhere; }
+.lesson-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .learn-next-why { margin: 0 0 12px; line-height: 1.55; }
 
 .learn-modules { display: grid; gap: 10px; }
@@ -2244,6 +2259,8 @@ h1, h2, h3 {
 .project-lesson-link.is-done { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
 
 @media (max-width: 640px) {
+  /* on a phone, the one thing to do next comes first */
+  #learn-panel > .learn-next { order: -1; }
   .learn-head, .learn-next, .learning-progress { padding: 12px 14px; }
   .learn-module-summary { padding: 10px 12px; gap: 8px; }
   .learn-module-summary-text, .learn-module-bar { margin-left: 12px; margin-right: 12px; }
@@ -2255,3 +2272,66 @@ h1, h2, h3 {
   .demo-row { gap: 10px; }
   .demo-slider-label { min-width: 0; }
 }
+
+/* ---------- Welcome tour (learn/welcomeTour.js) ---------- */
+.tour { display: grid; gap: 4px; max-width: 560px; }
+.tour-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.tour-icon { flex: none; font-size: 0; color: var(--accent); }
+.tour-icon .px { display: block; }
+.tour-title { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+.tour p { margin: 4px 0; line-height: 1.55; }
+.tour-note { color: var(--text-dim); font-size: 0.9rem; }
+.tour-list { margin: 4px 0; padding-left: 20px; display: grid; gap: 5px; line-height: 1.5; }
+.tour-modules { margin: 2px 0 6px; padding-left: 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px 14px; font-size: 0.9rem; color: var(--text); }
+.tour-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.tour-count { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--text-dim); }
+.tour-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Free Practice, for someone who hasn't started the course ---------- */
+.practice-beginner-note { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 2px solid var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+.practice-beginner-note[hidden] { display: none; }
+.practice-beginner-note p { margin: 0; flex: 1 1 280px; line-height: 1.5; }
+
+/* ---------- The lesson summary (the template's last part) ---------- */
+.lesson-summary { margin-bottom: 14px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent); box-shadow: var(--shadow-card); }
+.lesson-summary ul { margin: 4px 0 10px; padding-left: 20px; display: grid; gap: 5px; line-height: 1.5; }
+.lesson-summary-check { list-style: "☐  "; }
+.lesson-summary-note { margin: 0; color: var(--text-dim); font-size: 0.86rem; line-height: 1.45; }
+.next-step-section > .lesson-section-title { display: inline-flex; margin: 0 0 10px; padding: 6px 12px 6px 6px; background: var(--panel); border: 1px solid var(--border); }
+
+/* ---------- Words explained where they appear (lessons/terms.js) ---------- */
+.term {
+  font: inherit;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: none;
+  border-bottom: 2px dotted var(--accent);
+}
+.term:hover, .term[aria-expanded="true"] { color: var(--accent); }
+.term:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.term-def {
+  display: block;
+  margin: 6px 0;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+}
+.term-def[hidden] { display: none; }
+.term-def strong { color: var(--accent); }
+.term-link {
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 0;
+  color: var(--accent);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* A wrong checkpoint answer can be tried again. */
+.quiz-retry { margin-top: 10px; }

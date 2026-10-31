@@ -11,7 +11,8 @@
 // back via onStart - app.js owns progress/localStorage and decides what
 // happens next. onStart(name, target, avatarId): name is a freshly-typed
 // string on the new-game form, or null when nothing needs saving; target is
-// undefined (resume the last lesson, the default), "dashboard", "map", "shop",
+// undefined (resume the last lesson, the default), "welcome" (a new player:
+// the welcome tour), "learn", "practice", "dashboard", "map", "shop",
 // "first-circuit" (the guided first build), or a specific lesson id to jump
 // straight to; avatarId is the character the
 // player picked on the new-game form.
@@ -116,43 +117,36 @@ function renderFirstTimeScreen(container, progress, onStart, onPoke) {
   card.appendChild(el("div", "menu-input-label", "Pick your character"));
   card.appendChild(buildAvatarPicker(progress, avatarId, (id) => { avatarId = id; }));
 
-  // Two ways in. A complete beginner is steered to the hands-on guided
-  // build first (it explains everything as it goes); the lessons are right
-  // there for anyone who'd rather read first.
-  card.appendChild(el("div", "menu-input-label", "Where do you want to start?"));
-  const startBtn = el("button", "btn btn-complete menu-primary-btn", "Start your first circuit");
-  startBtn.title = "A guided 10-minute build: wire an LED, write the code, make it blink. No hardware or experience needed.";
-  const lessonsBtn = el("button", "btn btn-secondary menu-secondary-btn", "Start with Lesson 1");
-  lessonsBtn.title = "Read the course from the beginning: what an Arduino is, then pins, code and circuits.";
-  for (const b of [startBtn, lessonsBtn]) {
-    b.disabled = true;
-    b.dataset.sfx = "none";
-    card.appendChild(b);
-  }
-  const startNote = el("p", "menu-start-note", "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step. Type your name first.");
+  // One way in: a new player gets the short welcome tour first (what
+  // Arduino Tutor is, what an Arduino is, how the simulator and the course
+  // work), which ends by offering the guided first LED build.
+  const startBtn = el("button", "btn btn-complete menu-primary-btn", "Start");
+  startBtn.title = "A one-minute tour of how this works, then your first guided LED build.";
+  startBtn.disabled = true;
+  startBtn.dataset.sfx = "none";
+  card.appendChild(startBtn);
+  const startNote = el("p", "menu-start-note", "Type your name first. No experience or hardware needed - everything is explained from the beginning.");
   card.appendChild(startNote);
 
   input.addEventListener("input", () => {
     const empty = input.value.trim().length === 0;
     startBtn.disabled = empty;
-    lessonsBtn.disabled = empty;
     startNote.textContent = empty
-      ? "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step. Type your name first."
-      : "New to Arduino? Start with the circuit - it takes about 10 minutes and explains each step.";
+      ? "Type your name first. No experience or hardware needed - everything is explained from the beginning."
+      : "No experience or hardware needed - everything is explained from the beginning.";
   });
 
-  function submit(target) {
+  function submit() {
     if (input.value.trim().length === 0) {
       input.focus();
       return;
     }
     playSfx("confirm");
-    onStart?.(input.value, target, avatarId);
+    onStart?.(input.value, "welcome", avatarId);
   }
-  startBtn.addEventListener("click", () => submit("first-circuit"));
-  lessonsBtn.addEventListener("click", () => submit(undefined));
+  startBtn.addEventListener("click", submit);
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submit("first-circuit");
+    if (e.key === "Enter") submit();
   });
 
   input.focus();
@@ -245,7 +239,7 @@ function buildHeroText(progress, upNext, onStart, onPoke) {
     "p",
     "menu-hero-sub",
     upNext
-      ? `Up next: ${lessonPosition(upNext).label} ${upNext.title}. Press Continue to go straight there.`
+      ? `Up next: ${lessonPosition(upNext).label} ${upNext.title}${/[.?!]$/.test(upNext.title) ? "" : "."} Press Continue to go straight there.`
       : "You've finished every lesson - try a project, or plan one of your own."
   ));
 

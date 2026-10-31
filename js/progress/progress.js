@@ -45,6 +45,7 @@ function defaultProgress() {
     flaggedLessons: [],      // lesson ids the learner marked "I struggled with this" - a personal bookmark, not an achievement
     playerName: null,        // set on the main menu - null means "never signed in," not just "empty string"
     firstCircuitDone: false, // finished the guided "Start your first circuit" walkthrough
+    onboarded: false,        // has seen the welcome tour (js/learn/welcomeTour.js)
     checks: {},              // challengeId -> { attempts, passed, independent } from "Check My Solution"
 
     // ---- the game layer ----
@@ -185,6 +186,9 @@ function normalize(saved) {
   merged.achievements = saved.achievements && typeof saved.achievements === "object" ? saved.achievements : {};
   merged.hintUses = saved.hintUses && typeof saved.hintUses === "object" ? saved.hintUses : {};
   merged.checks = saved.checks && typeof saved.checks === "object" ? saved.checks : {};
+  // A save from before the welcome tour existed belongs to someone who has
+  // already found their way around - don't send them on it.
+  if (saved.onboarded === undefined) merged.onboarded = (saved.viewedLessons?.length ?? 0) > 0 || !!saved.firstCircuitDone;
   // Starter cosmetics are always owned, even if an old/imported save lacks them.
   merged.inventory = [...new Set([...STARTER_ITEMS, ...(Array.isArray(saved.inventory) ? saved.inventory : [])])];
   return merged;
@@ -284,6 +288,12 @@ export function markLessonViewed(progress, lessonId) {
 
 // The guided first circuit (js/guide/firstCircuit.js) pays out like a
 // challenge, once - replaying it later is welcome but earns nothing new.
+export function markOnboarded(progress) {
+  progress.onboarded = true;
+  saveProgress(progress);
+  return progress;
+}
+
 export function markFirstCircuitDone(progress) {
   if (!progress.firstCircuitDone) {
     progress.firstCircuitDone = true;

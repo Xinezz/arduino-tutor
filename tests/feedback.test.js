@@ -132,10 +132,12 @@ test("every warning the simulator gives has hints and a lesson", () => {
   }
 });
 
-test("circuit findings point to the lesson about that part", () => {
-  assert.equal(conceptForFinding({ level: "problem", subject: "LED 1", text: "It's in backwards" }).lessonId, "l2-4");
+test("circuit findings point to the lesson that teaches that concept", () => {
+  // polarity, resistors and short circuits each have their own lesson in Module 1
+  assert.equal(conceptForFinding({ level: "problem", subject: "LED 1", text: "It's in backwards: the long leg (+) goes to GND" }).lessonId, "m1-7");
+  assert.equal(conceptForFinding({ level: "real", subject: "LED 1", text: "No resistor in series." }).lessonId, "m1-6");
   assert.equal(conceptForFinding({ level: "problem", subject: "Button 2", text: "Nothing pulls pin 2 LOW, so it floats" }).lessonId, "l2-7");
-  assert.equal(conceptForFinding({ level: "problem", subject: "Circuit", text: "5V is wired straight to GND - a short circuit." }).lessonId, "l1-13");
+  assert.equal(conceptForFinding({ level: "problem", subject: "Circuit", text: "5V is wired straight to GND - a short circuit." }).lessonId, "m1-4");
   assert.equal(conceptForFinding({ level: "real", subject: "Circuit", text: "You used the breadboard's − rail." }).lessonId, "l1-16");
   assert.equal(conceptForFinding({ level: "ok", subject: "LED 1", text: "Complete circuit" }), null);
 });

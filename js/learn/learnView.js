@@ -26,7 +26,7 @@ const STATUS = {
   locked: { mark: "🔒", label: "Do the earlier lessons first" },
 };
 
-export function renderLearnView(container, progress, { onOpenLesson, onOpenMap, onStartFirstCircuit } = {}) {
+export function renderLearnView(container, progress, { onOpenLesson, onOpenMap, onStartFirstCircuit, onShowTour } = {}) {
   container.innerHTML = "";
   const next = nextLesson(progress);
   const summary = learningSummary(progress);
@@ -51,6 +51,11 @@ export function renderLearnView(container, progress, { onOpenLesson, onOpenMap, 
     fc.addEventListener("click", () => onStartFirstCircuit?.());
     headActions.appendChild(fc);
   }
+  const tourBtn = el("button", "btn btn-secondary", "How this course works");
+  tourBtn.type = "button";
+  tourBtn.title = "The one-minute welcome tour: Arduino, the simulator, and how the lessons are organised";
+  tourBtn.addEventListener("click", () => onShowTour?.());
+  headActions.appendChild(tourBtn);
   const mapBtn = el("button", "btn btn-secondary", "Map view");
   mapBtn.type = "button";
   mapBtn.title = "The same course, drawn as an arcade world map";

@@ -57,7 +57,7 @@ export const MODULES = [
         objectives: ["Explain what a resistor does", "Use Ohm's law (current = voltage ÷ resistance) to see how a resistor sets the current"],
         needs: ["m1-2"], skills: ["resistance"] },
       { id: "m1-4", why: "Every circuit has to return to ground - a missing GND connection is the most common reason a circuit does nothing.",
-        objectives: ["Explain GND as the 0V point every circuit returns to", "Explain why every part must share the same GND"],
+        objectives: ["Explain GND as the 0V point every circuit returns to", "Explain why every part must share the same GND", "Recognise a short circuit, and why it's dangerous"],
         needs: ["m1-3"], skills: ["ground", "circuits"] },
       { id: "l1-16", why: "A breadboard lets you build and change circuits without soldering - but only if you know which holes are connected.",
         objectives: ["Explain what a complete circuit is, and why a break anywhere stops it", "Know which holes of a breadboard are connected to each other", "Build a circuit on the simulator's board, and know where it differs from a real one"],

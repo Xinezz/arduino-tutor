@@ -108,12 +108,14 @@ export function learningSummary(progress) {
   };
 }
 
-// Questions for a revision round: checkpoints from lessons you've finished,
-// the ones you got wrong first, then the ones you haven't seen in a while
-// (never revisited), up to `count`.
+// Questions for a revision round: checkpoints from lessons you've finished
+// or checkpoints you've tried - the ones you got wrong first, then the rest
+// in a random order, up to `count`.
 export function revisionQuizzes(progress, count = 3, random = Math.random) {
-  const done = lessons.filter((l) => progress.viewedLessons.includes(l.id));
-  const pool = done.map((l) => ({ lesson: l, quiz: getQuizForLesson(l.id) })).filter((x) => x.quiz);
+  // lessons you've finished, plus any checkpoint you've already tried
+  const pool = lessons
+    .map((l) => ({ lesson: l, quiz: getQuizForLesson(l.id) }))
+    .filter((x) => x.quiz && (progress.viewedLessons.includes(x.lesson.id) || progress.quizzes[x.quiz.id]));
   const weak = pool.filter((x) => progress.quizzes[x.quiz.id] && !progress.quizzes[x.quiz.id].solved);
   const rest = pool.filter((x) => !weak.includes(x));
   for (let i = rest.length - 1; i > 0; i--) {

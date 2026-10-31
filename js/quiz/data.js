@@ -493,6 +493,64 @@ Object.assign(quizzes, {
   },
 });
 
+// ---- Checkpoints for the rebuilt Module 2 and 4 lessons ----
+Object.assign(quizzes, {
+  "l1-5": {
+    id: "quiz-match-setup",
+    type: "match",
+    topic: "setup() and loop()",
+    title: "Match the Pairs",
+    prompt: "Match each piece to what it does.",
+    pairs: [
+      { left: "setup()", right: "Runs once, each time the board starts" },
+      { left: "loop()", right: "Runs again and again, forever" },
+      { left: "pinMode(13, OUTPUT);", right: "Preparation - it belongs in setup()" },
+      { left: "Pressing reset (or Run)", right: "Starts the sketch again from setup()" },
+    ],
+  },
+
+  "l1-6": {
+    id: "quiz-fill-loop",
+    type: "fill",
+    topic: "setup() and loop()",
+    title: "Fill in the Blank",
+    prompt: "Complete the sketch so it prints \"Again\" every two seconds, forever.",
+    codeBefore: "void setup() {\n  Serial.begin(9600);\n}\n\nvoid ",
+    codeAfter: "() {\n  Serial.println(\"Again\");\n  delay(2000);\n}",
+    choices: ["loop", "setup", "repeat", "forever"],
+    correctChoice: "loop",
+    explanation:
+      "loop() is the function Arduino runs over and over. setup() would print \"Again\" just once (and a " +
+      "sketch can't have two setup()s), and repeat() and forever() aren't Arduino functions at all.",
+  },
+
+  "l2-5": {
+    id: "quiz-debug-read-compare",
+    type: "debug",
+    topic: "digitalRead()",
+    title: "Find the Bug",
+    prompt: "This should print \"Pressed!\" only while the button on pin 7 is pressed - but it prints it all the time. Click the line with the bug.",
+    lines: [
+      "void setup() {",
+      "  Serial.begin(9600);",
+      "  pinMode(7, INPUT);",
+      "}",
+      "",
+      "void loop() {",
+      "  int state = digitalRead(7);",
+      "  if (state = HIGH) {",
+      "    Serial.println(\"Pressed!\");",
+      "  }",
+      "}",
+    ],
+    buggyLineIndex: 7,
+    explanation:
+      "One = stores a value: state = HIGH sets state to HIGH, and the if sees HIGH (1) - true, every time. " +
+      "Comparing needs two: state == HIGH. (The simulator warns about exactly this line.)",
+    fixedLine: "  if (state == HIGH) {",
+  },
+});
+
 export function getQuizForLesson(lessonId) {
   return quizzes[lessonId] || null;
 }

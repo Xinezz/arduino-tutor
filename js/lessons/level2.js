@@ -27,17 +27,49 @@ export const level2Lessons = [
     title: "pinMode(): Configuring a Pin's Job",
     body: [
       { type: "p", text:
-        "Before you can use a pin, you have to tell Arduino what job it's doing: sending power out " +
-        "(OUTPUT) or reading a signal in (INPUT). This happens once, in setup()." },
+        "Before you can use a pin, you have to tell Arduino what job it's doing: sending power out (OUTPUT) or " +
+        "reading a signal in (INPUT). This happens once, in setup()." },
       { type: "code", text:
         "void setup() {\n  pinMode(13, OUTPUT);   // pin 13 will send signals OUT (e.g. to an LED)\n  pinMode(7, INPUT);     // pin 7 will read signals IN (e.g. from a button)\n}" },
       { type: "p", text:
-        "Skipping pinMode(), or setting the wrong mode, is one of the most common beginner bugs: if a " +
-        "pin is set to INPUT but you call digitalWrite() on it expecting an LED to light up, nothing " +
-        "will happen - the pin isn't configured to send power." },
+        "Every pin starts as an INPUT when the board powers up. So an LED needs pinMode(pin, OUTPUT) before " +
+        "the pin can power it - forget it, and the code still compiles, but the LED won't light properly." },
+      { type: "example", code:
+        "void setup() {\n  pinMode(13, OUTPUT);       // pin 13's job: power the LED\n  digitalWrite(13, HIGH);    // switch it on (the next lesson explains this line)\n}\n\nvoid loop() {\n}" },
+      { type: "guided", title: "See what pinMode() does", steps: [
+        "Press \"Load this circuit\" below - an LED with its resistor, wired to pin 13.",
+        "Press \"Try it in the editor\" under the example above, then Run. The LED lights.",
+        "Press Stop. Delete the pinMode line, and Run again: the LED stays dark, and the Serial Monitor explains why.",
+        "Put the pinMode line back.",
+      ] },
+      { type: "circuit", label: "Load this circuit", parts: [{ key: "r", kind: "resistor" }, { key: "led", kind: "led" }],
+        wires: [["pin-13", "r.1"], ["r.2", "led.a"], ["led.k", "gnd"]] },
+      { type: "predict",
+        question: "On a real Uno, an LED is wired to pin 9 and setup() calls digitalWrite(9, HIGH) - but never pinMode(9, OUTPUT). What happens?",
+        options: [
+          "The LED lights normally",
+          "It barely glows, if at all - the pin is still an INPUT",
+          "The board resets",
+          "A compile error",
+        ],
+        answer: 1,
+        explain:
+          "Without pinMode(9, OUTPUT), pin 9 is still an input. Writing HIGH to an input only switches on its " +
+          "weak built-in pull-up resistor - far too little current to light an LED properly. It compiles fine, " +
+          "which is what makes this bug confusing. (The simulator shows the LED off and warns you.)" },
       { type: "note", text:
-        "Engineering analogy: pinMode() is like setting a valve to either \"supply\" or \"sensor\" mode " +
-        "before a system runs - you have to decide its role before it can do anything useful." },
+        "Engineering analogy: pinMode() is like setting a valve to either \"supply\" or \"sensor\" mode before " +
+        "a system runs - you have to decide its role before it can do anything useful." },
+      { type: "mistakes", items: [
+        "Forgetting pinMode(pin, OUTPUT): it compiles, but the LED won't light properly.",
+        "A different pin number in pinMode() and digitalWrite() - pinMode(12, OUTPUT) doesn't set up pin 13.",
+        "Writing output or Output instead of OUTPUT: Arduino names are case-sensitive.",
+      ] },
+    ],
+    summary: [
+      "pinMode(pin, mode) gives a pin its job: OUTPUT to power something, INPUT to read something.",
+      "Do it once, in setup(), for every pin you use.",
+      "Every pin starts as an INPUT - which is why a forgotten pinMode() leaves an LED dark.",
     ],
   },
 
@@ -46,13 +78,48 @@ export const level2Lessons = [
     title: "digitalWrite(): Driving an Output",
     body: [
       { type: "p", text:
-        "Once a pin is set to OUTPUT, digitalWrite() sets it to HIGH or LOW, which sends (or stops " +
-        "sending) roughly 5V out of that pin." },
+        "Once a pin is set to OUTPUT, digitalWrite() sets it to HIGH or LOW, which sends (or stops sending) " +
+        "roughly 5V out of that pin." },
       { type: "code", text:
         "digitalWrite(13, HIGH);   // pin 13 now outputs ~5V\ndigitalWrite(13, LOW);    // pin 13 now outputs ~0V" },
       { type: "p", text:
-        "The pin must already be OUTPUT (via pinMode) for this to do anything meaningful - calling " +
-        "digitalWrite() on an INPUT pin is a common source of confusing bugs." },
+        "A pin keeps its level until your code changes it. Set it HIGH in setup() and it stays HIGH forever - " +
+        "even if loop() is empty." },
+      { type: "example", code:
+        "void setup() {\n  pinMode(12, OUTPUT);\n  pinMode(13, OUTPUT);\n  digitalWrite(12, HIGH);   // the LED on pin 12: on\n  digitalWrite(13, LOW);    // the LED on pin 13: off\n}\n\nvoid loop() {\n}" },
+      { type: "circuit", label: "Load the two-LED circuit", parts: [
+        { key: "r1", kind: "resistor" }, { key: "led1", kind: "led" },
+        { key: "r2", kind: "resistor" }, { key: "led2", kind: "led" },
+      ], wires: [
+        ["pin-12", "r1.1"], ["r1.2", "led1.a"], ["led1.k", "gnd"],
+        ["pin-13", "r2.1"], ["r2.2", "led2.a"], ["led2.k", "gnd"],
+      ] },
+      { type: "predict",
+        question: "With that circuit and sketch, which LED lights?",
+        options: ["Only the LED on pin 12", "Only the LED on pin 13", "Both", "Neither - loop() is empty"],
+        answer: 0,
+        explain:
+          "digitalWrite(12, HIGH) puts 5V on pin 12, so its LED lights. Pin 13 is LOW - 0V, no current - so its " +
+          "LED stays dark. An empty loop() doesn't matter: each pin keeps the level setup() gave it." },
+      { type: "guided", title: "Switch two LEDs", steps: [
+        "Press \"Load the two-LED circuit\", then \"Try it in the editor\" under the example.",
+        "Run it and check your prediction.",
+        "Stop, swap HIGH and LOW in the two digitalWrite lines, and run it again.",
+      ] },
+      { type: "experiment", text:
+        "Make both LEDs light at once. Then try digitalWrite(12, LOW) straight after digitalWrite(12, HIGH) in " +
+        "setup() - the LED is on for a few millionths of a second, far too short to see. The next lessons fix " +
+        "that with delay()." },
+      { type: "mistakes", items: [
+        "Calling digitalWrite() on a pin that was never set as OUTPUT.",
+        "Using one pin number in pinMode() and a different one in digitalWrite().",
+        "Expecting LOW to mean \"dimmer\": digitalWrite is all or nothing - fully on or fully off. Dimming needs analogWrite() (Module 5).",
+      ] },
+    ],
+    summary: [
+      "digitalWrite(pin, HIGH) puts about 5V on an OUTPUT pin; LOW puts 0V.",
+      "A pin stays at that level until your code changes it.",
+      "It's all or nothing - for anything in between you'll use analogWrite() in Module 5.",
     ],
   },
 
@@ -139,6 +206,42 @@ export const level2Lessons = [
         "Notice digitalRead() returns a value rather than taking an action - you almost always store " +
         "that value in a variable, then decide what to do with it - usually with an if, exactly as in " +
         "Module 3 (Programming Fundamentals)." },
+      { type: "p", text:
+        "A button needs a little help to give a clean reading: while it isn't pressed, something has to hold " +
+        "the pin at LOW. In the circuit below that's the 10kΩ resistor from pin 7 to GND - a pull-down " +
+        "resistor. Lesson 4.3 explains why it's needed; for now, just use it." },
+      { type: "example", code:
+        "void setup() {\n  Serial.begin(9600);\n  pinMode(7, INPUT);\n}\n\nvoid loop() {\n  int state = digitalRead(7);\n  Serial.println(state);   // 1 = HIGH (pressed), 0 = LOW (not pressed)\n  delay(200);\n}" },
+      { type: "circuit", label: "Load the button circuit", parts: [
+        { key: "b", kind: "button" }, { key: "r", kind: "resistor", ohms: 10000 },
+      ], wires: [["5v", "b.1"], ["b.2", "pin-7"], ["pin-7", "r.1"], ["r.2", "gnd"]] },
+      { type: "predict",
+        question: "While nobody presses the button, what does digitalRead(7) return in this circuit?",
+        options: ["HIGH (1)", "LOW (0)", "It changes at random", "Nothing until it's pressed"],
+        answer: 1,
+        explain:
+          "The 10kΩ resistor connects pin 7 to GND, so with the button open the pin sits at 0V: LOW. Pressing " +
+          "connects pin 7 straight to 5V, which wins over the resistor: HIGH." },
+      { type: "guided", title: "Read a button", steps: [
+        "Press \"Load the button circuit\", then \"Try it in the editor\" under the example.",
+        "Press Run. The Serial Monitor prints 0 five times a second - the button isn't pressed.",
+        "Press and hold the button's body on the board: the numbers change to 1. Let go: back to 0.",
+        "Press Stop.",
+      ] },
+      { type: "experiment", text:
+        "Make the button control something: add an LED with its resistor on pin 13 (and pinMode(13, OUTPUT) " +
+        "in setup()), then in loop() switch it on while state is HIGH and off otherwise, with an if and an " +
+        "else. That's an input controlling an output - the pattern behind almost every Arduino project." },
+      { type: "mistakes", items: [
+        "Reading a pin that's connected to nothing: it \"floats\" and can read HIGH or LOW at random (lesson 4.3).",
+        "Expecting digitalRead() to do something by itself - it only reports; your if decides what happens.",
+        "Writing if (state = HIGH) - one = stores HIGH in state, so the if is always true. Compare with ==.",
+      ] },
+    ],
+    summary: [
+      "digitalRead(pin) returns HIGH (1) or LOW (0): the voltage on an input pin, right now.",
+      "Store the result in a variable, then decide what to do with an if.",
+      "An input needs something holding it at a definite level when nothing is pressed - here, a pull-down resistor.",
     ],
   },
 

@@ -38,6 +38,17 @@ test("a delay that wakes up early waits out the rest, so millis() never runs sho
   assert.deepEqual(out.split("\n").filter(Boolean), ["0", "1000"]);
 });
 
+test("late timers don't make millis() drift: after delay(), it's exactly that much later", () => {
+  // Every timer fires 18 ms late (what the live site showed in a background
+  // tab: 0, 1018, 2043 instead of 0, 1000, 2000).
+  const clock = createFakeTiming();
+  const late = { ...clock.timing, setTimer: (fn, ms) => clock.timing.setTimer(fn, ms + 18) };
+  let out = "";
+  startProgram(PRINT_MILLIS_EVERY(1000), recordingHardware(clock), { onOutput: (t) => { out += t; } }, { timing: late });
+  clock.advance(3100);
+  assert.deepEqual(out.split("\n").filter(Boolean), ["0", "1000", "2000", "3000"]);
+});
+
 test("millis() advances with simulated time, even in a loop with no delay()", () => {
   const r = runSketch(`
     unsigned long start;

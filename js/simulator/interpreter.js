@@ -1101,7 +1101,7 @@ class Analyzer {
     const t = this.expr(node, scope);
     if (!isNumericType(t)) this.error(`The condition of ${what} has to be a number or true/false, not ${withArticle(t)}`, node.line);
     if (node.type === "Assign" && node.op === "=" && !node.parens) {
-      this.warn(`This ${what} uses '=', which STORES a value instead of comparing - did you mean '=='?`, node.line);
+      this.warn(`The condition of ${what} uses '=', which STORES a value instead of comparing - did you mean '=='?`, node.line);
     }
   }
 
@@ -2129,11 +2129,13 @@ export function startProgram(source, api, { onError, onStopped, onOutput, onWarn
   let pendingTimer = null;
   const startedAt = timing.now();
   // millis() is simulated time since the run started. With timeScale 1 that
-  // is simply real elapsed time - exactly like real hardware, where millis()
-  // is driven by a hardware timer that keeps counting no matter what the
-  // sketch is doing (a sketch that waits for a button with no delay() still
-  // sees millis() advance).
-  const simNow = () => (timing.now() - startedAt) * timeScale;
+  // is real elapsed time - like real hardware, where millis() is driven by a
+  // hardware timer that keeps counting no matter what the sketch is doing (a
+  // sketch that waits for a button with no delay() still sees millis()
+  // advance) - minus `lag`, the time lost to browser timers firing late
+  // (see wakeAt).
+  let lag = 0;
+  const simNow = () => (timing.now() - startedAt) * timeScale - lag;
 
   const host = {
     millisNow: simNow,
@@ -2165,13 +2167,20 @@ export function startProgram(source, api, { onError, onStopped, onOutput, onWarn
     report(callback, ...args);
   }
 
-  // Resumes the sketch once simulated time reaches `wakeAt`. Browser timers
-  // can fire a little early, so if one does, it just waits out the rest -
-  // after delay(5000), millis() is always at least 5000 later.
+  // Resumes the sketch once simulated time reaches `target`. Browser timers
+  // can fire a little early, so if one does, it just waits out the rest.
+  // More often they fire a little late (a lot later in a background tab) -
+  // but on a Uno, delay(500) ends exactly 500 ms after it started. So the
+  // lateness comes off the clock instead of piling up in millis(): after
+  // delay(500), millis() is exactly 500 later, every time.
   function wakeAt(target) {
     const remaining = target - simNow();
-    if (remaining <= 0) pump();
-    else schedule(() => wakeAt(target), remaining / timeScale);
+    if (remaining > 0) {
+      schedule(() => wakeAt(target), remaining / timeScale);
+      return;
+    }
+    lag -= remaining; // how late this wake-up is
+    pump();
   }
 
   function pump() {

@@ -170,6 +170,15 @@ export const foundationLessons = [
         explain:
           "5V is still there, pushing. But current can only flow round a complete loop - with the way back to " +
           "GND gone, nothing flows anywhere in the circuit." },
+      { type: "p", text:
+        "The opposite mistake is just as important. A wire from 5V straight to GND, with nothing in between, " +
+        "is a short circuit: there's nothing to limit the current, so as much flows as the power supply can " +
+        "push. On a real board that can damage the board or your computer's USB port. Every loop needs a part " +
+        "in it - an LED with its resistor, a sensor, a buzzer - never just a bare wire." },
+      { type: "mistakes", items: [
+        "Forgetting the GND wire: the circuit looks finished, but nothing flows.",
+        "A short circuit: 5V (or a pin set HIGH) wired straight to GND. Check Circuit flags it as a problem - on a real board, unplug the USB cable straight away.",
+      ] },
     ],
   },
 
