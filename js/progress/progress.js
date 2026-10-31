@@ -55,6 +55,7 @@ function defaultProgress() {
     activity: [],            // [{ at, kind, label, lessonId? }] newest last - the learning history (capped)
     goals: [],               // [{ id, setAt, baseline?, doneAt? }] - learning goals you chose (see goals.js)
     revisionLog: [],         // [{ at, area, right, total }] - finished revision sessions
+    pathways: {},            // pathwayId -> { startedAt, lessonsDone: [lessonId], certificateAt? } - see pathways/progress.js
 
     // ---- the game layer ----
     achievements: {},        // achievement id -> ISO timestamp it was unlocked (presence = unlocked, so it can never pay out twice)
@@ -211,6 +212,9 @@ function normalize(saved) {
     .filter((a) => isObject(a) && typeof a.at === "string" && typeof a.label === "string").slice(-ACTIVITY_CAP);
   merged.goals = (Array.isArray(saved.goals) ? saved.goals : []).filter((g) => isObject(g) && typeof g.id === "string");
   merged.revisionLog = (Array.isArray(saved.revisionLog) ? saved.revisionLog : []).filter((r) => isObject(r) && Number.isFinite(r.total));
+  merged.pathways = Object.fromEntries(Object.entries(isObject(saved.pathways) ? saved.pathways : {})
+    .filter(([, e]) => isObject(e))
+    .map(([id, e]) => [id, { ...e, lessonsDone: Array.isArray(e.lessonsDone) ? e.lessonsDone.filter((x) => typeof x === "string") : [] }]));
   merged.stats = { ...base.stats, ...(saved.stats || {}) };
   merged.equipped = { ...base.equipped, ...(saved.equipped || {}) };
   merged.daily = { ...base.daily, ...(saved.daily || {}) };
@@ -419,6 +423,41 @@ function logActivity(progress, kind, label, lessonId = null) {
 export function recordRevisionSession(progress, area, right, total) {
   progress.revisionLog = [...progress.revisionLog, { at: new Date().toISOString(), area, right, total }].slice(-40);
   logActivity(progress, "revision", `Revision session: ${right} of ${total} right`);
+  saveProgress(progress);
+  return progress;
+}
+
+// Engineering pathways (pathways/). Starting one is just a note of when;
+// a pathway lesson marked done pays like a core lesson, once; the
+// certificate is recorded once, by date - app.js only awards it when
+// pathways/progress.js says every level's evidence is there.
+export function startPathway(progress, pathwayId, title = pathwayId) {
+  progress.pathways ??= {};
+  if (progress.pathways[pathwayId]) return progress;
+  progress.pathways[pathwayId] = { startedAt: new Date().toISOString(), lessonsDone: [] };
+  logActivity(progress, "pathway", `Pathway started: ${title}`);
+  saveProgress(progress);
+  return progress;
+}
+
+export function markPathwayLessonDone(progress, pathwayId, lessonId, title = lessonId) {
+  startPathway(progress, pathwayId);
+  const entry = progress.pathways[pathwayId];
+  if (!entry.lessonsDone.includes(lessonId)) {
+    entry.lessonsDone.push(lessonId);
+    bumpDaily(progress, "lessons");
+    applyXp(progress, CREDIT_REWARDS.lesson);
+    logActivity(progress, "lesson", `Pathway lesson done: ${title}`);
+  }
+  saveProgress(progress);
+  return progress;
+}
+
+export function awardPathwayCertificate(progress, pathwayId, title = pathwayId) {
+  const entry = progress.pathways?.[pathwayId];
+  if (!entry || entry.certificateAt) return progress;
+  entry.certificateAt = new Date().toISOString();
+  logActivity(progress, "goal", `Pathway certificate: ${title}`);
   saveProgress(progress);
   return progress;
 }

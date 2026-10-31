@@ -9,6 +9,7 @@
 
 import { lessons } from "../lessons/data.js";
 import { quizzes } from "../quiz/data.js";
+import { PATHWAY_LESSONS } from "../pathways/data.js";
 
 function build() {
   const items = [];
@@ -33,6 +34,13 @@ function build() {
         },
       });
     }
+  }
+  // engineering pathway checkpoints - the same per-question tracking, so a
+  // missed one comes back in revision too ("<quizId>#<i>" like any set)
+  for (const lesson of PATHWAY_LESSONS) {
+    lesson.quiz.questions.forEach((question, i) => items.push({
+      key: `${lesson.quiz.id}#${i}`, lessonId: lesson.id, quizId: lesson.quiz.id, topic: lesson.quiz.topic, question, pathway: lesson.pathway,
+    }));
   }
   return items;
 }

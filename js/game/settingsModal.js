@@ -186,7 +186,7 @@ export function openSettings(options) {
 }
 
 const SHORTCUTS = [
-  ["1 - 4", "Switch between Learn, Projects, Practice and Progress"],
+  ["1 - 5", "Switch between Learn, Projects, Pathways, Practice and Progress"],
   ["[  ]", "Previous / next lesson"],
   ["M", "Mute or unmute sound"],
   ["S", "Open Options"],

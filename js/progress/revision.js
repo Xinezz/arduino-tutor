@@ -17,8 +17,10 @@ import { lessons } from "../lessons/data.js";
 import { QUESTION_BANK } from "./questionBank.js";
 import { AREAS, areasOfLesson, answerFor, understood } from "./skills.js";
 import { SECURE_BOX, dayString } from "./progress.js";
+import { PATHWAY_LESSONS } from "../pathways/data.js";
 
-const lessonById = new Map(lessons.map((l) => [l.id, l]));
+// core lessons and pathway lessons - a missed pathway question gets its recap too
+const lessonById = new Map([...lessons, ...PATHWAY_LESSONS].map((l) => [l.id, l]));
 const MAX_TARGETS = 3;
 
 // { item, a } for every question that has been missed and isn't secure yet.

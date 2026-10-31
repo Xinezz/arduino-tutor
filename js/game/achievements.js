@@ -66,6 +66,7 @@ export function buildContext(progress) {
     goalsReached: (progress.goals ?? []).filter((g) => g.doneAt).length,
     independentBuilds: Object.values(progress.projects ?? {}).filter((p) => p.completed?.independent).length,
     selfFixed: Object.values(progress.checks ?? {}).filter((c) => c.passed && c.independent && c.attempts > 1).length,
+    pathwayCertificates: Object.values(progress.pathways ?? {}).filter((p) => p.certificateAt).length,
   };
 }
 
@@ -120,6 +121,7 @@ export const ACHIEVEMENTS = [
   counter("self-fix-3", "Debugger", "Fix 3 challenges yourself after a failed check, with no hints", "sword", 30, (c) => c.selfFixed, 3),
   counter("goal-1", "Goal Reached", "Reach a learning goal you set yourself", "flag", 20, (c) => c.goalsReached, 1),
   counter("own-design", "Own Design", "Build a project in Independent mode", "medal", 40, (c) => c.independentBuilds, 1),
+  counter("pathway-1", "Pathfinder", "Earn an engineering pathway certificate", "trophy", 100, (c) => c.pathwayCertificates, 1),
 
   // ---- the simulator ----
   counter("run-1", "Power On", "Run your first program", "play", 5, (c) => c.stats.runs, 1),

@@ -33,6 +33,9 @@ import {
   removeGoal,
   markGoalsDone,
   markProjectStageDone,
+  startPathway,
+  markPathwayLessonDone,
+  awardPathwayCertificate,
   touchStreak,
   spendCredits,
   recordHintUse,
@@ -76,6 +79,9 @@ import { goalById, newlyReached } from "./progress/goals.js";
 import { mistakeFromProblem } from "./progress/mistakes.js";
 import { QUESTION_BANK } from "./progress/questionBank.js";
 import { openTutor } from "./tutor/tutorView.js";
+import { renderPathways, confirmPathwayLesson } from "./pathways/pathwaysView.js";
+import { pathwayById, pathwayLessonById, pathwayProjectById } from "./pathways/data.js";
+import { pathwayStatus } from "./pathways/progress.js";
 import { nextLesson, missingNeeds } from "./progress/learning.js";
 import { renderChallenge } from "./lessons/challenge.js";
 import { getQuizForLesson } from "./quiz/data.js";
@@ -150,18 +156,20 @@ const viewEls = {
   lessons: document.getElementById("view-lessons"),
   map: document.getElementById("view-map"),
   projects: document.getElementById("view-projects"),
+  pathways: document.getElementById("view-pathways"),
   practice: document.getElementById("view-practice"),
   shop: document.getElementById("view-shop"),
   dashboard: document.getElementById("view-dashboard"),
 };
-// The four tabs, in order - also what the number-key shortcuts index into.
-const VIEW_ORDER = ["learn", "projects", "practice", "dashboard"];
+// The five tabs, in order - also what the number-key shortcuts index into.
+const VIEW_ORDER = ["learn", "projects", "pathways", "practice", "dashboard"];
 // Which tab is lit for each screen: a lesson and the map belong to Learn,
 // the shop to Progress (it's where your rewards are).
-const TAB_FOR_VIEW = { learn: "learn", lessons: "learn", map: "learn", projects: "projects", practice: "practice", dashboard: "dashboard", shop: "dashboard" };
+const TAB_FOR_VIEW = { learn: "learn", lessons: "learn", map: "learn", projects: "projects", pathways: "pathways", practice: "practice", dashboard: "dashboard", shop: "dashboard" };
 const learnPanelEl = document.getElementById("learn-panel");
 const nextStepEl = document.getElementById("next-step-section");
 const projectsPanelEl = document.getElementById("projects-panel");
+const pathwaysPanelEl = document.getElementById("pathways-panel");
 const dashboardPanelEl = document.getElementById("dashboard-panel");
 const mapPanelEl = document.getElementById("map-panel");
 const shopPanelEl = document.getElementById("shop-panel");
@@ -502,6 +510,8 @@ function switchView(viewName) {
       firstCircuitGuide.isActive() || lessons.filter((l) => l.module === 0).every((l) => progress.viewedLessons.includes(l.id));
   } else if (viewName === "projects") {
     renderProjectsView();
+  } else if (viewName === "pathways") {
+    renderPathwaysView();
   } else if (viewName === "map") {
     noteVisit("mapVisits");
     renderMapView();
@@ -523,7 +533,9 @@ viewTabsEl.querySelectorAll(".view-tab").forEach((btn) => {
 
 // A project from the library (projects/beginner.js): its page on the Projects
 // tab, and its builder beside the editor and board in Free Practice.
-const libraryProject = (id) => BEGINNER_PROJECTS.find((p) => p.id === id);
+const libraryProject = (id) => BEGINNER_PROJECTS.find((p) => p.id === id) ?? pathwayProjectById(id);
+// Where "back" on a project page goes: the project list, or the pathway it was opened from.
+let projectReturn = null;
 const projectGuideEl = document.getElementById("project-guide");
 
 function startProjectBuild(project, mode) {
@@ -563,6 +575,7 @@ function startProjectBuild(project, mode) {
     },
     onExit: () => { exit(); setStatus("Project closed - your circuit and code are still in Free Practice."); },
     onBackToPage: () => { exit(); currentProjectId = project.id; switchView("projects"); },
+    onSaveLog: (field, text) => { progress = saveProjectLog(progress, project.id, field, text); },
   });
   setStatus(`Building "${project.title}" (${MODES[mode].label}) - the project is beside the editor and board.`);
 }
@@ -571,7 +584,12 @@ function renderProjectsView() {
   const library = currentProjectId && libraryProject(currentProjectId);
   if (library) {
     renderProjectPage(projectsPanelEl, library, progress, {
-      onBack: () => { currentProjectId = null; renderProjectsView(); },
+      backLabel: projectReturn ? `← ${pathwayById(projectReturn).title} pathway` : undefined,
+      onBack: () => {
+        currentProjectId = null;
+        if (projectReturn) { const to = projectReturn; projectReturn = null; pathwaysState = { view: "pathway", pathwayId: to }; switchView("pathways"); }
+        else renderProjectsView();
+      },
       onStart: (mode) => startProjectBuild(library, mode),
       onOpenLesson: goToLesson,
       onQuizResult: (quizId, success, topic, detail) => {
@@ -580,7 +598,7 @@ function renderProjectsView() {
         if (success) rewards.settle(before, { kind: "quiz" });
         afterLearning();
       },
-      onSaveLog: (field, text) => { progress = saveProjectLog(progress, library.id, field, text); },
+      onSaveLog: (field, text) => { progress = saveProjectLog(progress, library.id, field, text); afterLearning(); },
     });
   } else if (currentProjectId) {
     const project = findProject(currentProjectId);
@@ -607,6 +625,67 @@ function renderProjectsView() {
     });
   }
   replayFadeIn(projectsPanelEl);
+}
+
+// ---- engineering pathways (pathways/) ----
+let pathwaysState = { view: "overview" };
+
+function renderPathwaysView() {
+  renderPathways(pathwaysPanelEl, progress, pathwaysState, {
+    onOverview: () => { pathwaysState = { view: "overview" }; renderPathwaysView(); },
+    onOpenPathway: (id) => { pathwaysState = { view: "pathway", pathwayId: id }; renderPathwaysView(); },
+    onOpenLesson: (id) => openPathwayLesson(id),
+    onOpenCoreLesson: goToLesson,
+    onOpenProject: (id) => {
+      const project = pathwayProjectById(id);
+      projectReturn = project?.pathway ?? null;
+      currentProjectId = id;
+      switchView("projects");
+    },
+    onQuizResult: (quizId, success, topic, detail, quizBox, lesson) => {
+      const before = rewards.snapshot();
+      progress = recordQuizResult(progress, quizId, success, topic, detail);
+      progress = startPathway(progress, lesson.pathway, pathwayById(lesson.pathway).title);
+      if (success) rewards.settle(before, { kind: "quiz" });
+      else playSfx("wrong");
+      const right = (detail?.answers ?? []).filter(([, r]) => r).length;
+      renderFeedback(quizBox.parentElement, [
+        { kind: success ? "good" : "work", text: `${right} of ${detail?.answers?.length ?? 1} right first time.` },
+        ...(success ? [] : [{ kind: "work", text: "The ones you missed come back in your revision sessions - and the level only counts once this checkpoint is answered right. Try the set again when you're ready." }]),
+      ]);
+      afterLearning();
+    },
+    onMarkDone: (lesson) => {
+      const before = rewards.snapshot();
+      progress = markPathwayLessonDone(progress, lesson.pathway, lesson.id, lesson.title);
+      rewards.settle(before, { kind: "lesson", label: lesson.title });
+      afterLearning();
+      setStatus(`"${lesson.title}" marked as done.${progress.quizzes[lesson.quiz.id]?.solved ? "" : " Answer its checkpoint right too - the level needs both."}`);
+      renderPathwaysView();
+    },
+    onClaimCertificate: (id) => {
+      if (!pathwayStatus(id, progress).complete) return;
+      progress = awardPathwayCertificate(progress, id, pathwayById(id).title);
+      playSfx("mission");
+      afterLearning();
+      pathwaysState = { view: "certificate", pathwayId: id };
+      renderPathwaysView();
+    },
+    onViewCertificate: (id) => { pathwaysState = { view: "certificate", pathwayId: id }; renderPathwaysView(); },
+  });
+  pathwaysPanelEl.scrollTop = 0;
+  replayFadeIn(pathwaysPanelEl);
+}
+
+async function openPathwayLesson(id, { confirm = true } = {}) {
+  const lesson = pathwayLessonById(id);
+  if (!lesson) return;
+  if (confirm && !(progress.pathways?.[lesson.pathway]?.lessonsDone ?? []).includes(id) && !(await confirmPathwayLesson(lesson, progress))) return;
+  progress = startPathway(progress, lesson.pathway, pathwayById(lesson.pathway).title);
+  pathwaysState = { view: "lesson", lessonId: id, pathwayId: lesson.pathway };
+  if (currentView !== "pathways") switchView("pathways");
+  else renderPathwaysView();
+  setStatus(`Viewing: ${lesson.title}`);
 }
 
 function renderMapView() {
@@ -641,6 +720,10 @@ function renderDashboardView({ refresh = false } = {}) {
     onOpenLesson: goToLesson,
     onOpenChallenge: openChallenge,
     onOpenProject: (id) => { currentProjectId = id; switchView("projects"); },
+    onOpenPathway: (id, lessonId) => {
+      if (lessonId) openPathwayLesson(lessonId);
+      else { pathwaysState = { view: "pathway", pathwayId: id }; switchView("pathways"); }
+    },
     onRevise: startRevision,
     onAskTutor: () => askTutor(),
     onSetGoal: (id) => {
@@ -1089,6 +1172,7 @@ function openOptions() {
 // Opens a lesson from the course page, a "What's next" card, a review link...
 // If its prerequisites aren't done it says so first - a warning, not a wall.
 async function goToLesson(lessonId) {
+  if (pathwayLessonById(lessonId)) return openPathwayLesson(lessonId);
   const lesson = findLesson(lessonId);
   if (!lesson) return;
   const missing = missingNeeds(lesson, progress);

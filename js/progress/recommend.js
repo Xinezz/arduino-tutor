@@ -11,6 +11,9 @@
 //   5. A project build that keeps failing      -> the lesson it relies on
 //   6. Practical work passing without hints    -> a harder challenge (challenges.js)
 //   7. A beginner project whose lessons are all done -> build it, in the mode that fits
+//      ... and an engineering pathway: ready for it (its starting lessons done
+//      and the matching skill areas at Developing or above) -> start it; its
+//      skill areas still weak -> revise first; already started -> its next step
 //   8. Otherwise                                -> the next lesson in the course
 // Each suggestion: { id, rule, title, why, action: { type, id?, area?, mode? }, area? }
 //   action.type: "revise" | "lesson" | "challenge" | "project"
@@ -21,6 +24,11 @@ import { lessonPosition, nextLesson, missingNeeds } from "./learning.js";
 import { masteryReport, levelIndex } from "./skills.js";
 import { pendingQuestions } from "./revision.js";
 import { dayString } from "./progress.js";
+import { PATHWAYS, LEVEL_NAMES } from "../pathways/data.js";
+import { pathwayStatus } from "../pathways/progress.js";
+
+// The core skill areas each pathway builds on.
+const PATHWAY_AREAS = { electronics: ["electronics", "circuits"] };
 import { nextChallenge } from "./challenges.js";
 
 const lessonById = new Map(lessons.map((l) => [l.id, l]));
@@ -160,6 +168,31 @@ export function recommendations(progress, { now = new Date(), report = masteryRe
       why: `You've done every lesson it builds on (${p.needs.map(label).filter(Boolean).join(", ")}). ${reason}.`,
       action: { type: "project", id: p.id, mode } });
     break;
+  }
+
+  // 7b. engineering pathways
+  for (const pathway of PATHWAYS.filter((p) => p.status === "available")) {
+    const status = pathwayStatus(pathway, progress);
+    const areas = (PATHWAY_AREAS[pathway.id] ?? []).map((id) => report.find((a) => a.id === id)).filter(Boolean);
+    if (status.started) {
+      if (status.next) {
+        add({ id: `pathway-next-${pathway.id}`, rule: 7, title: `${pathway.title}: ${status.next.title}`,
+          why: `It's the next step in the pathway's ${LEVEL_NAMES[status.next.level]} level (${status.levelsComplete} of 3 levels complete).`,
+          action: { type: "pathway", id: pathway.id, lessonId: status.next.type === "lesson" ? status.next.id : null } });
+      }
+      continue;
+    }
+    if (status.missingCore.length || !areas.length) continue;
+    const weakArea = areas.find((a) => a.weak.some((w) => w.severity >= 2));
+    if (weakArea) {
+      add({ id: `pathway-revise-${pathway.id}`, rule: 7, area: weakArea.id, title: `Revise ${weakArea.name} before the ${pathway.title} pathway`,
+        why: `You're ready to start the pathway, but ${weakArea.weak[0].text.charAt(0).toLowerCase() + weakArea.weak[0].text.slice(1)} - and the pathway builds straight on it. Put that right first.`,
+        action: { type: "revise", area: weakArea.id } });
+    } else if (areas.every((a) => a.levelIndex >= levelIndex("developing"))) {
+      add({ id: `pathway-start-${pathway.id}`, rule: 7, title: `Start the ${pathway.title} pathway`,
+        why: `You've done the lessons it starts from, and you're ${areas.map((a) => `${a.level.replace("-", " ")} in ${a.name}`).join(" and ")}. It goes on to ${pathway.teaches.slice(1, 3).join(", ").toLowerCase()} - and designing a circuit of your own.`,
+        action: { type: "pathway", id: pathway.id } });
+    }
   }
 
   // 8. the course

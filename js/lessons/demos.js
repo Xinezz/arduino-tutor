@@ -338,6 +338,12 @@ const DEMOS = {
   breadboard,
 };
 
+// Other modules add their own demos here (the engineering pathways'
+// calculated visualisations - pathways/visuals.js), so a lesson block names
+// any of them the same way. The building blocks are shared for that too.
+export function registerDemos(more) { Object.assign(DEMOS, more); }
+export { el, svgEl, slider, frame, ledSvg };
+export const demoNames = () => Object.keys(DEMOS);
 export const DEMO_NAMES = Object.keys(DEMOS);
 
 export function renderDemo(name) {

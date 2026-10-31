@@ -78,8 +78,9 @@
   <nav class="view-tabs" id="view-tabs">
     <button class="view-tab active" data-view="learn" data-sprite-icon="book" data-sfx="select" title="The course: every module and lesson, and what to do next (1)"><span class="tab-label">Learn</span></button>
     <button class="view-tab" data-view="projects" data-sprite-icon="chip" data-sfx="select" title="Bigger builds that combine what you've learned (2)"><span class="tab-label">Projects</span></button>
-    <button class="view-tab" data-view="practice" data-sprite-icon="led" data-sfx="select" title="Free Practice: the editor and every part, no lesson (3)"><span class="tab-label">Practice</span></button>
-    <button class="view-tab" data-view="dashboard" data-sprite-icon="person" data-sfx="select" title="What you've learned, what to revise, and your rewards (4)"><span class="tab-label">Progress</span><span class="tab-badge" id="profile-badge" hidden>0</span></button>
+    <button class="view-tab" data-view="pathways" data-sprite-icon="flag" data-sfx="select" title="Engineering pathways: go further, from ideas to your own designs (3)"><span class="tab-label">Pathways</span></button>
+    <button class="view-tab" data-view="practice" data-sprite-icon="led" data-sfx="select" title="Free Practice: the editor and every part, no lesson (4)"><span class="tab-label">Practice</span></button>
+    <button class="view-tab" data-view="dashboard" data-sprite-icon="person" data-sfx="select" title="What you've learned, what to revise, and your rewards (5)"><span class="tab-label">Progress</span><span class="tab-badge" id="profile-badge" hidden>0</span></button>
   </nav>
   <div class="hud" id="hud">
     <button class="hud-avatar" id="hud-avatar" aria-label="Open your progress"></button>
@@ -207,6 +208,12 @@
 <div class="view" id="view-shop" hidden>
   <main class="main-panel main-panel-wide" id="shop-panel">
     <!-- filled in by js/game/shopView.js -->
+  </main>
+</div>
+
+<div class="view" id="view-pathways" hidden>
+  <main class="main-panel main-panel-wide" id="pathways-panel">
+    <!-- filled in by js/pathways/pathwaysView.js -->
   </main>
 </div>
 

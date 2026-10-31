@@ -56,6 +56,14 @@ export function behaviourTimeline(project) {
   const ms = project.previewMs ?? 2000;
   const sim = simulate(project.reference, { ms, inputs: { digitalRead: () => 1, ...project.previewInputs } });
   const pins = project.previewPins;
+  // a project that only prints shows what it printed, with the time
+  if (!pins.length && project.previewPrinted) {
+    const pre = el("pre", "code-block project-printed");
+    pre.textContent = sim.printed.slice(0, 12).map((p) => `${(p.t / 1000).toFixed(1).padStart(4)} s   ${p.text}`).join("\n");
+    pre.setAttribute("aria-label", "Expected Serial Monitor output");
+    return pre;
+  }
+  const sounding = new Set(project.previewSoundPins ?? []);
   const W = 560, rowH = 26, left = 70, top = 8;
   const H = top + pins.length * rowH + 24;
   const NS = "http://www.w3.org/2000/svg";
@@ -72,7 +80,7 @@ export function behaviourTimeline(project) {
     add("rect", { x: left, y: y + 4, width: W - left - 10, height: rowH - 10, class: "dg-box" });
     let start = null;
     for (let t = 0; t <= ms; t += 10) {
-      const on = sim.hardware.levelAt(pin, t) > 0;
+      const on = sim.hardware.levelAt(pin, t) > 0 || (sounding.has(pin) && sim.hardware.soundAt(pin, t) !== null);
       if (on && start === null) start = t;
       if ((!on || t === ms) && start !== null) {
         add("rect", { x: x(start), y: y + 4, width: Math.max(1, x(t) - x(start)), height: rowH - 10, class: "dg-on" });
@@ -94,20 +102,20 @@ function expectedBehaviour(project) {
 }
 
 // ---------------------------------------------------------------- the project page
-export function renderProjectPage(container, project, progress, { onBack, onStart, onOpenLesson, onQuizResult, onSaveLog } = {}) {
+export function renderProjectPage(container, project, progress, { onBack, onStart, onOpenLesson, onQuizResult, onSaveLog, backLabel = "← All projects" } = {}) {
   container.innerHTML = "";
   const entry = progress.projects?.[project.id] ?? {};
   const completed = entry.completed ?? {};
   const done = Object.keys(completed).length > 0;
 
   const head = el("div", "projects-intro");
-  head.appendChild(button("← All projects", "secondary", onBack));
+  head.appendChild(button(backLabel, "secondary", onBack));
   const h1 = el("h1");
   h1.innerHTML = icon(project.sprite, 3);
   h1.append(` ${project.title}`);
   head.appendChild(h1);
   const badges = el("div", "project-badges");
-  badges.append(el("span", `project-level is-${project.level}`, project.level), el("span", "project-sim-ok", "✔ Fully simulated - every part and command runs in the simulator"));
+  badges.append(el("span", `project-level is-${project.level}`, project.pathwayLevel ? `${project.pathway[0].toUpperCase()}${project.pathway.slice(1)} pathway · level ${project.pathwayLevel}` : project.level), el("span", "project-sim-ok", "✔ Fully simulated - every part and command runs in the simulator"));
   for (const m of Object.keys(completed)) badges.appendChild(el("span", "learn-tag is-done", `${MODES[m].label} ✔`));
   head.appendChild(badges);
   head.appendChild(el("p", null, project.summary));
@@ -241,7 +249,10 @@ export function renderProjectPage(container, project, progress, { onBack, onStar
 
   const log = section(10, "Your project log");
   log.appendChild(el("p", null, "Engineers keep notes. Write down what went wrong and how you fixed it, and what you changed - it's saved with your progress, in this browser."));
-  for (const [field, label] of [["problems", "Problems I met, and how I solved them"], ["improvements", "Improvements I made"]]) {
+  const fields = [["problems", "Problems I met, and how I solved them"], ["improvements", "Improvements I made"]];
+  // a design project's decisions are part of how it's judged (pathways/progress.js)
+  if (project.pathwayLevel === 3) fields.unshift(["decisions", "My design decisions: which parts and pins I chose and why, and how I tested each requirement"]);
+  for (const [field, label] of fields) {
     const lab = el("label", "lesson-reasoning", label);
     const box = el("textarea", "lesson-reasoning-box project-log-box");
     box.rows = 3;

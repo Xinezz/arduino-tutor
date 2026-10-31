@@ -24,6 +24,7 @@ import { revisionQuiz } from "./questionBank.js";
 import { nextChallenge, CHALLENGE_LEVELS } from "./challenges.js";
 import { goalStatus, availableGoals, MAX_ACTIVE_GOALS } from "./goals.js";
 import { overview } from "./insights.js";
+import { pathwayLessonById, pathwayLessonLabel } from "../pathways/data.js";
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -40,7 +41,9 @@ function button(text, kind, onClick, title) {
 }
 const lessonLabel = (id) => {
   const l = lessons.find((x) => x.id === id);
-  return l ? `${lessonPosition(l).label} ${l.title}` : "";
+  if (l) return `${lessonPosition(l).label} ${l.title}`;
+  const p = pathwayLessonById(id);
+  return p ? `${pathwayLessonLabel(p)} ${p.title}` : "";
 };
 function ago(iso, now = new Date()) {
   const mins = Math.round((now - new Date(iso)) / 60000);
@@ -70,6 +73,7 @@ function actionButton(action, cb, label) {
   if (action.type === "lesson") return button(label ?? "Open lesson", kind, () => cb.onOpenLesson?.(action.id));
   if (action.type === "challenge") return button(label ?? "Go to the challenge", kind, () => cb.onOpenChallenge?.(action.id));
   if (action.type === "project") return button(label ?? "Open the project", kind, () => cb.onOpenProject?.(action.id, action.mode));
+  if (action.type === "pathway") return button(label ?? "Open the pathway", kind, () => cb.onOpenPathway?.(action.id, action.lessonId ?? null));
   return el("span");
 }
 

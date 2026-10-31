@@ -543,7 +543,7 @@ function renderExperiment(block) {
 
 // `terms` ({ seen, lessonId }) marks the first use of a word a beginner may
 // not know (see terms.js) - in paragraphs, notes and lists.
-function renderBlock(block, terms) {
+export function renderBlock(block, terms) {
   if (block.type === "action") return renderAction(block);
   if (block.type === "list") return renderPlainList(block, terms);
   if (block.type === "example") return renderExample(block);

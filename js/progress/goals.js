@@ -13,6 +13,7 @@ import { quizzes } from "../quiz/data.js";
 import { BEGINNER_PROJECTS } from "../projects/beginner.js";
 import { masteryReport, levelIndex } from "./skills.js";
 import { pendingQuestions } from "./revision.js";
+import { pathwayStatus } from "../pathways/progress.js";
 
 export const MAX_ACTIVE_GOALS = 3;
 
@@ -74,6 +75,12 @@ export const GOALS = [
       const an = area(report, "analog");
       return { current: d.levelIndex + an.levelIndex, target: 2 * levelIndex("mastered"),
         detail: `Digital: ${d.level.replace("-", " ")} · Analog: ${an.level.replace("-", " ")}` };
+    } },
+  { id: "pathway-electronics", title: "Complete the Electronics Engineering pathway",
+    why: "All three levels: lessons, checkpoints right, every project passing its checks, and your own design.",
+    measure: (progress) => {
+      const s = pathwayStatus("electronics", progress);
+      return { current: s.levelsComplete, target: 3, detail: `${s.levelsComplete} of 3 levels complete` };
     } },
   { id: "revision-clear", title: "Clear my revision list",
     why: "Every question you've missed put right after a gap - remembered, not just re-read.",
