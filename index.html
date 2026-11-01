@@ -25,7 +25,7 @@
      actually read and learn from, not just look at. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
 
 <!-- CodeMirror gives us line numbers + syntax highlighting for the code editor.
      We use version 5 because it works with plain <script> tags (no build tools needed). -->
@@ -36,6 +36,8 @@
 <link rel="stylesheet" href="css/hud.css" />
 <link rel="stylesheet" href="css/screens.css" />
 <link rel="stylesheet" href="css/scenes.css" />
+<!-- the design system: tokens and shared components, loaded last (docs/design-audit.md) -->
+<link rel="stylesheet" href="css/system.css" />
 </head>
 <body>
 
@@ -250,24 +252,29 @@
     <section class="guide-panel hud-frame" id="project-guide" aria-live="polite" hidden></section>
     <div class="practice-tools">
 
-    <section class="editor-section">
+    <!-- The workbench: code and its Serial Monitor on one side, the circuit on
+         the other (stacked on narrower screens). Every control keeps its id -
+         the simulator code doesn't depend on where things sit. -->
+    <section class="editor-section workbench-code" aria-label="Code and Serial Monitor">
       <div class="editor-toolbar">
-        <span class="editor-label">Practice Editor</span>
+        <span class="editor-label">Code</span>
         <div class="editor-toolbar-actions">
-          <button id="practice-run-btn" class="btn btn-complete" title="Check your code, then run it on the board below - starting from setup()"><span data-sprite="play"></span> Run</button>
+          <button id="practice-run-btn" class="btn btn-complete btn-run" title="Check your code, then run it on the board - starting from setup()"><span data-sprite="play"></span> Run</button>
           <button id="practice-stop-btn" class="btn btn-danger" disabled title="Stop the sketch and power the board down. Your code and wiring stay exactly as they are."><span class="stop-ico"></span> Stop</button>
           <button id="practice-reset-btn" class="btn btn-destructive" title="Replace the code in the editor with the empty starting template (asks first). Your circuit isn't touched.">Reset Code</button>
         </div>
       </div>
       <textarea id="practice-code-editor"></textarea>
-      <p class="editor-note">
-        Wire up components on the circuit board below, then click Run — your code controls the board for real.
-      </p>
+      <div class="console-toolbar">
+        <span class="editor-label">Serial Monitor</span>
+        <button id="practice-clear-console-btn" class="btn btn-secondary btn-small" title="Clear the Serial Monitor text. The sketch keeps running.">Clear</button>
+      </div>
+      <pre id="practice-sim-console" class="sim-console"></pre>
     </section>
 
-    <section class="simulator-section">
+    <section class="simulator-section workbench-board" aria-label="Circuit">
       <div class="editor-toolbar">
-        <span class="editor-label">Circuit Board</span>
+        <span class="editor-label">Circuit</span>
         <div class="editor-toolbar-actions">
           <select id="practice-component-picker" class="component-picker" aria-label="Part to add" title="Choose a part to put on the breadboard">
             <option value="led">LED</option>
@@ -289,24 +296,21 @@
           <button id="practice-clear-wiring-btn" class="btn btn-destructive" title="Remove every wire (asks first). The parts stay on the board.">Clear Wiring</button>
         </div>
       </div>
-      <p class="editor-note">
-        Drag a component's body to move it. Click a pin, then click a component lead (or the other way round)
-        to wire them — the wire color below applies to the next wire you draw. Click a wire to remove it.
-        Double-click an LED to cycle its color, or a resistor to cycle its value. While a program is running, drag a sensor's slider, click an
-        IR sensor to simulate an obstacle, or hold a button's body to press it.
-      </p>
+      <details class="workbench-help">
+        <summary>How to build a circuit</summary>
+        <ul>
+          <li><strong>Add a part:</strong> choose it above, then press + Add.</li>
+          <li><strong>Wire it:</strong> click a pin, then a part's leg (or the other way round). The colour chosen below is used for the next wire.</li>
+          <li><strong>Change it:</strong> drag a part's body to move it; double-click an LED to change its colour, or a resistor to change its value; click a wire to remove it.</li>
+          <li><strong>While it runs:</strong> drag a sensor's slider, click an IR sensor for an obstacle, or hold a button's body to press it.</li>
+        </ul>
+      </details>
       <div class="wire-palette" id="practice-wire-palette">
         <!-- filled in by js/simulator/panel.js from board.getWirePalette() -->
       </div>
       <p class="sim-board-scroll-note">The board is wider than your screen - swipe sideways to see all of it.</p>
       <div class="sim-board-scroll"><svg id="practice-sim-board" viewBox="0 0 780 600" class="sim-svg" role="img" aria-label="Arduino Uno and breadboard"></svg></div>
       <div class="circuit-report" id="practice-circuit-report" aria-live="polite" hidden></div>
-
-      <div class="console-toolbar">
-        <span class="editor-label">Serial Monitor</span>
-        <button id="practice-clear-console-btn" class="btn btn-secondary" title="Clear the Serial Monitor text. The sketch keeps running.">Clear</button>
-      </div>
-      <pre id="practice-sim-console" class="sim-console"></pre>
     </section>
     </div>
     </div>

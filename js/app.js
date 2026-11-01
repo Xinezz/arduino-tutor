@@ -1328,7 +1328,7 @@ installKonami(() => {
 // "map" or "shop" open that screen, "first-circuit" starts the guided first
 // circuit in Free Practice, and anything else is treated as a lesson
 // id to jump directly into (e.g. the menu's "Review" on a flagged lesson).
-const SCREEN_TARGETS = new Set(["welcome", "learn", "practice", "dashboard", "map", "shop", "first-circuit"]);
+const SCREEN_TARGETS = new Set(["welcome", "learn", "practice", "dashboard", "map", "shop", "first-circuit", "projects", "pathways", "portfolio"]);
 
 // The welcome tour (learn/welcomeTour.js): a new player's first stop, and
 // the Learn page's "How this course works". It ends on the guided first LED

@@ -276,7 +276,7 @@ export function createFirstCircuitGuide({ container, panel, targets = {}, onFini
       render(body, nav) {
         const hasLed = !!firstOf("led");
         const hasResistor = !!firstOf("resistor");
-        body.appendChild(para("Use the Circuit Board toolbar below the code editor:"));
+        body.appendChild(para("Use the toolbar above the circuit board:"));
         body.appendChild(checklist([
           [hasLed, "Choose LED in the list, then press + Add"],
           [hasResistor, "Choose Resistor in the list, then press + Add"],
@@ -360,7 +360,7 @@ export function createFirstCircuitGuide({ container, panel, targets = {}, onFini
           const row = el("div", "guide-actions");
           row.appendChild(button("Show me Run", "hint", () => highlight(targets.run)));
           body.appendChild(row);
-          if (seen.error) body.appendChild(para("The Serial Monitor (under the board) says what went wrong, and the line is highlighted in red. Fix it, then press Run again.", "guide-warn"));
+          if (seen.error) body.appendChild(para("The Serial Monitor (under the code) says what went wrong, and the line is highlighted in red. Fix it, then press Run again.", "guide-warn"));
           if (seen.stuck) {
             const led = ledStatus();
             body.appendChild(para(led.problem ? `The LED isn't blinking because ${led.problem.text}` : "The LED isn't blinking yet - press Check Circuit to see what's connected.", "guide-warn"));

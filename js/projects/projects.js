@@ -80,8 +80,8 @@ export function renderProjectList(container, progress, { onSelectProject, onOpen
     tags.className = "project-concepts";
     for (const c of p.concepts) tags.appendChild(Object.assign(document.createElement("span"), { className: "learn-tag", textContent: SKILLS[c] }));
     const status = document.createElement("div");
-    status.className = "project-lock-note";
-    status.textContent = modesDone.length ? `✔ Completed: ${modesDone.join(", ")}` : "✔ Fully simulated · not started";
+    status.className = `project-status${modesDone.length ? " is-done" : ""}`;
+    status.textContent = modesDone.length ? `✔ Completed in ${modesDone.join(" and ")} mode` : "Not started · runs fully in the simulator";
     card.append(ico, h3, desc, tags, status);
     card.addEventListener("click", () => onSelectProject(p.id));
     beginners.appendChild(card);

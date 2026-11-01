@@ -21,12 +21,15 @@ import { renderMentorBox, getMenuGreeting } from "../npc/mentor.js";
 import { getLevelInfo } from "../progress/progress.js";
 import { getCurrentRank } from "../progress/ranks.js";
 import { lessons } from "../lessons/data.js";
-import { animateCount } from "../utils/animateCount.js";
 import { icon } from "../game/sprites.js";
 import { AVATARS, itemKey, avatarSpriteName } from "../game/shop.js";
 import { getDailyBoard } from "../game/missions.js";
 import { playSfx } from "../game/audio.js";
 import { nextLesson, lessonPosition } from "../progress/learning.js";
+import { recommendations } from "../progress/recommend.js";
+import { ACHIEVEMENT_MAP } from "../game/achievements.js";
+import { BEGINNER_PROJECTS } from "../projects/beginner.js";
+import { PATHWAY_PROJECTS } from "../pathways/data.js";
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -85,16 +88,54 @@ function buildAvatarPicker(progress, initialId, onChange) {
   return wrap;
 }
 
+// What a first-time visitor needs to know before signing in: what this is,
+// who it's for, what they'll be able to do, and how to begin. Every number
+// here is the real one from the course data.
+function buildIntro() {
+  const intro = el("section", "menu-intro");
+  intro.setAttribute("aria-labelledby", "menu-intro-title");
+  intro.appendChild(el("div", "menu-intro-eyebrow", "LEARN ELECTRONICS · CODE · ENGINEERING"));
+  const h1 = el("h1", "menu-intro-title", "Learn Arduino from your very first LED to projects of your own.");
+  h1.id = "menu-intro-title";
+  intro.appendChild(h1);
+  intro.appendChild(el("p", "menu-intro-lead",
+    "A step-by-step course for complete beginners. Learn how circuits work, write real Arduino code, and build on a virtual Arduino right here in your browser - no hardware, no installs, no experience needed."));
+  const points = el("ul", "menu-intro-points");
+  const moduleCount = new Set(lessons.map((l) => l.module)).size;
+  for (const [sprite, title, text] of [
+    ["book", `${lessons.length} short lessons in ${moduleCount} modules`, "From what electricity is, through code, to sensors, motors and your own projects - each lesson builds on the last."],
+    ["chip", "A simulator that checks your work", "Wire the parts, run your code, and see it work - with plain-English help when something's wrong."],
+    ["trophy", "Projects you design yourself", "Checked projects, engineering pathways, and a portfolio of what you've built."],
+  ]) {
+    const li = el("li", "menu-intro-point");
+    const ico = el("span", "menu-intro-icon");
+    ico.innerHTML = icon(sprite, 3);
+    const body = el("div");
+    body.append(el("strong", null, title), el("span", null, text));
+    li.append(ico, body);
+    points.appendChild(li);
+  }
+  intro.appendChild(points);
+  const steps = el("ol", "menu-intro-steps");
+  steps.setAttribute("aria-label", "How to begin");
+  for (const s of ["Pick a name", "Take the one-minute tour", "Build your first LED circuit"]) steps.appendChild(el("li", null, s));
+  intro.appendChild(steps);
+  return intro;
+}
+
 function renderFirstTimeScreen(container, progress, onStart, onPoke) {
   container.innerHTML = "";
 
+  const layout = el("div", "menu-first");
+  container.appendChild(layout);
+  layout.appendChild(buildIntro());
   const card = el("div", "menu-card hud-frame");
-  container.appendChild(card);
+  layout.appendChild(card);
 
   const brand = el("div", "menu-brand");
   brand.innerHTML = `${BRAND_ICON_SVG}<span>Arduino<b>Tutor</b></span>`;
   card.appendChild(brand);
-  card.appendChild(el("p", "menu-tagline", "Your first day at CircuitWorks Robotics."));
+  card.appendChild(el("p", "menu-tagline", "Your first day at CircuitWorks Robotics - Sam will show you around."));
 
   const mentorSlot = el("div", "mentor-box hud-frame menu-mentor");
   card.appendChild(mentorSlot);
@@ -153,32 +194,35 @@ function renderFirstTimeScreen(container, progress, onStart, onPoke) {
 }
 
 // ==================== Returning visitor ====================
+// A dashboard with one obvious next action. In order of importance:
+// welcome, CONTINUE LEARNING (the big card), then smaller supporting cards -
+// progress, the recommended activity (with its reason), recently completed,
+// current projects, achievements - and quick links to every section.
 
 function renderReturningScreen(container, progress, onStart, onPoke) {
   container.innerHTML = "";
 
   const page = el("div", "menu-returning");
   container.appendChild(page);
-
   page.appendChild(buildHeader(progress, container, onStart, onPoke));
 
-  const hero = el("div", "menu-hero");
-  // What "Continue" opens: the lesson you're part-way through, or the next
-  // one in the course.
   const upNext = nextLesson(progress);
-  hero.appendChild(buildHeroText(progress, upNext, onStart, onPoke));
-  hero.appendChild(buildIllustration(progress, upNext));
-  page.appendChild(hero);
-
-  const cardRow = el("div", "menu-card-row");
-  cardRow.appendChild(buildProgressCard(progress));
-  cardRow.appendChild(buildNextCard(progress, upNext, onStart));
-  cardRow.appendChild(buildMissionsCard(progress, onStart));
-  page.appendChild(cardRow);
+  const home = el("div", "menu-home");
+  const main = el("div", "menu-home-main");
+  main.appendChild(buildWelcome(progress, onPoke));
+  main.appendChild(buildContinueCard(progress, upNext, onStart));
+  main.appendChild(buildQuickLinks(onStart));
+  const side = el("div", "menu-home-side");
+  side.append(
+    buildProgressCard(progress),
+    ...[buildRecommendedCard(progress, upNext, onStart), buildRecentCard(progress, onStart), buildProjectsCard(progress, onStart), buildAchievementsCard(progress, onStart)].filter(Boolean),
+  );
+  home.append(main, side);
+  page.appendChild(home);
 }
 
 function buildHeader(progress, container, onStart, onPoke) {
-  const header = el("div", "menu-header hud-frame");
+  const header = el("div", "menu-header");
 
   const brandBlock = el("div", "menu-header-brand");
   brandBlock.innerHTML = `${BRAND_ICON_SVG}
@@ -191,11 +235,11 @@ function buildHeader(progress, container, onStart, onPoke) {
   const right = el("div", "menu-header-right");
   const rank = getCurrentRank(progress);
   const rankPill = el("div", "menu-rank-pill");
-  rankPill.innerHTML = `<span class="menu-rank-pill-label">CURRENT RANK</span><span class="menu-rank-pill-value"></span>`;
+  rankPill.innerHTML = `<span class="menu-rank-pill-label">RANK</span><span class="menu-rank-pill-value"></span>`;
   rankPill.querySelector(".menu-rank-pill-value").textContent = rank.name;
   right.appendChild(rankPill);
 
-  const switchBtn = el("button", "btn btn-secondary menu-switch-btn", `Not ${progress.playerName}?`);
+  const switchBtn = el("button", "btn btn-secondary btn-small menu-switch-btn", `Not ${progress.playerName}?`);
   switchBtn.title = "Update your name";
   // A lightweight, non-persisted re-render into the name-entry state - only
   // actually saving a new name once one is submitted via onStart, not just
@@ -209,194 +253,177 @@ function buildHeader(progress, container, onStart, onPoke) {
   return header;
 }
 
-// One of the big round buttons: an icon, with a caption under it.
-function circleButton({ sprite, label, kind, onClick, badge }) {
-  const wrap = el("div", "menu-action");
-  const btn = el("button", `menu-circle-btn menu-circle-${kind}`);
-  btn.type = "button";
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  btn.innerHTML = icon(sprite, 3);
-  btn.addEventListener("click", onClick);
-  if (badge) {
-    const b = el("span", "menu-action-badge", String(badge));
-    btn.appendChild(b);
-  }
-  wrap.appendChild(btn);
-  wrap.appendChild(el("div", "menu-action-label", label));
-  return wrap;
-}
-
-function buildHeroText(progress, upNext, onStart, onPoke) {
-  const heroText = el("div", "menu-hero-text");
-
-  const mentorSlot = el("div", "mentor-box hud-frame menu-hero-mentor");
-  heroText.appendChild(mentorSlot);
-  renderMentorBox(mentorSlot, { text: getMenuGreeting(progress.playerName), tag: "Welcome back", mood: "happy", onPoke });
-
-  heroText.appendChild(el("h1", "menu-hero-heading", `Good to have you back, ${progress.playerName}.`));
-  heroText.appendChild(el(
-    "p",
-    "menu-hero-sub",
-    upNext
-      ? `Up next: ${lessonPosition(upNext).label} ${upNext.title}${/[.?!]$/.test(upNext.title) ? "" : "."} Press Continue to go straight there.`
-      : "You've finished every lesson - try a project, or plan one of your own."
-  ));
-
-  const board = getDailyBoard(progress);
-  const pending = board.claimable.length + (board.chestReady ? 1 : 0);
-
-  const actions = el("div", "menu-hero-actions");
-  // The same four places as the tabs inside: Learn, Practice, Progress (and
-  // Continue, which is "Learn, straight to the next lesson").
-  actions.appendChild(circleButton({ sprite: "play", label: "Continue", kind: "primary", onClick: () => onStart?.(null) }));
-  // Until it's been done once, the guided first build stays one click away.
-  if (!progress.firstCircuitDone) {
-    actions.appendChild(circleButton({ sprite: "led", label: "First Circuit", kind: "secondary", onClick: () => onStart?.(null, "first-circuit") }));
-  }
-  actions.appendChild(circleButton({ sprite: "book", label: "Course", kind: "secondary", onClick: () => onStart?.(null, "learn") }));
-  actions.appendChild(circleButton({ sprite: "monitor", label: "Practice", kind: "secondary", onClick: () => onStart?.(null, "practice") }));
-  actions.appendChild(circleButton({ sprite: "person", label: "Progress", kind: "secondary", badge: pending || null, onClick: () => onStart?.(null, "dashboard") }));
-  heroText.appendChild(actions);
-  return heroText;
-}
-
-// An animated "the bench is live" scene: a couple of slow-pulsing LEDs, a
-// row of signal bars looping at slightly different speeds so they don't
-// all move in lockstep, and your character standing on the bench - all
-// respect prefers-reduced-motion via CSS alone (see .menu-illustration rules),
-// so there's no JS branching needed here for that.
-function buildIllustration(progress, upNext) {
-  const box = el("div", "menu-illustration hud-frame");
-
-  const icons = el("div", "menu-illustration-icons");
-  icons.innerHTML = `
-    <span class="menu-led menu-led-a"></span>
-    <span class="menu-led menu-led-b"></span>
-    <span class="menu-illustration-chip">${icon(avatarSpriteName(progress.equipped?.avatar), 6)}</span>`;
-  box.appendChild(icons);
-
-  const bars = el("div", "menu-bars");
-  for (let i = 0; i < 7; i++) {
-    bars.appendChild(el("div", "menu-bar"));
-  }
-  box.appendChild(bars);
-
-  const label = el("div", "menu-illustration-label");
-  label.innerHTML = icon("led", 1);
-  label.appendChild(document.createTextNode(upNext ? ` NEXT: ${upNext.title}` : " READY WHEN YOU ARE"));
-  box.appendChild(label);
-
+function buildWelcome(progress, onPoke) {
+  const box = el("div", "menu-welcome");
+  box.appendChild(el("h1", "menu-welcome-title", `Welcome back, ${progress.playerName}.`));
+  const mentorSlot = el("div", "mentor-box menu-hero-mentor");
+  box.appendChild(mentorSlot);
+  renderMentorBox(mentorSlot, { text: getMenuGreeting(progress.playerName), tag: "Your mentor", mood: "happy", onPoke });
   return box;
 }
 
-function buildStat(label, value, suffix = "", spriteName = null) {
-  const wrap = el("div", "menu-stat");
-  const labelEl = el("div", "menu-stat-label");
-  if (spriteName) labelEl.innerHTML = icon(spriteName, 1);
-  labelEl.appendChild(document.createTextNode(spriteName ? ` ${label}` : label));
-  wrap.appendChild(labelEl);
-  const valueEl = el("div", "menu-stat-value");
-  wrap.appendChild(valueEl);
-  animateCount(valueEl, value, suffix);
-  return wrap;
+function buildContinueCard(progress, upNext, onStart) {
+  const card = el("section", "menu-continue hud-frame");
+  card.setAttribute("aria-labelledby", "menu-continue-title");
+  card.appendChild(el("div", "menu-card-eyebrow", "CONTINUE LEARNING"));
+  if (!upNext) {
+    const h2 = el("h2", "menu-continue-title", "You've finished every lesson");
+    h2.id = "menu-continue-title";
+    card.appendChild(h2);
+    card.appendChild(el("p", "menu-continue-why", "Build a project, take an engineering pathway, or plan something of your own."));
+    const row = el("div", "menu-continue-actions");
+    row.append(button("Open the projects", "btn btn-primary btn-large", () => onStart?.(null, "projects")),
+      button("Engineering pathways", "btn btn-secondary btn-large", () => onStart?.(null, "pathways")));
+    card.appendChild(row);
+    return card;
+  }
+  const inModule = lessons.filter((l) => l.module === upNext.module);
+  const doneInModule = inModule.filter((l) => progress.viewedLessons.includes(l.id)).length;
+  const pos = lessonPosition(upNext);
+  card.appendChild(el("div", "menu-continue-module", `Module ${upNext.module} · lesson ${pos.index} of ${pos.count}`));
+  const h2 = el("h2", "menu-continue-title", `${pos.label} ${upNext.title}`);
+  h2.id = "menu-continue-title";
+  card.appendChild(h2);
+  if (upNext.why) card.appendChild(el("p", "menu-continue-why", upNext.why));
+  const bar = el("div", "menu-continue-bar");
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute("aria-label", `Module ${upNext.module} progress`);
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", String(inModule.length));
+  bar.setAttribute("aria-valuenow", String(doneInModule));
+  const fill = el("span", "menu-continue-fill");
+  fill.style.width = `${(doneInModule / inModule.length) * 100}%`;
+  bar.appendChild(fill);
+  card.appendChild(bar);
+  card.appendChild(el("div", "menu-continue-meta", `${doneInModule} of ${inModule.length} lessons done in this module`));
+  const row = el("div", "menu-continue-actions");
+  const go = button("Continue lesson", "btn btn-primary btn-large", () => onStart?.(null));
+  go.dataset.sfx = "confirm";
+  row.appendChild(go);
+  if (!progress.firstCircuitDone) row.appendChild(button("Build your first LED (10 min)", "btn btn-secondary btn-large", () => onStart?.(null, "first-circuit")));
+  row.appendChild(button("Course overview", "btn btn-secondary btn-large", () => onStart?.(null, "learn")));
+  card.appendChild(row);
+  return card;
+}
+
+function buildQuickLinks(onStart) {
+  const nav = el("nav", "menu-quick");
+  nav.setAttribute("aria-label", "Go to");
+  for (const [sprite, label, target, hint] of [
+    ["chip", "Projects", "projects", "Bigger builds, checked step by step"],
+    ["flag", "Pathways", "pathways", "Engineering beyond the core course"],
+    ["led", "Practice", "practice", "The editor and every part, no lesson"],
+    ["person", "Progress", "dashboard", "What you've learned and what to revise"],
+    ["scroll", "Portfolio", "portfolio", "Your projects, code and notes"],
+  ]) {
+    const b = el("button", "menu-quick-link");
+    b.type = "button";
+    b.innerHTML = icon(sprite, 2);
+    const text = el("span", "menu-quick-text");
+    text.append(el("strong", null, label), el("span", null, hint));
+    b.appendChild(text);
+    b.addEventListener("click", () => onStart?.(null, target));
+    nav.appendChild(b);
+  }
+  return nav;
+}
+
+function sideCard(eyebrow, title) {
+  const card = el("section", "menu-side-card");
+  card.appendChild(el("div", "menu-card-eyebrow", eyebrow));
+  if (title) card.appendChild(el("h2", "menu-side-title", title));
+  return card;
 }
 
 function buildProgressCard(progress) {
-  const card = el("div", "menu-stat-card hud-frame");
-  const eyebrow = el("div", "menu-card-eyebrow");
-  eyebrow.innerHTML = icon("scroll", 1);
-  eyebrow.appendChild(document.createTextNode(" YOUR FILE"));
-  card.appendChild(eyebrow);
-  card.appendChild(el("div", "menu-card-heading", "Progress Summary"));
-
-  const { level, xpIntoLevel, xpForLevel, pct } = getLevelInfo(progress.xp);
-  const row = el("div", "menu-stat-row");
-  row.appendChild(buildStat("LEVEL", level));
-  row.appendChild(buildStat("XP", progress.xp));
-  row.appendChild(buildStat("STREAK", progress.streak || 0, "", "flame"));
-  card.appendChild(row);
-
-  const track = el("div", "menu-stat-bar-track");
-  const fill = el("div", "menu-stat-bar-fill");
-  track.appendChild(fill);
-  card.appendChild(track);
-  // Starts at 0 width and animates to the real value on the next frame -
-  // the same "force a fresh transition" trick used elsewhere in this app
-  // (see replayFadeIn in app.js), just via rAF instead of a reflow hack
-  // since this element is brand new rather than reused.
-  requestAnimationFrame(() => { fill.style.width = `${pct}%`; });
-  setTimeout(() => { fill.style.width = `${pct}%`; }, 60); // rAF can be starved in a hidden tab
-
-  card.appendChild(el("div", "menu-card-caption", `${xpForLevel - xpIntoLevel} XP to the next level`));
-  return card;
-}
-
-function buildNextCard(progress, upNext, onStart) {
-  const card = el("div", "menu-next-card hud-frame");
-  const flagged = (progress.flaggedLessons || [])
-    .map((id) => lessons.find((l) => l.id === id))
-    .filter(Boolean);
-
-  if (flagged.length > 0) {
-    const target = flagged[flagged.length - 1];
-    const eyebrow = el("div", "menu-card-eyebrow menu-card-eyebrow-flag");
-    eyebrow.innerHTML = icon("flag", 1);
-    eyebrow.appendChild(document.createTextNode(" FLAGGED FOR REVIEW"));
-    card.appendChild(eyebrow);
-    card.appendChild(el("div", "menu-card-heading", target.title));
-    card.appendChild(el(
-      "p",
-      "menu-card-body",
-      `You've flagged ${flagged.length} lesson${flagged.length === 1 ? "" : "s"} to revisit - this was the most recent.`
-    ));
-    const btn = el("button", "btn btn-hint menu-card-btn", "Review");
-    btn.addEventListener("click", () => onStart?.(null, target.id));
-    card.appendChild(btn);
-  } else {
-    const eyebrow = el("div", "menu-card-eyebrow");
-    eyebrow.innerHTML = icon("target", 1);
-    eyebrow.appendChild(document.createTextNode(" KEEP GOING"));
-    card.appendChild(eyebrow);
-    card.appendChild(el("div", "menu-card-heading", upNext ? `${lessonPosition(upNext).label} ${upNext.title}` : "All lessons done"));
-    card.appendChild(el(
-      "p",
-      "menu-card-body",
-      upNext?.why ?? "Every lesson is done - the Projects tab and Module 7 are waiting."
-    ));
-    const btn = el("button", "btn btn-complete menu-card-btn", "Continue");
-    btn.addEventListener("click", () => onStart?.(null));
-    card.appendChild(btn);
+  const done = lessons.filter((l) => progress.viewedLessons.includes(l.id)).length;
+  const card = sideCard("YOUR PROGRESS", `${done} of ${lessons.length} lessons`);
+  const bar = el("div", "menu-continue-bar");
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute("aria-label", "Course progress");
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", String(lessons.length));
+  bar.setAttribute("aria-valuenow", String(done));
+  const fill = el("span", "menu-continue-fill");
+  fill.style.width = `${(done / lessons.length) * 100}%`;
+  bar.appendChild(fill);
+  card.appendChild(bar);
+  const { level, xpIntoLevel, xpForLevel } = getLevelInfo(progress.xp);
+  const stats = el("dl", "menu-side-stats");
+  for (const [k, v] of [["Level", String(level)], ["To next level", `${xpForLevel - xpIntoLevel} XP`], ["Streak", `${progress.streak || 0} day${progress.streak === 1 ? "" : "s"}`]]) {
+    const d = el("div");
+    d.append(el("dt", null, k), el("dd", null, v));
+    stats.appendChild(d);
   }
-
+  card.appendChild(stats);
   return card;
 }
 
-function buildMissionsCard(progress, onStart) {
+const actionTarget = (action) => ({ lesson: action.id, challenge: action.id, revise: "dashboard", project: "projects", pathway: "pathways" }[action.type] ?? "dashboard");
+
+function buildRecommendedCard(progress, upNext, onStart) {
+  // the continue card already covers "the next lesson" - show the next-best reason instead
+  const rec = recommendations(progress, { limit: 4 }).find((r) => !(r.action.type === "lesson" && r.action.id === upNext?.id));
+  if (!rec) return null;
+  const card = sideCard("RECOMMENDED FOR YOU", rec.title);
+  card.appendChild(el("p", "menu-side-text", rec.why));
+  card.appendChild(button("Go", "btn btn-hint btn-small", () => onStart?.(null, actionTarget(rec.action))));
+  return card;
+}
+
+function buildRecentCard(progress, onStart) {
+  const recent = [...progress.viewedLessons].reverse().map((id) => lessons.find((l) => l.id === id)).filter(Boolean).slice(0, 3);
+  if (!recent.length) return null;
+  const card = sideCard("RECENTLY COMPLETED");
+  const ul = el("ul", "menu-side-list");
+  for (const l of recent) {
+    const li = el("li");
+    const b = el("button", "menu-side-link", `${lessonPosition(l).label} ${l.title}`);
+    b.type = "button";
+    b.title = "Open this lesson again";
+    b.addEventListener("click", () => onStart?.(null, l.id));
+    li.append(el("span", "menu-side-tick", "✔"), b);
+    ul.appendChild(li);
+  }
+  card.appendChild(ul);
+  return card;
+}
+
+function buildProjectsCard(progress, onStart) {
+  const all = [...BEGINNER_PROJECTS, ...PATHWAY_PROJECTS];
+  const started = all.filter((p) => {
+    const e = progress.projects?.[p.id];
+    return e && (e.stagesDone?.length || e.checks?.attempts) && !Object.keys(e.completed ?? {}).length;
+  });
+  const completed = all.filter((p) => Object.keys(progress.projects?.[p.id]?.completed ?? {}).length);
+  if (!started.length && !completed.length) return null;
+  const card = sideCard("YOUR PROJECTS");
+  const ul = el("ul", "menu-side-list");
+  for (const p of started.slice(0, 2)) ul.appendChild(Object.assign(el("li"), { textContent: `◐ ${p.title} - in progress` }));
+  for (const p of completed.slice(0, 3 - Math.min(2, started.length))) ul.appendChild(Object.assign(el("li"), { textContent: `✔ ${p.title} - completed` }));
+  card.appendChild(ul);
+  card.appendChild(button("Open projects", "btn btn-hint btn-small", () => onStart?.(null, "projects")));
+  return card;
+}
+
+function buildAchievementsCard(progress, onStart) {
+  const latest = Object.entries(progress.achievements ?? {})
+    .filter(([id]) => ACHIEVEMENT_MAP[id]).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 2);
   const board = getDailyBoard(progress);
-  const card = el("div", "menu-missions-card hud-frame");
-  const eyebrow = el("div", "menu-card-eyebrow");
-  eyebrow.innerHTML = icon("calendar", 1);
-  eyebrow.appendChild(document.createTextNode(" DAILY MISSIONS"));
-  card.appendChild(eyebrow);
-
-  const list = el("div", "menu-mission-list");
-  for (const m of board.missions) {
-    const row = el("div", `menu-mission${m.claimed ? " is-claimed" : m.done ? " is-ready" : ""}`);
-    row.innerHTML = `${icon(m.claimed ? "check" : m.icon, 2)}<span class="menu-mission-name"></span><span class="menu-mission-count"></span>`;
-    row.querySelector(".menu-mission-name").textContent = m.name;
-    row.querySelector(".menu-mission-count").textContent = m.claimed ? "DONE" : m.done ? "READY!" : `${m.have}/${m.target}`;
-    list.appendChild(row);
-  }
-  card.appendChild(list);
-
+  const missionsDone = board.missions.filter((m) => m.done || m.claimed).length;
   const pending = board.claimable.length + (board.chestReady ? 1 : 0);
-  const btn = el(
-    "button",
-    `btn menu-card-btn ${pending ? "btn-complete" : "btn-hint"}`,
-    pending ? `Claim Rewards (${pending})` : "View Missions"
-  );
-  btn.addEventListener("click", () => onStart?.(null, "dashboard"));
-  card.appendChild(btn);
+  const card = sideCard("ACHIEVEMENTS");
+  const ul = el("ul", "menu-side-list");
+  for (const [id] of latest) ul.appendChild(Object.assign(el("li"), { textContent: `★ ${ACHIEVEMENT_MAP[id].name} - ${ACHIEVEMENT_MAP[id].desc}` }));
+  ul.appendChild(Object.assign(el("li"), { textContent: `Daily missions: ${missionsDone} of ${board.missions.length} done${pending ? ` · ${pending} reward${pending === 1 ? "" : "s"} to collect` : ""}` }));
+  card.appendChild(ul);
+  card.appendChild(button(pending ? `Collect rewards (${pending})` : "Trophies and missions", pending ? "btn btn-complete btn-small" : "btn btn-hint btn-small", () => onStart?.(null, "dashboard")));
   return card;
+}
+
+function button(text, className, onClick) {
+  const b = el("button", className, text);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
 }

@@ -1,0 +1,757 @@
+/* ==========================================================================
+   Arduino Tutor design system (see docs/design-audit.md)
+   --------------------------------------------------------------------------
+   Professional educational technology with retro arcade and robotics
+   accents. This layer is loaded LAST: it defines the tokens and the shared
+   components (type, buttons, cards, inputs, callouts, badges, navigation,
+   progress), and brings every page's existing classes onto them - so pages
+   don't style themselves independently. Shop themes still work: they set the
+   same colour variables, inline on <html>, which beats these defaults.
+
+   Rules of thumb:
+   - Inter for reading and UI; Space Grotesk for headings; Press Start 2P
+     only for the logo, tiny eyebrow labels, badges and HUD numbers.
+   - 1px borders, 8px card corners, 4px control corners, one soft elevation.
+   - Colour carries meaning: cyan = action, green = success, amber =
+     highlight, red = error/destructive, purple = advanced.
+   ========================================================================== */
+
+:root {
+  /* ---- colour (the default theme) ---- */
+  --bg: #0b0f19;
+  --panel: #141a26;
+  --panel-alt: #1b2232;
+  --border: #283147;
+  --text: #e6e9f0;
+  --text-dim: #a1a9bd;
+  --code-bg: #0a0d16;
+  --pixel-shadow-color: #04060c;
+
+  /* semantic aliases - new code uses these */
+  --surface-1: var(--panel);
+  --surface-2: var(--panel-alt);
+  --surface-sunken: var(--code-bg);
+  --border-strong: color-mix(in srgb, var(--border) 60%, var(--text-dim));
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --green-soft: color-mix(in srgb, var(--green) 14%, transparent);
+  --yellow-soft: color-mix(in srgb, var(--yellow) 14%, transparent);
+  --red-soft: color-mix(in srgb, var(--red) 14%, transparent);
+  --purple-soft: color-mix(in srgb, var(--purple) 14%, transparent);
+
+  /* ---- type ---- */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-heading: "Space Grotesk", "Inter", "Segoe UI", system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --leading-tight: 1.25;
+  --leading-body: 1.65;
+
+  /* ---- space ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* ---- shape and depth ---- */
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.18);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.28);
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 140ms;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+/* The hidden attribute always wins: a component rule that sets display
+   (like .btn's inline-flex) must never make a hidden element reappear. */
+[hidden] { display: none !important; }
+body {
+  font-size: var(--text-md);
+  line-height: 1.5;
+  /* A calm engineering-grid backdrop instead of the rainbow image: the
+     arcade colours stay on the title screen and menu, where they're the
+     welcome - inside the app, the content is the foreground. */
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 4%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+h1 { font-size: var(--text-2xl); }
+h2 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-lg); }
+
+/* Labels that were set in the pixel font for "game feel" but are read, not
+   glanced at: back to the UI font. */
+.view-tab, .sidebar-level, .lesson-eyebrow, .difficulty-badge, .stat-tile-label,
+.menu-stat-label, .progress-summary, .credits-display, .level-display,
+.rank-step-name, .menu-header-title, .menu-rank-pill-value, .menu-input-label,
+.menu-action-label, .guide-exit, .tour-count {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+
+/* The pixel font, kept where it's identity: the logo, tiny eyebrow labels,
+   badges and the HUD's numbers - always at a size it was drawn for (8px
+   multiples), never for sentences. */
+.brand, .lesson-list-heading, .guide-eyebrow, .menu-card-eyebrow, .mentor-name,
+.mentor-tag, .quest-chip, .reward-chip, .hud-lv, .portfolio-card-cat,
+.challenge-level, .certificate-eyebrow, .level-pill, .doc-pill, .level-badge,
+.runs-badge, .pathway-status, .pathway-card-letter, .pathway-level-state,
+.portfolio-req, .tab-badge, .rank-step-tag, .xp-level, .tag {
+  font-family: var(--font-pixel);
+}
+.lesson-list-heading, .guide-eyebrow, .menu-card-eyebrow { font-size: 0.5rem; letter-spacing: 0.06em; line-height: 1.8; }
+
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { color: color-mix(in srgb, var(--accent) 80%, #fff); }
+
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* Only purposeful motion; none at all for people who ask for that. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ==========================================================================
+   Buttons
+   One shape, one type style; colour says what it does. Primary and success
+   keep a 2px darker bottom edge - the one retro "pressable" accent.
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 7px 16px;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  filter: none;
+  animation: none;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform 80ms var(--ease), box-shadow var(--dur) var(--ease);
+}
+.btn:hover:not(:disabled) { filter: none; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: none; }
+.btn .px { margin: 0; vertical-align: 0; }
+
+.btn-primary, .btn-primary:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
+}
+.btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, #fff); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28); filter: none; }
+
+.btn-complete, .btn-complete:not(:disabled) {
+  background: var(--green);
+  color: var(--on-green);
+  border-color: var(--green);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
+}
+.btn-complete:hover:not(:disabled) { background: color-mix(in srgb, var(--green) 86%, #fff); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28); filter: none; }
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--surface-2) 70%, var(--border)); border-color: var(--border-strong); }
+
+.btn-hint {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.btn-hint:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+
+.btn-danger, .btn-danger:not(:disabled) {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid color-mix(in srgb, var(--red) 60%, var(--border));
+  animation: none;
+}
+.btn-danger:hover:not(:disabled) { background: var(--red-soft); border-color: var(--red); }
+
+.btn-destructive {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, var(--border));
+  box-shadow: none;
+}
+.btn-destructive:hover:not(:disabled) { background: var(--red-soft); border-color: var(--red); border-style: solid; }
+
+.btn-small, .btn.btn-small { min-height: 30px; padding: 4px 10px; font-size: var(--text-xs); }
+.btn-large, .btn.btn-large { min-height: 44px; padding: 10px 22px; font-size: var(--text-md); }
+
+/* ==========================================================================
+   Cards and panels
+   ========================================================================== */
+.card,
+.lesson-content, .learn-head, .learn-next, .learn-module, .learning-progress,
+.challenge-card, .quiz-card, .project-card, .project-stage-card, .projects-intro,
+.practice-intro, .editor-section, .simulator-section, .guide-panel, .next-step-card,
+.dashboard-header, .stat-tile, .mentor-box, .menu-card, .menu-header,
+.menu-stat-card, .menu-next-card, .menu-missions-card, .pathways-head, .pathway-card,
+.pathway-lesson, .portfolio-head, .portfolio-report, .portfolio-card, .revision-round,
+.dash-q, .certificate, .rank-ladder, .xp-bar-wrap, .player-card, .shop-card {
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.lesson-content { padding: var(--space-6) clamp(var(--space-4), 4vw, var(--space-7)); }
+
+/* Corner rivets were on almost every panel, so none stood out. Now only on
+   the one card that says "this is what to do next" - and the certificate. */
+.hud-frame { background-image: none; }
+.learn-next.hud-frame, .menu-continue.hud-frame, .certificate.hud-frame {
+  background-image:
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent));
+  background-size: 8px 8px;
+  background-position: top left, top right, bottom left, bottom right;
+  background-repeat: no-repeat;
+}
+
+/* Interactive cards lift a little on hover - nothing more. */
+.project-card, .pathway-card:not(.is-planned), .portfolio-card {
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.project-card:hover, .pathway-card:not(.is-planned):hover, .portfolio-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* Inner surfaces: rows, tiles and nested cards sit one step up, flat. */
+.rec-card, .learning-tile, .skill-area, .goal-row, .pathway-item, .pathway-level,
+.portfolio-doc-change, .revision-row, .weak-topic-row, .learning-feedback,
+.tutor-a, .tutor-diagnosis {
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+/* Section titles: plain headings, not boxed labels. */
+.dashboard-section-title, .learning-progress .dashboard-section-title, .pathway-section .dashboard-section-title {
+  display: block;
+  margin: var(--space-6) 0 var(--space-3);
+  padding: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+input[type="text"], input[type="search"], input:not([type]), select, textarea,
+.goal-select, .demo-select, .tutor-input, .pathway-search-input, .component-picker, .menu-name-input {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 36px;
+  padding: 6px 10px;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+textarea { line-height: 1.55; }
+input:focus, select:focus, textarea:focus, .tutor-input:focus, .pathway-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.menu-name-input { font-size: var(--text-md); min-height: 44px; }
+
+/* ==========================================================================
+   Callouts - lesson and project content blocks
+   One shape (sunken surface + a coloured left edge + a small pixel label);
+   the colour says what kind of block it is.
+   ========================================================================== */
+.note-box, .lesson-objectives, .lesson-mistakes, .lesson-predict, .lesson-exercise,
+.lesson-guided, .lesson-experiment, .hint-box, .solution-box, .lesson-intro,
+.demo, .lesson-summary, .portfolio-template-hint, .demo-model-note {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+.note-box { border-left-color: var(--accent); }
+.lesson-mistakes { border-left-color: var(--yellow); }
+.lesson-predict, .lesson-question { border-left-color: var(--purple); }
+.lesson-exercise { border-left-color: var(--yellow); }
+.lesson-guided, .lesson-summary { border-left-color: var(--green); }
+.hint-box { border-left-color: var(--yellow); }
+.solution-box { border-left-color: var(--green); }
+.demo { border-left-color: var(--code-text); }
+.demo-model-note { background: var(--surface-sunken); border-left-color: var(--code-text); }
+
+/* Reading comfort: lesson prose is limited to a comfortable line length. */
+.lesson-content p, .lesson-content li, .pathway-lesson p, .pathway-lesson li {
+  line-height: var(--leading-body);
+}
+.lesson-content > p, .lesson-content .lesson-section > p, .pathway-lesson > p,
+.lesson-content .note-box, .lesson-content .lesson-mistakes, .lesson-content .lesson-objectives {
+  max-width: 72ch;
+}
+.lesson-content h1, .pathway-lesson h1 { font-size: var(--text-2xl); line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-3); }
+.code-block, .lesson-content code, pre.code-block {
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Badges, chips and pills
+   ========================================================================== */
+.quest-chip, .reward-chip, .learn-stat, .learn-tag, .tag {
+  border-radius: var(--radius-sm);
+  border-width: 1px;
+}
+.learn-stat {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+}
+
+/* ==========================================================================
+   Progress bars
+   ========================================================================== */
+.learn-module-bar, .dash-overall-bar, .menu-stat-bar-track, .hud-xp-track {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.learn-module-bar-fill, .dash-overall-fill, .menu-stat-bar-fill {
+  background: var(--green);
+  border-radius: 2px;
+  transition: width 600ms var(--ease);
+}
+
+/* ==========================================================================
+   Navigation: the top bar
+   Brand left, the six sections in the middle, your status and tools on the
+   right - in one row from 1200px, with the sections on a row of their own
+   below that.
+   ========================================================================== */
+.topbar {
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+  padding: 8px 16px;
+  gap: 12px;
+}
+.view-tabs {
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.view-tab {
+  gap: 7px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.view-tab:hover { color: var(--text); background: var(--surface-2); }
+.view-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: none;
+}
+.view-tab:focus-visible { outline-offset: 1px; }
+.hud-chip, .hud-ask, .icon-btn, .hud-avatar {
+  border-radius: var(--radius-sm);
+  border-width: 1px;
+  box-shadow: none;
+}
+.hud-ask { font-weight: 600; }
+
+/* .btn sets display, so the drawer button needs its desktop "off" restated */
+.sidebar-toggle { display: none; }
+.brand { font-size: 0.625rem; gap: 8px; }
+.brand-icon { width: 18px; height: 18px; }
+.view-tab { padding: 6px 10px; gap: 6px; }
+.hud { gap: 6px; }
+.hud-ask { padding: 4px 10px; }
+/* the streak is also on the home screen and Progress - the bar keeps room
+   for the six sections until the screen is properly wide */
+@media (max-width: 1439px) and (min-width: 1200px) {
+  .hud-streak { display: none; }
+}
+@media (max-width: 1199px) {
+  .topbar { flex-wrap: wrap; row-gap: 6px; }
+  .view-tabs { order: 3; width: 100%; justify-content: stretch; }
+  .view-tab { flex: 1 1 0; justify-content: center; }
+}
+@media (max-width: 768px) {
+  .sidebar-toggle { display: inline-flex; }
+  .view-tab { font-size: var(--text-xs); padding: 6px 2px; gap: 4px; }
+  .view-tabs { gap: 1px; }
+}
+@media (max-width: 420px) {
+  .view-tab, .view-tab:not(.active) { flex-direction: column; gap: 2px; padding: 5px 1px; font-size: 0.68rem; }
+}
+
+/* Wide pages use the screen instead of stopping at 1100px on the left. */
+.main-panel-wide { max-width: 1240px; width: 100%; margin-inline: auto; }
+
+/* ==========================================================================
+   Sam, the mentor - a compact, quiet strip rather than a banner
+   ========================================================================== */
+.mentor-box { padding: 10px 14px; gap: 12px; border-color: var(--border); }
+/* the sprite is drawn on a 16px grid: 48px keeps every pixel a whole 3px */
+.mentor-box .mentor-portrait { width: 52px; height: 52px; flex: none; border-width: 2px; border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); border-radius: var(--radius-sm); box-shadow: none; filter: none; }
+.mentor-box .mentor-portrait svg { width: 48px; height: 48px; }
+.mentor-text { font-size: var(--text-sm); line-height: 1.5; }
+
+/* ==========================================================================
+   Status colours are meaning, not decoration
+   ========================================================================== */
+.project-status { margin-top: auto; padding-top: var(--space-2); font-size: var(--text-xs); font-weight: 600; color: var(--text-dim); }
+.project-status.is-done { color: var(--green); }
+.project-lock-note { color: var(--text-dim); font-size: var(--text-xs); }
+
+/* ==========================================================================
+   Modals and toasts follow the same surfaces
+   ========================================================================== */
+.modal-box { border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
+.toast { border-width: 1px; border-radius: var(--radius); box-shadow: var(--shadow-pop); }
+
+/* ==========================================================================
+   Home: the menu screen (menu/menu.js)
+   The arcade colours live here, toned down, as the welcome; one big
+   "Continue learning" card is the next action; everything else is support.
+   ========================================================================== */
+#menu-screen:not([hidden]) {
+  padding: clamp(16px, 4vw, 40px);
+  background:
+    linear-gradient(rgba(11, 15, 25, 0.84), rgba(11, 15, 25, 0.93)),
+    url("../assets/background.jpg") center / cover fixed;
+}
+
+/* ---- first visit: what this is, beside the sign-up card ---- */
+.menu-first {
+  width: 100%;
+  max-width: 1080px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 420px);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+}
+.menu-intro-eyebrow { font-family: var(--font-pixel); font-size: 0.5rem; letter-spacing: 0.08em; line-height: 1.8; color: var(--accent); }
+.menu-intro-title { margin: var(--space-3) 0; font-size: clamp(1.75rem, 3.4vw, 2.6rem); line-height: 1.12; letter-spacing: -0.02em; }
+.menu-intro-lead { margin: 0 0 var(--space-5); font-size: var(--text-lg); line-height: 1.6; color: var(--text-dim); max-width: 56ch; }
+.menu-intro-points { list-style: none; margin: 0 0 var(--space-5); padding: 0; display: grid; gap: var(--space-4); }
+.menu-intro-point { display: grid; grid-template-columns: 44px 1fr; gap: var(--space-3); align-items: start; }
+.menu-intro-icon { display: grid; place-items: center; width: 44px; height: 44px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.menu-intro-point strong { display: block; font-size: var(--text-md); color: var(--text); }
+.menu-intro-point span { display: block; font-size: var(--text-sm); line-height: 1.5; color: var(--text-dim); }
+.menu-intro-steps { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: 0; padding: 0; list-style: none; counter-reset: step; font-size: var(--text-sm); color: var(--text-dim); }
+.menu-intro-steps li { counter-increment: step; display: flex; align-items: center; gap: var(--space-2); }
+.menu-intro-steps li::before { content: counter(step); display: grid; place-items: center; width: 22px; height: 22px; font-size: var(--text-xs); font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 50%; }
+.menu-first .menu-card { max-width: none; text-align: left; padding: var(--space-5); }
+.menu-first .menu-brand { justify-content: flex-start; }
+.menu-primary-btn { width: 100%; min-height: 44px; font-size: var(--text-md); }
+
+/* ---- returning: header, then main + side columns ---- */
+.menu-returning { max-width: 1160px; gap: var(--space-4); }
+.menu-header { padding: 10px 16px; }
+.menu-header-title { font-family: var(--font-pixel); font-size: 0.75rem; }
+.menu-rank-pill { border-radius: var(--radius-sm); border-width: 1px; }
+.menu-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: var(--space-5);
+  align-items: start;
+}
+.menu-home-main { display: grid; gap: var(--space-4); min-width: 0; }
+.menu-home-side { display: grid; gap: var(--space-3); min-width: 0; }
+.menu-welcome { display: grid; gap: var(--space-3); }
+.menu-welcome-title { margin: 0; font-size: clamp(1.6rem, 3vw, 2.25rem); letter-spacing: -0.02em; }
+.menu-hero-mentor { margin: 0; }
+
+.menu-continue {
+  padding: var(--space-6);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background-color: var(--surface-1);
+  background-image: radial-gradient(ellipse at 100% 0%, var(--accent-soft), transparent 60%);
+}
+.menu-continue.hud-frame {
+  background-image:
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    radial-gradient(ellipse at 100% 0%, var(--accent-soft), transparent 60%);
+  background-size: 8px 8px, 8px 8px, 8px 8px, 8px 8px, 100% 100%;
+  background-position: top left, top right, bottom left, bottom right, center;
+}
+.menu-continue-module { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-dim); }
+.menu-continue-title { margin: var(--space-1) 0 var(--space-2); font-size: clamp(1.4rem, 2.4vw, 1.9rem); }
+.menu-continue-why { margin: 0 0 var(--space-4); font-size: var(--text-md); line-height: 1.6; color: var(--text-dim); max-width: 62ch; }
+.menu-continue-bar { height: 8px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.menu-continue-fill { display: block; height: 100%; background: var(--green); border-radius: 3px; }
+.menu-continue-meta { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-dim); }
+.menu-continue-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+
+.menu-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: var(--space-2); }
+.menu-quick-link {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3);
+  text-align: left; font: inherit; color: var(--text);
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.menu-quick-link:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--surface-2); }
+.menu-quick-text { display: grid; gap: 2px; min-width: 0; }
+.menu-quick-text strong { font-size: var(--text-sm); }
+.menu-quick-text span { font-size: var(--text-xs); line-height: 1.4; color: var(--text-dim); }
+
+.menu-side-card {
+  padding: var(--space-4);
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+  display: grid; gap: var(--space-2); justify-items: start;
+}
+.menu-side-card > * { margin: 0; }
+.menu-side-card .menu-continue-bar { width: 100%; }
+.menu-side-title { font-size: var(--text-md); line-height: 1.35; }
+.menu-side-text { font-size: var(--text-sm); line-height: 1.5; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.menu-side-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); width: 100%; margin: var(--space-1) 0 0; }
+.menu-side-stats div { display: grid; gap: 2px; }
+.menu-side-stats dt { font-size: var(--text-xs); color: var(--text-dim); }
+.menu-side-stats dd { margin: 0; font-weight: 700; font-size: var(--text-md); }
+.menu-side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; font-size: var(--text-sm); line-height: 1.45; }
+.menu-side-list li { display: flex; gap: var(--space-2); align-items: baseline; }
+.menu-side-tick { color: var(--green); }
+.menu-side-link { padding: 0; font: inherit; text-align: left; color: var(--text); background: none; border: none; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.menu-side-link:hover { color: var(--accent); text-decoration-color: currentColor; }
+
+@media (max-width: 900px) {
+  .menu-first, .menu-home { grid-template-columns: minmax(0, 1fr); }
+  .menu-continue { padding: var(--space-5); }
+}
+
+/* ==========================================================================
+   Code, Serial Monitor and the Practice workbench
+   ========================================================================== */
+.CodeMirror, .cm-s-dracula.CodeMirror {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.sim-console {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-shadow: none;
+  border-radius: var(--radius-sm);
+}
+.editor-toolbar { gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.editor-label {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text);
+}
+.console-toolbar { margin-top: var(--space-3); }
+.btn-run { min-width: 96px; }
+.editor-section, .simulator-section { padding: var(--space-4); }
+
+.practice-intro { padding: var(--space-4) var(--space-5); }
+.practice-intro h1 { font-size: var(--text-xl); display: flex; align-items: center; gap: var(--space-2); }
+
+.workbench-help { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-dim); }
+.workbench-help summary { cursor: pointer; color: var(--accent); font-weight: 600; width: fit-content; }
+.workbench-help ul { margin: var(--space-2) 0 0; padding-left: 18px; display: grid; gap: 4px; line-height: 1.5; }
+.workbench-help strong { color: var(--text); }
+
+#view-practice .main-panel-wide { max-width: 1680px; }
+@media (min-width: 1180px) {
+  .practice-workspace:not(.is-guided) .practice-tools {
+    display: grid;
+    grid-template-columns: minmax(380px, 5fr) minmax(520px, 7fr);
+    gap: var(--space-4);
+    align-items: start;
+    margin-top: var(--space-4);
+  }
+  .practice-workspace:not(.is-guided) .practice-tools > section { margin-top: 0; }
+  /* the code stays in view while you work on a tall board */
+  .practice-workspace:not(.is-guided) .workbench-code { position: sticky; top: 0; }
+  .workbench-code .CodeMirror { height: 400px; }
+  .workbench-code .sim-console { min-height: 150px; max-height: 240px; }
+}
+@media (min-width: 1600px) {
+  .practice-workspace.is-guided .practice-tools {
+    display: grid;
+    grid-template-columns: minmax(340px, 5fr) minmax(480px, 7fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+  .practice-workspace.is-guided .practice-tools > section { margin-top: 28px; }
+}
+
+/* ==========================================================================
+   Page headers: every tab opens with the same title block
+   ========================================================================== */
+.learn-head h1, .learning-progress h1, .projects-intro h1, .pathways-head h1,
+.portfolio-head h1, .dashboard-header h1 {
+  font-size: var(--text-2xl);
+  margin: 0 0 var(--space-2);
+  letter-spacing: -0.02em;
+}
+.learn-head, .projects-intro, .pathways-head, .portfolio-head, .learning-progress { padding: var(--space-5) var(--space-6); }
+.learn-sub, .projects-intro p { color: var(--text-dim); font-size: var(--text-md); line-height: 1.6; max-width: 75ch; }
+.learn-next { padding: var(--space-5) var(--space-6); border-color: color-mix(in srgb, var(--green) 50%, var(--border)); }
+.learn-next-title { font-size: var(--text-xl); margin: var(--space-1) 0 var(--space-2); }
+.learn-next-why { color: var(--text-dim); }
+
+/* ==========================================================================
+   Lesson structure: numbered section headings that anchor a long lesson
+   ========================================================================== */
+.lesson-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-7) 0 var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+.lesson-section-num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-pixel);
+  font-size: 0.625rem;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+}
+.flag-btn {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-width: 1px;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+}
+.lesson-intro-box { border-radius: var(--radius-sm); }
+/* outside the lesson card (challenge, checkpoint, what's next): the same
+   heading, no box - the calm background no longer needs one */
+.challenge-section > .lesson-section-title,
+.quiz-section > .lesson-section-title,
+.next-step-section > .lesson-section-title {
+  display: flex;
+  margin: var(--space-6) 0 var(--space-3);
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+/* ==========================================================================
+   Progress dashboard (progress/progressView.js)
+   ========================================================================== */
+.dash-q-title { font-family: var(--font-heading); font-size: var(--text-md); line-height: 1.35; margin: 0 0 var(--space-3); }
+.dash-q { border-top-width: 3px; }
+.rec-card .btn { min-height: 30px; padding: 4px 12px; font-size: var(--text-xs); }
+.rec-title { font-size: var(--text-sm); }
+.skill-area-name { font-weight: 600; }
+.learning-tile-value { font-family: var(--font-heading); }
+
+/* ==========================================================================
+   Pathways: what you can open stands out; what's planned recedes
+   ========================================================================== */
+.pathway-card:not(.is-planned) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.pathway-card.is-planned { background-color: transparent; border-style: dashed; box-shadow: none; opacity: 1; }
+.pathway-card.is-planned .pathway-card-title, .pathway-card.is-planned .pathway-card-summary { color: var(--text-dim); }
+.pathway-card-title { font-family: var(--font-heading); font-size: var(--text-lg); }
+
+/* ==========================================================================
+   Small screens: same components, tighter spacing
+   ========================================================================== */
+@media (max-width: 640px) {
+  .learn-head, .projects-intro, .pathways-head, .portfolio-head, .learning-progress,
+  .learn-next, .practice-intro, .portfolio-report { padding: var(--space-4); }
+  .lesson-content { padding: var(--space-5) var(--space-4); }
+  .learn-head h1, .learning-progress h1, .projects-intro h1, .pathways-head h1, .portfolio-head h1 { font-size: var(--text-xl); }
+  .lesson-section-title { font-size: var(--text-lg); margin-top: var(--space-6); }
+  .menu-continue { padding: var(--space-4); }
+  .menu-continue-actions .btn { flex: 1 1 100%; }
+  .menu-header { flex-wrap: nowrap; }
+  .menu-rank-pill { display: none; }
+}
+
+/* ==========================================================================
+   The game layer (missions, trophies, profile, map, shop)
+   Keeps its arcade sprites and colours - this is where they belong - on the
+   same slim frames and readable type as the rest of the product.
+   ========================================================================== */
+.mission, .trophy, .rank-step, .player-card, .shop-card, .map-node-face, .zone-path,
+.missions-panel, .trophy-room, .player-xp-track, .map-overall-track, .mission-bar, .trophy-bar {
+  border-width: 1px;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+.mission, .trophy { background: var(--surface-2); }
+.mission-name, .trophy-name, .shop-name, .zone-name, .map-node-title, .missions-title, .trophy-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.mission-name, .trophy-name, .shop-name { font-size: var(--text-sm); }
+.missions-title, .trophy-title { font-size: var(--text-lg); }

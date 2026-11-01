@@ -84,7 +84,8 @@ test("an unsupported library is named as the simulator's limit, not a spelling m
 });
 
 test("every theme meets WCAG AA (4.5:1) for its text colours", () => {
-  const base = { "--bg": "#0f1117", "--panel": "#171a23", "--panel-alt": "#1e2230", "--text": "#e4e6ec", "--text-dim": "#9aa0b4", "--accent": "#4fc3f7", "--green": "#57d38c", "--yellow": "#e8c547", "--red": "#ef6461", "--purple": "#b48ce8", "--code-bg": "#0b0d13", "--code-text": "#8ff0a4", "--on-accent": "#06202b", "--on-green": "#06301b", "--on-yellow": "#3a2c02" };
+  // the default theme as css/system.css defines it (shop themes override these)
+  const base = { "--bg": "#0b0f19", "--panel": "#141a26", "--panel-alt": "#1b2232", "--text": "#e6e9f0", "--text-dim": "#a1a9bd", "--accent": "#4fc3f7", "--green": "#57d38c", "--yellow": "#e8c547", "--red": "#ef6461", "--purple": "#b48ce8", "--code-bg": "#0a0d16", "--code-text": "#8ff0a4", "--on-accent": "#06202b", "--on-green": "#06301b", "--on-yellow": "#3a2c02" };
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   const pairs = [["--text", "--bg"], ["--text", "--panel"], ["--text-dim", "--panel"], ["--text-dim", "--panel-alt"], ["--accent", "--panel"], ["--green", "--panel"], ["--yellow", "--panel"], ["--red", "--panel"], ["--purple", "--panel"], ["--code-text", "--code-bg"], ["--on-accent", "--accent"], ["--on-green", "--green"], ["--on-yellow", "--yellow"]];
